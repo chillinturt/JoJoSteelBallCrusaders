@@ -55,6 +55,7 @@ end
 
 function BlockModule.StartBlocking(character)
 	if not character then
+		print("no character found")
 		return
 	end
 
@@ -64,6 +65,7 @@ function BlockModule.StartBlocking(character)
 
 	-- Prevent block during stun or conflicting actions
 	if stun or actionFlag.Value or isBlocking.Value then
+		print(" tried to block, but stunned or blocking or actionflag")
 		return
 	end
 

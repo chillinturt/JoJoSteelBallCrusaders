@@ -22,6 +22,7 @@ local pilotConnections = {} -- stands -> connection
 
 local CombatUtils = require(script.Parent.CombatUtils)
 local StandUtils = require(serverScriptService.BasicCombat:WaitForChild("StandUtils"))
+local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
 
 function PilotMode.EnterPilotMode(character, stand)
 	local canPilotMode = stand:FindFirstChild("CanPilotMode")
@@ -250,16 +251,20 @@ pilotMovementEvent.OnServerEvent:Connect(function(player, moveDir, facingDir)
 	if moveDir.Magnitude > 0 then
 		moveOffset = baseCF:VectorToWorldSpace(moveDir) * speed
 
-		-- Raycast to check for walls
+		-- Combine the modular ignore list with the character & stand
 		local rayOrigin = standRoot.Position
 		local rayDirection = moveOffset
+
 		local rayParams = RaycastParams.new()
-		rayParams.FilterDescendantsInstances = { data.stand, player.Character } -- ignore stand & player
+		local ignoreList = RaycastIgnoreModule.GetIgnoreList()
+		table.insert(ignoreList, data.stand)
+		table.insert(ignoreList, player.Character)
+
+		rayParams.FilterDescendantsInstances = ignoreList
 		rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
 		local result = workspace:Raycast(rayOrigin, rayDirection, rayParams)
 		if result then
-			-- Hit a wall, move only up to hit point (with a small buffer)
 			local hitPos = result.Position
 			local directionUnit = moveOffset.Unit
 			local distance = (hitPos - rayOrigin).Magnitude - 0.1

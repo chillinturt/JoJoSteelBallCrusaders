@@ -12,27 +12,10 @@ local comboResetTimers = {}
 local comboCooldowns = {}
 local punchCooldowns = {}
 
-local HITBOX_SIZE = Vector3.new(4, 4, 7)
+local HITBOX_SIZE = Vector3.new(6, 8, 9)
 local PILOT_PUNCH_ANIMATIONS = { "136847469830162", "116981576719265", "115059281874785" }
 
-local function MapDamageToSound(damage: number)
-	-- Clamp damage to a reasonable range (so extreme values don’t explode)
-	local minDamage, maxDamage = 0, 50
-	damage = math.clamp(damage, minDamage, maxDamage)
-
-	-- Normalize to 0–1
-	local t = (damage - minDamage) / (maxDamage - minDamage)
-
-	-- Lerp volume (directly proportional)
-	local minVolume, maxVolume = 0.1, 2
-	local volume = minVolume + (maxVolume - minVolume) * t
-
-	-- Lerp pitch (inversely proportional)
-	local minPitch, maxPitch = 0.1, 2.0
-	local pitch = maxPitch - (maxPitch - minPitch) * t
-
-	return volume, pitch
-end
+STAND_OFF_PUNCH_DAMAGE = 10
 
 function GeneralCombat.StandOffPunch(character)
 	local primaryParty = character:FindFirstChild("HumanoidRootPart")
@@ -90,7 +73,7 @@ function GeneralCombat.StandOffPunch(character)
 
 	hitboxSpawner.spawnStandOffHitbox({
 		Character = character,
-		Damage = 3 or 0.1,
+		Damage = 10 or 0.1,
 		Size = HITBOX_SIZE,
 		Offset = hitboxOffset,
 		Color = BrickColor.new("Bright red"),

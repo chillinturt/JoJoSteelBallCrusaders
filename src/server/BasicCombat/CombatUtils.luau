@@ -2,16 +2,26 @@
 local CombatUtils = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local CooldownUpdateEvent = Instance.new("RemoteEvent")
 CooldownUpdateEvent.Name = "CooldownUpdateEvent"
 CooldownUpdateEvent.Parent = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BasicCombat"):WaitForChild("UI")
+
+local SpecCooldownUpdateEvent = Instance.new("RemoteEvent")
+SpecCooldownUpdateEvent.Name = "SpecCooldownUpdateEvent"
+SpecCooldownUpdateEvent.Parent = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BasicCombat"):WaitForChild("UI")
 
 local slidingPlayers = {}
 
 local activeVelocities = {}
 local heartbeatConnections = {}
+local baseVelocities = {}
 
 local SLIDE_ANIM_ID = 100879728251436
+
+-- Basic collision parameters
+local RAYCAST_PARAMS = RaycastParams.new()
+RAYCAST_PARAMS.FilterType = Enum.RaycastFilterType.Exclude
 
 -- Slide configuration
 local SLIDE_SETTINGS = {
@@ -33,11 +43,12 @@ local Debris = game:GetService("Debris")
 
 -- Constants
 local BLOCK_DAMAGE_REDUCTION = 0.1 -- 90% damage reduction
+local HamonDamageReduction = 0.75 -- 25% damage reduction
 
 -- Constants
 local BLOCK_REGEN_DELAY = 5 -- seconds to wait before regen starts
 local BLOCK_REGEN_RATE = 2 -- HP per second regenerated
-local BLOCK_MAX_HP = 40 -- maximum block HP
+local BLOCK_MAX_HP = 80 -- maximum block HP
 
 --services
 local RunService = game:GetService("RunService")
@@ -51,16 +62,39 @@ local CombatManager = require(
 )
 
 -- Function to return modified damage based on blocking state
-function CombatUtils.ReturnDamage(character, damage)
+-- Function to return modified damage based on blocking state
+function CombatUtils.ReturnDamage(character, damage, canBlock)
 	local isBlocking = character:FindFirstChild("isBlocking")
 	local blockHP = CombatUtils.GetBlockHP(character)
 
-	if isBlocking and isBlocking:IsA("BoolValue") and isBlocking.Value == true and blockHP.Value > 0 then
-		blockHP.Value -= damage - (damage * BLOCK_DAMAGE_REDUCTION)
-		damage = damage * BLOCK_DAMAGE_REDUCTION
+	local hamonMeter = character:FindFirstChild("HamonMeter")
+	local newDamage = damage
+
+	-- Apply Hamon damage reduction if applicable
+	if hamonMeter and hamonMeter.Value > 0 then
+		newDamage = damage * HamonDamageReduction
 	end
 
-	return damage
+	-- If blocking is allowed
+	if canBlock and isBlocking and isBlocking:IsA("BoolValue") and isBlocking.Value == true and blockHP.Value > 0 then
+		-- Calculate the reduced damage that the block tries to absorb
+		local reducedDamage = newDamage * (1 - BLOCK_DAMAGE_REDUCTION)
+
+		-- If block HP can fully absorb the reduced damage
+		if blockHP.Value >= reducedDamage then
+			blockHP.Value -= reducedDamage
+			newDamage = newDamage * BLOCK_DAMAGE_REDUCTION -- player only takes reduced damage
+		else
+			-- Block HP runs out; calculate leftover damage
+			local remainingDamage = reducedDamage - blockHP.Value
+			blockHP.Value = 0
+
+			-- The leftover goes through at full damage rate (since block is broken)
+			newDamage = (newDamage * BLOCK_DAMAGE_REDUCTION) + remainingDamage
+		end
+	end
+
+	return newDamage
 end
 
 function CombatUtils.GetActionInProgress(character)
@@ -97,59 +131,6 @@ function CombatUtils.SetActionInProgress(character, duration)
 
 	return actionFlag
 end
-
---[[
-function CombatUtils.applyStun(character, duration)
-	if not character then
-		return
-	end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-
-	if not humanoid or not animator then
-		return
-	end
-
-	-- ⏱️ If already stunned, extend duration
-	local stunValue = character:FindFirstChild("Stun")
-	if stunValue and stunValue:IsA("NumberValue") then
-		stunValue.Value = math.max(stunValue.Value, duration)
-		return
-	end
-
-	-- 💫 Create the stun tracker
-	stunValue = Instance.new("NumberValue")
-	stunValue.Name = "Stun"
-	stunValue.Value = duration
-	stunValue.Parent = character
-
-	-- 🚫 Apply stun effects
-	humanoid.WalkSpeed = STUN_SPEED
-	humanoid.JumpPower = 0
-
-	-- ⏳ Countdown loop
-	task.spawn(function()
-		while stunValue.Parent and stunValue.Value > 0 do
-			task.wait(0.1)
-			if stunValue.Parent then
-				stunValue.Value = math.max(0, stunValue.Value - 0.1)
-			end
-		end
-
-		-- 🧹 Cleanup
-		if stunValue and stunValue.Parent then
-			stunValue:Destroy()
-		end
-
-		-- ✅ Restore original values
-		if humanoid then
-			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value
-			humanoid.JumpPower = CombatUtils.GetJumpHeight(character).Value
-		end
-	end)
-end
-]]
 
 function CombatUtils.applyStun(character, duration)
 	if not character then
@@ -262,93 +243,6 @@ game.Players.PlayerAdded:Connect(function(player)
 	end)
 end)
 
---[[
-function CombatUtils.ApplyTimedVelocity(
-	hrp: BasePart,
-	speed: number,
-	duration: number,
-	velocityName: string?,
-	dir: Vector3
-)
-	local name = velocityName or "CustomVelocity"
-	local character = hrp.Parent
-	if not character then
-		return
-	end
-
-	-- Initialize table for this character
-	if not activeVelocities[character] then
-		activeVelocities[character] = {}
-	end
-
-	-- Normalize input direction if non-zero
-	local moveDir = dir.Magnitude > 0 and dir.Unit or hrp.CFrame.LookVector
-
-	-- Store this velocity's info
-	activeVelocities[character][name] = {
-		Direction = moveDir,
-		Speed = speed,
-		Elapsed = 0,
-		Duration = duration,
-	}
-
-	-- Ensure a single BodyVelocity exists for stacking
-	local bv = hrp:FindFirstChild("StackedVelocity")
-	if not bv then
-		bv = Instance.new("BodyVelocity")
-		bv.Name = "StackedVelocity"
-		bv.MaxForce = Vector3.new(1e5, 1e5, 1e5) -- ✅ Allow Y movement
-		bv.P = 1250
-		bv.Parent = hrp
-	end
-
-	-- Heartbeat loop to update stacked velocities
-	local connection
-	connection = RunService.Heartbeat:Connect(function(dt)
-		if not hrp.Parent then
-			connection:Disconnect()
-			activeVelocities[character] = nil
-			if bv then
-				bv:Destroy()
-			end
-			return
-		end
-
-		local charVelocities = activeVelocities[character]
-		if not charVelocities then
-			connection:Disconnect()
-			if bv then
-				bv:Destroy()
-			end
-			return
-		end
-
-		local totalVelocity = Vector3.zero
-
-		-- Update all active velocities safely
-		for k, v in pairs(charVelocities) do
-			v.Elapsed += dt
-			if v.Elapsed >= v.Duration then
-				charVelocities[k] = nil
-			else
-				totalVelocity += hrp.CFrame:VectorToWorldSpace(v.Direction.Unit) * v.Speed
-			end
-		end
-
-		bv.Velocity = totalVelocity
-
-		-- Cleanup if no velocities remain
-		if next(charVelocities) == nil then
-			activeVelocities[character] = nil
-			connection:Disconnect()
-			if bv then
-				bv:Destroy()
-			end
-		end
-	end)
-end
-]]
-
 function CombatUtils.ApplyInstantVelocity(humanoidRootPart: BasePart, boost: Vector3)
 	local connection
 	connection = RunService.Stepped:Connect(function(_, _)
@@ -362,7 +256,6 @@ function CombatUtils.ApplyInstantVelocity(humanoidRootPart: BasePart, boost: Vec
 	end)
 end
 
---[[
 function CombatUtils.ApplyTurningVelocity(params)
 	local character = params.Character
 	local speed = params.Speed
@@ -445,57 +338,92 @@ function CombatUtils.ApplyTurningVelocity(params)
 		end
 	end)
 end
+
+function CombatUtils.ApplyTimedVelocity(
+	humanoidRootPart: BasePart,
+	speed: number,
+	duration: number,
+	velocityName: string?,
+	dir: Vector3
+)
+	local name = velocityName or "CustomVelocity"
+
+	local bodyVelocity = Instance.new("BodyVelocity")
+	bodyVelocity.Name = name
+	bodyVelocity.P = 1250
+	bodyVelocity.Parent = humanoidRootPart
+
+	-- Normalize input direction if it's not zero
+	local moveDirection = dir.Magnitude > 0 and dir.Unit or humanoidRootPart.CFrame.LookVector
+
+	-- Only apply force on specified axes
+	bodyVelocity.MaxForce = Vector3.new(dir.X ~= 0 and 1e5 or 0, dir.Y ~= 0 and 1e5 or 0, dir.Z ~= 0 and 1e5 or 0)
+
+	local elapsed = 0
+	local connection
+	connection = RunService.Heartbeat:Connect(function(deltaTime)
+		if elapsed >= duration then
+			bodyVelocity:Destroy()
+			connection:Disconnect()
+			return
+		end
+
+		-- Only set velocity for the axes we care about
+		local targetVel = Vector3.new(
+			dir.X ~= 0 and moveDirection.X * speed or 0,
+			dir.Y ~= 0 and moveDirection.Y * speed or 0,
+			dir.Z ~= 0 and moveDirection.Z * speed or 0
+		)
+
+		bodyVelocity.Velocity = targetVel
+		elapsed += deltaTime
+	end)
+end
+
+--[[
+function CombatUtils.ApplyTurningVelocity(character, speed, duration, dir)
+	CombatUtils.AddVelocity(character, dir, speed, duration)
+end
 ]]
 
-local function UpdateVelocity(character)
-	local hrp = character:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		return
-	end
+--[[
+function CombatUtils.ApplyTimedVelocity(character, speed, duration, _, dir)
+	CombatUtils.AddVelocity(character, dir, speed, duration)
+end
+]]
 
+-- Main velocity update
+local function UpdateVelocity(character, dt)
 	local totalVelocity = Vector3.zero
 	local velocityList = activeVelocities[character]
 
-	for i = #velocityList, 1, -1 do
-		local entry = velocityList[i]
-		entry.Elapsed += RunService.Heartbeat:Wait()
-
-		if entry.Elapsed >= entry.Duration then
-			table.remove(velocityList, i)
-		else
-			-- Convert local direction to world space
-			local worldDir = hrp.CFrame:VectorToWorldSpace(entry.Direction.Unit)
-			totalVelocity += worldDir * entry.Speed
+	if velocityList then
+		for i = #velocityList, 1, -1 do
+			local entry = velocityList[i]
+			entry.Elapsed += dt
+			if entry.Elapsed >= entry.Duration then
+				table.remove(velocityList, i)
+			else
+				local dir = entry.Direction.Unit
+				totalVelocity += dir * entry.Speed
+			end
 		end
 	end
 
-	if #velocityList == 0 then
-		activeVelocities[character] = nil
-		if heartbeatConnections[character] then
-			heartbeatConnections[character]:Disconnect()
-			heartbeatConnections[character] = nil
-		end
+	if baseVelocities[character] then
+		totalVelocity += baseVelocities[character]
 	end
 
-	-- Apply velocity through an Attachment constraint (or a BodyVelocity)
-	local bv = hrp:FindFirstChild("StackedBV") or Instance.new("BodyVelocity")
-	bv.Name = "StackedBV"
-	bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
-	bv.P = 1250
-	bv.Parent = hrp
-	bv.Velocity = totalVelocity
+	return totalVelocity
 end
 
-local function AddVelocity(character, direction: Vector3, speed: number, duration: number)
+-- Exposed API
+function CombatUtils.AddVelocity(character, direction: Vector3, speed: number, duration: number)
 	if not character or not character:IsA("Model") then
-		warn("AddVelocity: invalid character", character)
 		return
 	end
 
-	if not activeVelocities[character] then
-		activeVelocities[character] = {}
-	end
-
+	activeVelocities[character] = activeVelocities[character] or {}
 	table.insert(activeVelocities[character], {
 		Direction = direction,
 		Speed = speed,
@@ -504,18 +432,34 @@ local function AddVelocity(character, direction: Vector3, speed: number, duratio
 	})
 
 	if not heartbeatConnections[character] then
+		local lastTime = os.clock()
 		heartbeatConnections[character] = RunService.Heartbeat:Connect(function()
-			UpdateVelocity(character)
+			local now = os.clock()
+			local dt = now - lastTime
+			lastTime = now
+			UpdateVelocity(character, dt)
 		end)
 	end
 end
 
-function CombatUtils.ApplyTimedVelocity(character, speed, duration, _, dir)
-	AddVelocity(character, dir, speed, duration)
+function CombatUtils.SetBaseVelocity(character, velocity)
+	if not character or not character:IsA("Model") then
+		return
+	end
+	baseVelocities[character] = velocity
 end
 
-function CombatUtils.ApplyTurningVelocity(character, speed, duration, dir)
-	AddVelocity(character, dir, speed, duration)
+function CombatUtils.GetTotalVelocity(character)
+	return UpdateVelocity(character, RunService.Heartbeat:Wait())
+end
+
+function CombatUtils.Clear(character)
+	activeVelocities[character] = nil
+	baseVelocities[character] = nil
+	if heartbeatConnections[character] then
+		heartbeatConnections[character]:Disconnect()
+		heartbeatConnections[character] = nil
+	end
 end
 
 -- Helper: Stop the slide
@@ -561,6 +505,10 @@ function CombatUtils.StartSlide(player)
 	-- prevent double slides
 	if slidingPlayers[character] then
 		return false
+	end
+
+	if CombatUtils.GetIsDashing(character) then
+		return
 	end
 
 	-- must be grounded
@@ -689,6 +637,43 @@ function CombatUtils.CancelSlide(player, cancelMultiplier)
 	end
 
 	CombatUtils.StopSlide(player)
+end
+
+function CombatUtils.SetIsDashing(character, duration)
+	if not character or not duration then
+		return
+	end
+
+	-- Try to find an existing BoolValue; create one if it doesn't exist
+	local isDashing = character:FindFirstChild("IsDashing")
+	if not isDashing then
+		isDashing = Instance.new("BoolValue")
+		isDashing.Name = "IsDashing"
+		isDashing.Value = true
+		isDashing.Parent = character
+	else
+		isDashing.Value = true
+	end
+
+	-- After the dash duration, reset it
+	task.delay(duration, function()
+		if isDashing and isDashing.Parent then
+			isDashing.Value = false
+		end
+	end)
+end
+
+function CombatUtils.GetIsDashing(character)
+	if not character then
+		return false
+	end
+
+	local isDashing = character:FindFirstChild("IsDashing")
+	if isDashing and isDashing:IsA("BoolValue") then
+		return isDashing.Value
+	end
+
+	return false
 end
 
 return CombatUtils

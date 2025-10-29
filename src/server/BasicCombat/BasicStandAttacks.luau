@@ -5,7 +5,7 @@ local IDLE_ANIM_ID = 89452205434139
 local PUNCH_ANIMATIONS = { "90498591949232", "86291795389163", "88632829279678" } -- Animation IDs
 local PILOT_PUNCH_ANIMATIONS = { "136847469830162", "116981576719265", "115059281874785" }
 
-local HITBOX_SIZE = Vector3.new(4, 4, 7)
+local HITBOX_SIZE = Vector3.new(6, 8, 9)
 local BARRAGE_INTERVAL = 0.15
 local MAX_BARRAGE_DURATION = 3 -- seconds
 
@@ -17,7 +17,7 @@ local barragingFlags = {}
 local StandUtils = require(script.Parent.StandUtils)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local hitboxSpawner = require(game.ServerScriptService.BasicCombat:WaitForChild("HitboxSpawner"))
-local combatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local PilotModule = require(game.ServerScriptService.BasicCombat:WaitForChild("PilotModule"))
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 
@@ -53,7 +53,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 	end
 
 	-- Combo cooldown: prevent starting a new combo too soon
-	if comboCooldowns[standModel] and tick() < comboCooldowns[standModel] then
+	if comboCooldowns[character] and tick() < comboCooldowns[character] then
 		return false -- Still in combo cooldown
 	end
 
@@ -64,10 +64,10 @@ function BasicStandAttacks.BasicPunch(standModel)
 	punchCooldowns[standModel] = tick() + 0.4 -- Set new cooldown
 
 	-- Initialize combo index if needed
-	if not comboIndices[standModel] then
-		comboIndices[standModel] = 1
+	if not comboIndices[character] then
+		comboIndices[character] = 1
 	end
-	local index = comboIndices[standModel]
+	local index = comboIndices[character]
 
 	local hitboxOffset = CFrame.new(2, 0, -8)
 	-- Stop idle and play punch animation
@@ -87,14 +87,14 @@ function BasicStandAttacks.BasicPunch(standModel)
 
 	-- Advance combo index or finish combo
 	if index == 3 then
-		comboIndices[standModel] = 1
-		comboCooldowns[standModel] = tick() + PUNCH_COMBO_COOLDOWN -- sec cooldown after full combo
+		comboIndices[character] = 1
+		comboCooldowns[character] = tick() + PUNCH_COMBO_COOLDOWN -- sec cooldown after full combo
 	else
-		comboIndices[standModel] = index + 1
+		comboIndices[character] = index + 1
 	end
 
 	-- Prepare for next combo punch
-	comboIndices[standModel] = index % 3 + 1
+	comboIndices[character] = index % 3 + 1
 
 	--play sound
 	SoundUtils.PlaySound({
@@ -104,7 +104,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 		volume = 1.25,
 		playbackSpeed = 2,
 		looped = false,
-		range = 100,
+		range = 160,
 	})
 
 	hitboxSpawner.spawnHitbox({
@@ -120,11 +120,11 @@ function BasicStandAttacks.BasicPunch(standModel)
 
 	--reset index in 3 seconds if index == 1
 	-- Reset combo after 3 seconds of inactivity if index == 2 (after punch 1)
-	if comboResetTimers[standModel] then
-		task.cancel(comboResetTimers[standModel])
+	if comboResetTimers[character] then
+		task.cancel(comboResetTimers[character])
 	end
-	comboResetTimers[standModel] = task.delay(3, function()
-		comboIndices[standModel] = 1
+	comboResetTimers[character] = task.delay(3, function()
+		comboIndices[character] = 1
 		AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
 	end)
 
@@ -149,12 +149,12 @@ function BasicStandAttacks.StartBarrage(character)
 		return false
 	end
 
-	local isBlocking = combatUtils.GetIsBlocking(character)
+	local isBlocking = CombatUtils.GetIsBlocking(character)
 	if isBlocking.Value then
 		return
 	end
 
-	local actionFlag = combatUtils.GetActionInProgress(character)
+	local actionFlag = CombatUtils.GetActionInProgress(character)
 	if not actionFlag then
 		return
 	end
@@ -205,7 +205,7 @@ function BasicStandAttacks.StartBarrage(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 100,
+		range = 160,
 	})
 
 	-- Start spawning hitboxes
@@ -244,7 +244,7 @@ function BasicStandAttacks.StopBarrage(character)
 
 	barragingFlags[character] = false
 
-	local actionFlag = combatUtils.GetActionInProgress(character)
+	local actionFlag = CombatUtils.GetActionInProgress(character)
 	if actionFlag then
 		actionFlag.Value = false
 	end
@@ -269,6 +269,7 @@ function BasicStandAttacks.StopBarrage(character)
 	originalC0s[standModel] = nil
 
 	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageEffects")
+	return true
 end
 
 return BasicStandAttacks

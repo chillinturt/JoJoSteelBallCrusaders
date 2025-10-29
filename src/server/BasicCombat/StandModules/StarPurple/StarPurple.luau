@@ -26,17 +26,18 @@ local MACH_ORA_DAMAGE = 15
 local MACH_ORA_DASH_SPEED = 50 -- Speed of the dash
 local MACH_ORA_DASH_DURATION = 0.4 -- How long the dash lasts in seconds
 local MACH_ORA_ENDLAG = 1
+local MACH_ORA_SIZE = Vector3.new(5, 6, 9)
 
 local GROUND_POUND_DAMAGE = 20
-local GROUND_POUND_SIZE = Vector3.new(8, 5, 8)
+local GROUND_POUND_SIZE = Vector3.new(10, 10, 10)
 local GROUND_POUND_OFFSET = Vector3.new(2, 0, -10)
 local GROUND_POUND_ENDLAG = 1
 
 local GROUNDPOUND_ANIM_ID = 90498591949232
 
 local STARFINGER_DAMAGE = 20
-local STARFINGER_SIZE = Vector3.new(3, 3, 14)
-local STARFINGER_OFFSET = Vector3.new(2, 0, -9)
+local STARFINGER_SIZE = Vector3.new(5, 7, 18)
+local STARFINGER_OFFSET = Vector3.new(2, 0, -14)
 local STARFINGER_ENDLAG = 1
 
 local HIT_SOUND_ID = 8255306220
@@ -95,7 +96,7 @@ local function spawnHitbox(character, offset, rightOffset, upOffset, damage)
 	-- Create hitbox
 	local hitbox = Instance.new("Part")
 	hitbox.Name = "Hitbox"
-	hitbox.Size = Vector3.new(4, 4, 6)
+	hitbox.Size = MACH_ORA_SIZE
 	hitbox.Anchored = false
 	hitbox.CanCollide = false
 	hitbox.CanTouch = false

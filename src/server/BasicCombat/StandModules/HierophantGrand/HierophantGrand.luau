@@ -12,20 +12,20 @@ local splashingFlags = {}
 
 local MAX_SPLASH_DURATION = 3 -- seconds
 local SPLASH_INTERVAL = 0.15
-local EMERALD_HITBOX_SIZE = Vector3.new(1, 1, 1)
+local EMERALD_HITBOX_SIZE = Vector3.new(2, 2, 2)
 local EMERALD_DAMAGE = 1.5
 local EMERALD_DURATION = 3
-local EMERALD_SPLASH_SPEED = 120
+local EMERALD_SPLASH_SPEED = 300
 local EMERALD_SPLASH_COOLDOWN = 8 -- the cooldown is kept track of in this module due to a glitch.
 --When the player desummons their stand during emerald splash, the cooldown UI won't work unless I do it this way
 
 local BARRIER_DURATION = 6
-local BARRIER_SIZE = Vector3.new(24, 10, 24)
+local BARRIER_SIZE = Vector3.new(24, 15, 24)
 local BARRIER_DAMAGE_DELAY = 0.5
 local BARRIER_DAMAGE = 20
 
 local TWENTY_METER_BARRIER_DURATION = 12
-local TWENTY_METER_BARRIER_SIZE = Vector3.new(50, 20, 50)
+local TWENTY_METER_BARRIER_SIZE = Vector3.new(50, 30, 50)
 local TWENTY_METER_BARRIER_DAMAGE_DELAY = 1
 local TWENTY_METER_BARRIER_DAMAGE = 7
 
@@ -70,7 +70,7 @@ function HierophantModule.StartSplash(character)
 
 	local STAND_BARRAGE_ANIMID = 103626308901658
 	local AnimSpeed = 1.5
-	local hitBoxOffset = Vector3.new(0, 0, -8)
+	local hitBoxOffset = Vector3.new(0, 0, 8)
 
 	-- Shift forward for barrage
 	if PilotModule.GetBoolPilotMode(character) then
@@ -78,7 +78,7 @@ function HierophantModule.StartSplash(character)
 
 		STAND_BARRAGE_ANIMID = 127837357946102
 		AnimSpeed = 2
-		--hitBoxOffset = Vector3.new(0, 0, -3)
+		hitBoxOffset = Vector3.new(0, 0, 8)
 	else
 		print("barrage detects not in pilot mode")
 		motor.C0 = originalC0s[standModel] * CFrame.new(2, 0, 0)
@@ -129,7 +129,7 @@ function HierophantModule.StartSplash(character)
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
 				Duration = EMERALD_DURATION,
-				StunDuration = 0.2,
+				StunDuration = 0.3,
 				Transparency = 0.3,
 				Name = "BarragePunchHitbox",
 				Speed = EMERALD_SPLASH_SPEED,
@@ -184,6 +184,7 @@ function HierophantModule.StopSplash(character)
 	originalC0s[standModel] = nil
 
 	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageEffects")
+	return true
 end
 
 function HierophantModule.ActivateBarrier(standModel)
@@ -191,7 +192,6 @@ function HierophantModule.ActivateBarrier(standModel)
 
 	local character = standModel.Parent
 	local hitBoxOffset = Vector3.new(0, 0, 0)
-	local placement_position = standModel.HumanoidRootPart.CFrame.Position
 	local standCF = standModel.PrimaryPart.CFrame
 
 	hitboxSpawner.SpawnStationarySlowingField({

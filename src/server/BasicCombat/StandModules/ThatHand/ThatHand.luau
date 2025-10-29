@@ -10,7 +10,7 @@ local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("Sou
 
 local ERASE_DAMAGE = 35
 local ERASE_ENDLAG = 1
-local ERASE_SIZE = Vector3.new(4, 4, 7)
+local ERASE_SIZE = Vector3.new(5, 8, 9)
 local ERASE_OFFSET = Vector3.new(2, 0, -8)
 
 local ERASE_ANIM_ID = 90498591949232
@@ -21,7 +21,7 @@ local TEAR_SPACE_DURATION = 2.5
 local splashingFlags = {}
 local LAST_STAND_DURATION = 8
 local LAST_STAND_INTERVAL = 0.8
-local LAST_STAND_HITBOX_SIZE = Vector3.new(16, 8, 18)
+local LAST_STAND_HITBOX_SIZE = Vector3.new(18, 14, 20)
 local LAST_STAND_DAMAGE = 10
 local LAST_STAND_HITBOX_DURATION = 1
 local LAST_STAND_OFFSET = CFrame.new(2, 0, -12)

@@ -40,14 +40,25 @@ function UIManager.LoadUI(playerGui, specialty)
 	-- Step 2: Clear old specialty UIs
 	clearOldSpecialtyUIs(playerGui)
 
-	-- Step 3: Load specialty UI
-	local specUI = specialtyFolder:FindFirstChild(specialty .. "UI")
-	if specUI then
-		local clone = specUI:Clone()
-		clone.Parent = playerGui
-		print("✅ Loaded specialty UI for", specialty)
-	else
-		warn("⚠️ No UI found for specialty:", specialty)
+	if specialty ~= "" then
+		-- Step 3: Load specialty UI
+		local specUI = specialtyFolder:FindFirstChild(specialty .. "UI")
+		if specUI then
+			local clone = specUI:Clone()
+			clone.Parent = playerGui
+			print("✅ Loaded specialty UI for", specialty)
+		else
+			warn("⚠️ No UI found for specialty:", specialty)
+		end
+
+		local specCooldownUI = specialtyFolder:FindFirstChild("SpecCooldownUI")
+		if specCooldownUI then
+			local clone = specCooldownUI:Clone()
+			clone.Parent = playerGui
+			print("Given player a spec cooldown ui because he has a spec")
+		else
+			print("no spec found, no spec cooldown ui provided")
+		end
 	end
 end
 
