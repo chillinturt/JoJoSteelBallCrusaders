@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local DivineDrinkEvent = Instance.new("RemoteFunction")
-DivineDrinkEvent.Name = "DivineDrink"
-DivineDrinkEvent.Parent = ReplicatedStorage.Shared.BasicCombat.Vampirism
+local SpaceRipperStingyEyesEvent = Instance.new("RemoteFunction")
+SpaceRipperStingyEyesEvent.Name = "SpaceRipperStingyEyes"
+SpaceRipperStingyEyesEvent.Parent = ReplicatedStorage.Shared.BasicCombat.Vampirism
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -12,17 +12,19 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local VampirismModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Vampirism:WaitForChild("Vampirism"))
+local VampireModule = require(serverScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
 
 local COOLDOWN_TIME = 8
+local SPACE_RIPPER_STINGY_EYES_COST = 10
 
-local lastDivineDrinkUseTime = {} -- player -> tick() timestamp
+local lastSpaceRipperStingyEyesUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-DivineDrinkEvent.OnServerInvoke = function(player)
+SpaceRipperStingyEyesEvent.OnServerInvoke = function(player)
 	local character = player.Character
 	if not character then
 		return false
@@ -43,17 +45,22 @@ DivineDrinkEvent.OnServerInvoke = function(player)
 		return
 	end
 
+	local bloodVal = VampireModule.getBloodValue(character)
+	if not bloodVal or bloodVal.Value < SPACE_RIPPER_STINGY_EYES_COST then
+		return
+	end
+
 	-- Cooldown check
-	local lastDivineDrink = lastDivineDrinkUseTime[player]
-	if lastDivineDrink and tick() - lastDivineDrink < COOLDOWN_TIME then
-		print("DivineDrink on cooldown")
+	local lastSpaceRipperStingyEyes = lastSpaceRipperStingyEyesUseTime[player]
+	if lastSpaceRipperStingyEyes and tick() - lastSpaceRipperStingyEyes < COOLDOWN_TIME then
+		print("SpaceRipperStingyEyes on cooldown")
 		return false
 	end
 
-	lastDivineDrinkUseTime[player] = tick() -- start cooldown timer
+	lastSpaceRipperStingyEyesUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 3, COOLDOWN_TIME) -- CD1, 8 seconds
 
-	local success = VampirismModule.DivineDrink(character)
+	local success = VampirismModule.SpaceRipperStingyEyes(character)
 	return success
 end

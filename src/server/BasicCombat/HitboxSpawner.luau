@@ -2,18 +2,23 @@ local HitboxSpawner = {}
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
+local VampireModule = require(game.ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
 local ProjectileManager = require(
 	game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("ProjectileManager")
 )
+local ArcProjectileManager = require(game.ServerScriptService.BasicCombat.Managers:WaitForChild("ArcProjectileManager"))
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
 
 local Debris = game:GetService("Debris")
 local ServerScriptService = game:GetService("ServerScriptService")
+local BlockModule = require(script.Parent.BlockModule)
 local SoundUtils = require(ServerScriptService.Utilities.SoundUtils)
 
 local activeFields = {} -- [player] = { [field] = true, ... }
@@ -21,6 +26,8 @@ local activeFields = {} -- [player] = { [field] = true, ... }
 local STUN_ANIMATION_ID = 107701450018900
 local HIT_SOUND_ID = 8255306220
 local BLOCK_SOUND_ID = 132615624053575
+
+local VAMP_BLOOD_GAIN_RATE = 2 -- amount of blood gained is newDamage (post damg reduction) / VAMP_BLOOD_GAIN_RATE
 
 local function MapDamageToSound(damage: number)
 	-- Clamp damage to a reasonable range (so extreme values don’t explode)
@@ -74,6 +81,8 @@ function HitboxSpawner.spawnHitbox(params)
 	local DOTDuration = params.DOTDuration
 	local heal = params.Heal
 	local canBlock = params.CanBlock or true
+	local shape = params.Shape or Enum.PartType.Block
+	local rotation = params.Rotation or CFrame.Angles(0, 0, 0)
 
 	if not character then
 		return
@@ -91,7 +100,7 @@ function HitboxSpawner.spawnHitbox(params)
 	local hitbox = Instance.new("Part")
 	hitbox.Name = name
 	hitbox.Size = size
-	hitbox.CFrame = standRoot.CFrame * offset
+	hitbox.CFrame = standRoot.CFrame * offset * rotation
 	hitbox.Anchored = false
 	hitbox.CanCollide = false
 	hitbox.Massless = true
@@ -99,6 +108,7 @@ function HitboxSpawner.spawnHitbox(params)
 	hitbox.BrickColor = color
 	hitbox.Parent = standRoot
 	hitbox.CastShadow = false
+	hitbox.Shape = shape
 	RaycastIgnoreModule.AddToIgnore(hitbox)
 
 	local weld = Instance.new("WeldConstraint")
@@ -142,25 +152,25 @@ function HitboxSpawner.spawnHitbox(params)
 						end
 					end
 
+					-- Team check & healing logic
 					if TeamsModule.AreTeammates(targetChar, character) then
-						print("Both are on the same team. Not dealing damage")
-						if heal then
-							humanoid:TakeDamage(-heal)
+						if heal and not hitPlayers[targetChar.Name] then
+							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
+							humanoid.Health = newHealth
+							hitPlayers[targetChar.Name] = true
 						end
-						return
+						continue
 					end
 
 					if humanoid and not hitPlayers[targetChar.Name] then
-						local player = Players:GetPlayerFromCharacter(character)
-						if player then
-							tagHumanoid(humanoid, player)
+						local sourcePlayer = Players:GetPlayerFromCharacter(character)
+						if sourcePlayer then
+							tagHumanoid(humanoid, sourcePlayer)
 						end
 
 						hitPlayers[targetChar.Name] = true
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock)
+						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
-
-						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 
 						--apply damage over time here
 						if damagePerTick then
@@ -297,12 +307,18 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 					end
 
 					if humanoid and not hitPlayers[targetChar.Name] then
+						local sourcePlayer = Players:GetPlayerFromCharacter(character)
+						if sourcePlayer then
+							tagHumanoid(humanoid, sourcePlayer)
+						end
+
 						hitPlayers[targetChar.Name] = true
 						hitConfirmed = true
 
 						-- Apply damage with canBlock support
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock)
+						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
+						VampireModule.addBlood(character, newDamage / VAMP_BLOOD_GAIN_RATE)
 
 						-- Play correct sound and apply stun
 						if not CombatUtils.GetIsBlocking(targetChar).Value or not canBlock then
@@ -482,7 +498,9 @@ function HitboxSpawner.spawnProjectile(params)
 	local transparency = params.Transparency or 0
 	local name = params.Name or "Hitbox"
 	local speed = params.Speed or 50
-	local canBlock = params.CanBlock or true
+	local canBlock = params.CanBlock -- defaults to true unless explicitly false
+	local origin = params.Origin
+	local direction = params.Direction
 
 	-- Create projectile part
 	local hitbox = Instance.new("Part")
@@ -496,29 +514,17 @@ function HitboxSpawner.spawnProjectile(params)
 	hitbox.BrickColor = color
 	RaycastIgnoreModule.AddToIgnore(hitbox)
 
-	if stand then
-		hitbox.CFrame = stand.PrimaryPart:GetPivot() * CFrame.new(offset)
-	else
-		hitbox.CFrame = character:FindFirstChild("HumanoidRootPart"):GetPivot() * CFrame.new(offset)
-	end
-
-	--[[
-	if PilotModule.GetBoolPilotMode(character) then
-		hitbox.CFrame = stand:GetPivot() * CFrame.new(offset)
-	else
-		hitbox.CFrame = character:FindFirstChild("HumanoidRootPart"):GetPivot() * CFrame.new(offset)
-	end
-	]]
-
 	hitbox.Parent = workspace:FindFirstChild("Projectiles") or workspace
 
-	local hrp = character:FindFirstChild("HumanoidRootPart")
-	local direction
-	if stand then
-		-- Direction (use current stand facing)
-		direction = stand:GetPivot().LookVector
+	-- === Get camera direction from client ===
+	if origin then
+		hitbox.CFrame = CFrame.new(origin, origin + direction) * CFrame.new(offset)
 	else
-		direction = hrp:GetPivot().LookVector
+		if stand then
+			hitbox.CFrame = stand.PrimaryPart:GetPivot() * CFrame.new(offset)
+		else
+			hitbox.CFrame = character:FindFirstChild("HumanoidRootPart"):GetPivot() * CFrame.new(offset)
+		end
 	end
 
 	-- Overlap params
@@ -542,10 +548,11 @@ function HitboxSpawner.spawnProjectile(params)
 		hitPlayers = hitPlayers,
 		damage = damage,
 		stunDuration = stunDuration,
+		CanBlock = canBlock, -- 👈 pass to projectile manager
 
 		-- wrapped dependencies for safety
 		damageFunc = function(target)
-			return CombatUtils.ReturnDamage(target, damage, canBlock)
+			return CombatUtils.ReturnDamage(target, damage, canBlock, character)
 		end,
 
 		getIsBlocking = function(target)
@@ -564,7 +571,135 @@ function HitboxSpawner.spawnProjectile(params)
 				return
 			end
 			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
-			if isBlocking then
+			if isBlocking and canBlock then
+				SoundUtils.PlaySound({
+					Root = targetChar,
+					soundName = "BlockHitSound",
+					soundID = BLOCK_SOUND_ID,
+					volume = 1,
+					playbackSpeed = 1,
+					looped = false,
+					range = 160,
+				})
+			else
+				local volume, pitch = MapDamageToSound(dmg)
+				SoundUtils.PlaySound({
+					Root = targetChar,
+					soundName = "HitSound",
+					soundID = HIT_SOUND_ID,
+					volume = volume,
+					playbackSpeed = 1,
+					looped = false,
+					range = 160,
+					pitch = pitch,
+				})
+			end
+		end,
+	})
+
+	return hitbox
+end
+
+function HitboxSpawner.spawnArcProjectile(params)
+	assert(params.Size, "Size (Vector3) is required")
+	assert(params.Duration, "Duration (number) is required")
+
+	local stand = params.Stand
+	local character = params.Character
+	local damage = params.Damage or 0
+	local stunDuration = params.StunDuration or 0
+	local size = params.Size
+	local offset = params.Offset or Vector3.new()
+	local color = params.Color or BrickColor.new("Bright orange")
+	local duration = params.Duration
+	local transparency = params.Transparency or 0
+	local name = params.Name or "ArcProjectile"
+	local speed = params.Speed or 80
+	local canBlock = params.CanBlock ~= false
+	local origin = params.Origin
+	local direction = params.Direction or Vector3.new(0, 1, 0)
+	local gravity = params.Gravity or Vector3.new(0, -workspace.Gravity, 0)
+	local detectSurface = params.DetectSurface or false
+	local shape = params.Shape or Enum.PartType.Block
+	local rotation = params.Rotation or CFrame.Angles(0, 0, 0)
+
+	-- === Create projectile part ===
+	local hitbox = Instance.new("Part")
+	hitbox.Name = name
+	hitbox.Size = size
+	hitbox.Anchored = true
+	hitbox.CanCollide = false
+	hitbox.CanQuery = false
+	hitbox.CanTouch = false
+	hitbox.Transparency = transparency
+	hitbox.BrickColor = color
+	hitbox.Shape = shape
+	RaycastIgnoreModule.AddToIgnore(hitbox)
+
+	hitbox.Parent = workspace:FindFirstChild("ArcProjectiles") or workspace
+
+	-- === Initial CFrame placement ===
+	if origin then
+		hitbox.CFrame = CFrame.new(origin, origin + direction) * CFrame.new(offset) * rotation
+	else
+		if stand then
+			hitbox.CFrame = stand.PrimaryPart:GetPivot() * CFrame.new(offset) * rotation
+		else
+			hitbox.CFrame = character:FindFirstChild("HumanoidRootPart"):GetPivot() * CFrame.new(offset) * rotation
+		end
+	end
+
+	-- === Overlap params ===
+	local paramsFilter = OverlapParams.new()
+	paramsFilter.FilterType = Enum.RaycastFilterType.Exclude
+	paramsFilter.FilterDescendantsInstances = { character, hitbox }
+
+	-- === Track who was hit ===
+	local hitPlayers = {}
+
+	-- === Compute initial velocity ===
+	local velocity = direction.Unit * speed
+
+	-- === Register in ArcProjectileManager ===
+	ArcProjectileManager.Register({
+		hitbox = hitbox,
+		velocity = velocity,
+		gravity = gravity,
+		owner = character,
+		character = character,
+		createdAt = tick(),
+		duration = duration,
+		paramsFilter = paramsFilter,
+		hitPlayers = hitPlayers,
+		damage = damage,
+		stunDuration = stunDuration,
+		DetectSurface = detectSurface,
+		OnSurfaceHit = params.OnSurfaceHit,
+		CanBlock = canBlock,
+
+		-- wrapped dependencies
+		damageFunc = function(target)
+			return CombatUtils.ReturnDamage(target, damage, canBlock, character)
+		end,
+
+		getIsBlocking = function(target)
+			return CombatUtils.GetIsBlocking(target)
+		end,
+
+		applyStun = function(target, duration)
+			if target and target.Parent then
+				CombatUtils.applyStun(target, duration)
+				AnimationModule.PlayAnimation(target, STUN_ANIMATION_ID)
+				BlockModule.StopBlocking(target)
+			end
+		end,
+
+		playSound = function(targetChar, dmg)
+			if not targetChar or not targetChar.Parent then
+				return
+			end
+			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
 					Root = targetChar,
 					soundName = "BlockHitSound",
@@ -597,7 +732,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	local position = params.Position or Vector3.new(0, 5, 0)
 	local size = params.Size or Vector3.new(6, 6, 6)
 	local duration = params.Duration or 0.5
-	local damage = params.Damage or 10
+	local damage = params.Damage
 	local stunDuration = params.StunDuration or 0
 	local transparency = params.Transparency or 0.5
 	local color = params.Color or BrickColor.new("Bright red")
@@ -606,8 +741,11 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	local stand = params.Stand
 	local offset = params.Offset
 	local canBlock = params.CanBlock or true
+	local rotation = params.Rotation
+	local heal = params.Heal
+	local canSelfHit = params.CanSelfHit or false
 
-	print("Stationary hitbox called")
+	print("Stationary hitbox called, can self hit = " .. tostring(canSelfHit))
 
 	-- Create the hitbox
 	local hitbox = Instance.new("Part")
@@ -622,17 +760,48 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	hitbox.CastShadow = false
 	RaycastIgnoreModule.AddToIgnore(hitbox)
 
-	-- If stand is provided and has a PrimaryPart, use its rotation
-	if params.Position then
-		hitbox.CFrame = position * CFrame.new(offset)
-	else
+	-- === Set rotation and position ===
+	if position then
+		local baseCF
+
+		-- Handle if position is a CFrame or Vector3
+		if typeof(position) == "CFrame" then
+			baseCF = position
+		else
+			baseCF = CFrame.new(position)
+		end
+
+		if rotation then
+			-- Keep horizontal rotation only (yaw)
+			local lookVector
+			if typeof(rotation) == "Vector3" then
+				lookVector = Vector3.new(rotation.X, 0, rotation.Z).Unit
+			elseif typeof(rotation) == "CFrame" then
+				local lv = rotation.LookVector
+				lookVector = Vector3.new(lv.X, 0, lv.Z).Unit
+			else
+				lookVector = Vector3.new(0, 0, -1)
+			end
+			hitbox.CFrame = CFrame.new(baseCF.Position, baseCF.Position + lookVector) * CFrame.new(offset)
+		else
+			hitbox.CFrame = baseCF * CFrame.new(offset)
+		end
+	elseif stand and stand.PrimaryPart then
 		hitbox.CFrame = stand.PrimaryPart.CFrame * CFrame.new(offset)
+	else
+		hitbox.CFrame = CFrame.new(offset)
 	end
 
 	-- Overlap setup
 	local paramsFilter = OverlapParams.new()
 	paramsFilter.FilterType = Enum.RaycastFilterType.Exclude
-	paramsFilter.FilterDescendantsInstances = { character, hitbox }
+
+	-- Only exclude character if we cannot self-hit
+	if canSelfHit then
+		paramsFilter.FilterDescendantsInstances = { hitbox }
+	else
+		paramsFilter.FilterDescendantsInstances = { character, hitbox }
+	end
 
 	local hitPlayers = {}
 	local startTime = tick()
@@ -653,7 +822,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 		for _, other in ipairs(parts) do
 			if other.Name == "Hurtbox" then
 				local targetChar = other.Parent
-				if targetChar and targetChar ~= character then
+				if targetChar then
 					local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
 
 					if not humanoid then
@@ -664,19 +833,28 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 						end
 					end
 
-					if TeamsModule.AreTeammates(targetChar, character) then
-						print("Both are on the same team. Not dealing damage")
-						return
+					if targetChar == character and not canSelfHit then
+						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar.Name] then
-						local player = Players:GetPlayerFromCharacter(character)
-						if player then
-							tagHumanoid(humanoid, player)
+					-- Team check & healing logic
+					if (targetChar == character and canSelfHit) or TeamsModule.AreTeammates(targetChar, character) then
+						if heal and not hitPlayers[targetChar.Name] then
+							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
+							humanoid.Health = newHealth
+							hitPlayers[targetChar.Name] = true
+						end
+						continue
+					end
+
+					if humanoid and not hitPlayers[targetChar.Name] and damage then
+						local sourcePlayer = Players:GetPlayerFromCharacter(character)
+						if sourcePlayer then
+							tagHumanoid(humanoid, sourcePlayer)
 						end
 
 						hitPlayers[targetChar.Name] = true
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock)
+						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
 
 						if not CombatUtils.GetIsBlocking(targetChar).Value then
@@ -717,7 +895,6 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 end
 
 -- Spawn a slowing field
-
 function HitboxSpawner.SpawnSlowingField(params)
 	local standModel = params.StandModel
 	local size = params.Size or Vector3.new(6, 6, 6)
@@ -751,21 +928,21 @@ function HitboxSpawner.SpawnSlowingField(params)
 	weld.Parent = field
 
 	-- 🧹 Helper: restore player speed
-	local function restoreSpeed(character)
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local function restoreSpeed(targetChar)
+		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value
+			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value
 		end
 	end
 
 	-- 🧹 Helper: remove this field’s effects
 	local function cleanupField()
-		for character, fields in pairs(activeFields) do
+		for targetChar, fields in pairs(activeFields) do
 			if fields[field] then
 				fields[field] = nil
 				if next(fields) == nil then
-					activeFields[character] = nil
-					restoreSpeed(character)
+					activeFields[targetChar] = nil
+					restoreSpeed(targetChar)
 				end
 			end
 		end
@@ -783,23 +960,23 @@ function HitboxSpawner.SpawnSlowingField(params)
 		local seenCharacters = {}
 
 		for _, part in ipairs(touching) do
-			local character = part:FindFirstAncestorWhichIsA("Model")
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local targetChar = part:FindFirstAncestorWhichIsA("Model")
+			local humanoid = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
 			if humanoid then
 				-- ✅ Skip the caster’s character
-				if character and character == caster then
+				if targetChar and targetChar == caster then
 					continue
 				end
 
-				seenCharacters[character] = true
+				seenCharacters[targetChar] = true
 
-				activeFields[character] = activeFields[character] or {}
+				activeFields[targetChar] = activeFields[targetChar] or {}
 
-				if not activeFields[character][field] then
-					activeFields[character][field] = true
+				if not activeFields[targetChar][field] then
+					activeFields[targetChar][field] = true
 
 					-- ✅ Apply slow
-					humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value * slowFactor
+					humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value * slowFactor
 				end
 			end
 		end
@@ -854,21 +1031,21 @@ function HitboxSpawner.SpawnStationarySlowingField(params)
 	RaycastIgnoreModule.AddToIgnore(field)
 
 	-- 🧹 Helper: restore player speed
-	local function restoreSpeed(character)
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
+	local function restoreSpeed(targetChar)
+		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
 		if humanoid then
-			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value
+			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value
 		end
 	end
 
 	-- 🧹 Helper: remove this field’s effects
 	local function cleanupField()
-		for character, fields in pairs(activeFields) do
+		for targetChar, fields in pairs(activeFields) do
 			if fields[field] then
 				fields[field] = nil
 				if next(fields) == nil then
-					activeFields[character] = nil
-					restoreSpeed(character)
+					activeFields[targetChar] = nil
+					restoreSpeed(targetChar)
 				end
 			end
 		end
@@ -886,22 +1063,22 @@ function HitboxSpawner.SpawnStationarySlowingField(params)
 		local seenCharacters = {}
 
 		for _, part in ipairs(touching) do
-			local character = part:FindFirstAncestorWhichIsA("Model")
-			local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+			local targetChar = part:FindFirstAncestorWhichIsA("Model")
+			local humanoid = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
 			if humanoid then
-				if character and character == caster then
+				if targetChar and targetChar == caster then
 					continue
 				end
 
-				seenCharacters[character] = true
+				seenCharacters[targetChar] = true
 
-				activeFields[character] = activeFields[character] or {}
+				activeFields[targetChar] = activeFields[targetChar] or {}
 
-				if not activeFields[character][field] then
-					activeFields[character][field] = true
+				if not activeFields[targetChar][field] then
+					activeFields[targetChar][field] = true
 
 					-- ✅ Apply slow
-					humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value * slowFactor
+					humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value * slowFactor
 				end
 			end
 		end

@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local TwentyMeterBarrierEvent = Instance.new("RemoteFunction")
-TwentyMeterBarrierEvent.Name = "TwentyMeterBarrier"
-TwentyMeterBarrierEvent.Parent = ReplicatedStorage.Shared.BasicCombat.HierophantGrand
+local HeavyRaindropEvent = Instance.new("RemoteFunction")
+HeavyRaindropEvent.Name = "HeavyRaindrop"
+HeavyRaindropEvent.Parent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("NuclearRain")
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -11,20 +11,20 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("CooldownUpdateEvent")
 
 local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitForChild("StandUtils"))
-local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
-local HierophantGrandModule =
-	require(serverScriptService.BasicCombat.StandModules.HierophantGrand:WaitForChild("HierophantGrand"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local NuclearRainModule = require(serverScriptService.BasicCombat.StandModules.NuclearRain:WaitForChild("NuclearRain"))
 
-local COOLDOWN_TIME = 40
+local COOLDOWN_TIME = 8
 
-local lastBarrierUseTime = {} -- player -> tick() timestamp
+local lastHeavyRaindropUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-TwentyMeterBarrierEvent.OnServerInvoke = function(player)
+HeavyRaindropEvent.OnServerInvoke = function(player)
+	print("Heavy raindrop fired on server")
 	local character = player.Character
 	if not character then
 		return false
@@ -34,8 +34,9 @@ TwentyMeterBarrierEvent.OnServerInvoke = function(player)
 	if not standModel then
 		return false
 	end
+
 	local standName = standModel:FindFirstChild("StandTag").Value
-	if standName ~= "Hierophant Grand" then
+	if standName ~= "Nuclear Rain" then
 		return
 	end
 
@@ -49,16 +50,16 @@ TwentyMeterBarrierEvent.OnServerInvoke = function(player)
 	end
 
 	-- Cooldown check
-	local lastTwentyMeterBarrier = lastBarrierUseTime[player]
-	if lastTwentyMeterBarrier and tick() - lastTwentyMeterBarrier < COOLDOWN_TIME then
-		print("Barrier on cooldown")
+	local lastHeavyRaindrop = lastHeavyRaindropUseTime[player]
+	if lastHeavyRaindrop and tick() - lastHeavyRaindrop < COOLDOWN_TIME then
+		print("HeavyRaindrop on cooldown!")
 		return false
 	end
 
-	lastBarrierUseTime[player] = tick() -- start cooldown timer
+	lastHeavyRaindropUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 4, COOLDOWN_TIME) -- CD3, 8 seconds
+	startCooldown(player, 1, COOLDOWN_TIME)
 
-	local success = HierophantGrandModule.TwentyMeterBarrier(standModel)
+	local success = NuclearRainModule.HeavyRaindrop(character)
 	return success
 end

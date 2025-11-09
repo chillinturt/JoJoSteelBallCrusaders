@@ -319,7 +319,7 @@ local function monitorGroundState(character)
 	local rootPart = character:WaitForChild("HumanoidRootPart")
 	local wasGrounded = false
 	local groundedTime = 0
-	local groundedThreshold = 0.1 -- seconds required on ground before resetting
+	--local groundedThreshold = 0.01 -- seconds required on ground before resetting
 
 	while task.wait(0.05) do
 		if not rootPart.Parent then
@@ -329,6 +329,8 @@ local function monitorGroundState(character)
 		local grounded = isGrounded(rootPart)
 
 		if grounded then
+			--this fixes the double wall jump tech, but feels slow in game
+			--[[
 			if not wasGrounded then
 				-- Just became grounded — start counting
 				groundedTime = time()
@@ -337,6 +339,10 @@ local function monitorGroundState(character)
 				SetWallJumpAvailable(character, true)
 				SetDoubleJump(character, false)
 			end
+			]]
+
+			SetWallJumpAvailable(character, true)
+			SetDoubleJump(character, false)
 		else
 			-- Reset timer when leaving ground
 			groundedTime = 0

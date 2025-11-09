@@ -36,6 +36,12 @@ StandSunlightYellowToggle.OnServerInvoke = function(player, isStarting)
 		return
 	end
 
+	local powersFolder = player:FindFirstChild("Powers")
+	local SpecName = powersFolder:FindFirstChild("Specialty").Value
+	if SpecName ~= "Hamon" then
+		return
+	end
+
 	if isStarting then
 		-- Prevent double start
 		if activeSunlightYellows[player] then

@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local DivineDrinkEvent = Instance.new("RemoteFunction")
-DivineDrinkEvent.Name = "DivineDrink"
-DivineDrinkEvent.Parent = ReplicatedStorage.Shared.BasicCombat.Vampirism
+local VaporizationFreezeEvent = Instance.new("RemoteFunction")
+VaporizationFreezeEvent.Name = "VaporizationFreeze"
+VaporizationFreezeEvent.Parent = ReplicatedStorage.Shared.BasicCombat.Vampirism
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -15,14 +15,14 @@ local VampirismModule = require(serverScriptService.BasicCombat.SpecailtyScripts
 
 local COOLDOWN_TIME = 8
 
-local lastDivineDrinkUseTime = {} -- player -> tick() timestamp
+local lastVaporizationFreezeUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-DivineDrinkEvent.OnServerInvoke = function(player)
+VaporizationFreezeEvent.OnServerInvoke = function(player)
 	local character = player.Character
 	if not character then
 		return false
@@ -44,16 +44,16 @@ DivineDrinkEvent.OnServerInvoke = function(player)
 	end
 
 	-- Cooldown check
-	local lastDivineDrink = lastDivineDrinkUseTime[player]
-	if lastDivineDrink and tick() - lastDivineDrink < COOLDOWN_TIME then
-		print("DivineDrink on cooldown")
+	local lastVaporizationFreeze = lastVaporizationFreezeUseTime[player]
+	if lastVaporizationFreeze and tick() - lastVaporizationFreeze < COOLDOWN_TIME then
+		print("VaporizationFreeze on cooldown")
 		return false
 	end
 
-	lastDivineDrinkUseTime[player] = tick() -- start cooldown timer
+	lastVaporizationFreezeUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 2, COOLDOWN_TIME) -- CD1, 8 seconds
 
-	local success = VampirismModule.DivineDrink(character)
+	local success = VampirismModule.VaporizationFreeze(character)
 	return success
 end

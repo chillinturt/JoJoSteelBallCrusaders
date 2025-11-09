@@ -9,6 +9,7 @@ local HitboxSpawner = require(game.ServerScriptService.BasicCombat.HitboxSpawner
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
+local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
 -- CONFIGURATION
 local MAX_HAMON = 100
@@ -309,6 +310,30 @@ function HamonModule.BubbleCutter(character)
 	--// Function to fire 3 projectiles in sequence
 	task.spawn(function()
 		for i = 1, BUBBLECUTTER_SHOT_COUNT do
+			-- this will help determiune the direction of the projectile
+			local direction
+			local startPos = hrp.Position
+			local player = Players:GetPlayerFromCharacter(character)
+
+			if player then
+				local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
+				if isClose then
+					direction = hrp:GetPivot().LookVector
+				else
+					local maxDistance = 1500
+					local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)
+					if not targetPoint then
+						warn("No target point found")
+						return false
+					end
+
+					-- Determine direction to target
+					direction = (targetPoint - startPos).Unit
+				end
+			else
+				direction = hrp:GetPivot().LookVector
+			end
+
 			HitboxSpawner.spawnProjectile({
 				Character = character,
 				Damage = BUBBLECUTTER_DAMAGE or 0.1,
@@ -320,6 +345,8 @@ function HamonModule.BubbleCutter(character)
 				Transparency = 0.3,
 				Name = "Bubble Cutter Hitbox",
 				Speed = 250,
+				Direction = direction,
+				Origin = startPos,
 			})
 			if i < BUBBLECUTTER_SHOT_COUNT then
 				task.wait(BUBBLECUTTER_DELAY)

@@ -46,6 +46,7 @@ local BLOCK_SOUND_ID = 132615624053575
 -- CONFIG
 local STOP_DURATION = 3 -- seconds
 local IMMOBILE_ANCHOR_NAME = "TimeStopAnchor"
+local TIME_STOP_DAMAGE_MULT = 1.25
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
@@ -158,7 +159,7 @@ local function spawnHitbox(character, offset, rightOffset, upOffset, damage)
 					if humanoid and not hitPlayers[targetCharacter.Name] then
 						hitPlayers[targetCharacter.Name] = true
 
-						local newDamage = CombatUtils.ReturnDamage(targetCharacter, damage)
+						local newDamage = CombatUtils.ReturnDamage(targetCharacter, damage, true, character)
 						humanoid:TakeDamage(newDamage)
 
 						local volume, pitch = MapDamageToSound(damage)
@@ -506,6 +507,7 @@ function StarPurple.TimeStop(caster)
 			CombatUtils.applyStun(char, STOP_DURATION)
 
 			BlockModule.StopBlocking(char)
+			CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
 
 			local humanoid = char:FindFirstChildOfClass("Humanoid")
 			if humanoid then
@@ -547,6 +549,8 @@ function StarPurple.TimeStop(caster)
 			root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
 
 			CombatUtils.applyStun(npc, STOP_DURATION)
+
+			CombatUtils.ApplyDamageMult(npc, 2, STOP_DURATION)
 		end
 	end
 

@@ -32,6 +32,21 @@ function StandUtils.getStandModel(character)
 	return nil
 end
 
+function StandUtils.getStandTag(character)
+	if not character then
+		return nil
+	end
+
+	local standModel = StandUtils.getStandModel(character)
+	if not standModel then
+		return nil
+	end
+
+	-- Wait for the StandTag if it might not exist yet
+	local tag = standModel:FindFirstChild("StandTag") or standModel:WaitForChild("StandTag", 2)
+	return tag
+end
+
 --create stand hurtbox
 local function CreateStandHurtbox(standModel)
 	local standRoot = standModel.PrimaryPart
@@ -111,6 +126,15 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		end
 	end
 
+	local rotation = CFrame.Angles(0, 0, 0)
+	local offset = CFrame.new(-2, 1, 3)
+	if tag.Value == "Nuclear Rain" then
+		offset = CFrame.new(0, 1, 0)
+		rotation = CFrame.Angles(0, math.rad(90), 0)
+	end
+
+	offset = offset * rotation -- multiply offset by rotation
+
 	-- Weld to HumanoidRootPart
 	local humanoidRoot = entity:FindFirstChild("HumanoidRootPart")
 	if humanoidRoot and standModel.PrimaryPart then
@@ -119,7 +143,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		weld.Part1 = standModel.PrimaryPart
 		weld.Parent = standModel.PrimaryPart
 		weld.Name = "StandMotor"
-		weld.C0 = CFrame.new(-2, 1, 3)
+		weld.C0 = offset
 	end
 
 	activeStands[entity] = standModel
@@ -137,6 +161,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		["Nuclear Rain"] = "5978825194",
 		["Heavy Door"] = "7280545782",
 		["White Sake"] = "72453705794819",
+		["Tusk Act 1"] = "5024213083",
 	}
 	local vol = 1
 

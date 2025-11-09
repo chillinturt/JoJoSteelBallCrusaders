@@ -11,6 +11,7 @@ local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("B
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
+local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
 local MAX_TELEPORT_DISTANCE = 60 -- studs
 
@@ -29,7 +30,7 @@ local CHOP_ANIM_ID = 90498591949232
 local SPLATTER_HITBOX_SIZE = Vector3.new(3, 3, 3)
 local SPLATTER_DAMAGE = 15
 local SPLATTER_DURATION = 3
-local SPLATTER_OFFSET = Vector3.new(2, 0, -8)
+local SPLATTER_OFFSET = Vector3.new(0, 0, 8)
 
 function KingCarmine.Teleport(character)
 	print("Teleport called on module")
@@ -44,34 +45,41 @@ function KingCarmine.Teleport(character)
 		return
 	end
 
-	-- Get mouse target from client (already ignores excluded objects)
+	-- === TELEPORT SETTINGS ===
+	local MAX_TELEPORT_DISTANCE = 100 -- adjust if needed
+	local origin = humanoidRootPart.Position
+
+	-- === Get camera direction from client ===
 	local remote = ReplicatedStorage.Shared.BasicCombat.KingCarmine:WaitForChild("RequestTeleportTarget")
-	local targetPosition = remote:InvokeClient(player)
-	if not targetPosition then
-		return
+	local cameraDirection = remote:InvokeClient(player)
+
+	-- If client didn’t respond properly, fall back to character look direction
+	if not cameraDirection or cameraDirection.Magnitude == 0 then
+		cameraDirection = humanoidRootPart.CFrame.LookVector
+	else
+		cameraDirection = cameraDirection.Unit
 	end
 
-	-- Compute direction and clamp distance
-	local origin = humanoidRootPart.Position
-	local direction = (targetPosition - origin)
-	local distance = MAX_TELEPORT_DISTANCE
-	--local distance = math.min(direction.Magnitude, MAX_TELEPORT_DISTANCE)
-	local finalTarget = origin + direction.Unit * distance
-
-	-- Optional: server-side raycast to prevent clipping into walls (non-ignored objects)
+	-- === Raycast setup ===
 	local rayParams = RaycastParams.new()
 	local ignoreList = RaycastIgnoreModule.GetIgnoreList()
 	table.insert(ignoreList, character) -- ignore self
 	rayParams.FilterDescendantsInstances = ignoreList
 	rayParams.FilterType = Enum.RaycastFilterType.Exclude
 
-	local rayResult = workspace:Raycast(origin, direction.Unit * distance, rayParams)
+	local rayResult = workspace:Raycast(origin, cameraDirection * MAX_TELEPORT_DISTANCE, rayParams)
+
+	-- === Determine teleport destination ===
+	local finalTarget
 	if rayResult then
-		-- Teleport just before the surface of any solid, non-ignored object
-		finalTarget = rayResult.Position - direction.Unit * 2
+		-- Hit something — teleport just before surface
+		finalTarget = rayResult.Position - cameraDirection * 2
+	else
+		-- Nothing hit — teleport to max distance
+		finalTarget = origin + cameraDirection * MAX_TELEPORT_DISTANCE
 	end
 
-	-- Play teleport sound
+	-- === Teleport effect ===
 	SoundModule.PlaySound({
 		Root = character,
 		soundName = "TeleportEffect",
@@ -82,8 +90,17 @@ function KingCarmine.Teleport(character)
 		range = 160,
 	})
 
-	-- Move the player safely
-	humanoidRootPart.CFrame = CFrame.new(finalTarget, finalTarget + humanoidRootPart.CFrame.LookVector)
+	-- Project the camera direction onto the XZ plane so the player stands upright
+	local horizontalDirection = Vector3.new(cameraDirection.X, 0, cameraDirection.Z)
+	if horizontalDirection.Magnitude < 0.1 then
+		-- fallback: keep previous facing direction if camera is nearly vertical
+		horizontalDirection = humanoidRootPart.CFrame.LookVector
+	else
+		horizontalDirection = horizontalDirection.Unit
+	end
+
+	-- Keep the player standing upright, looking horizontally
+	humanoidRootPart.CFrame = CFrame.lookAt(finalTarget, finalTarget + horizontalDirection)
 end
 
 function KingCarmine.TimeErase(standModel)
@@ -172,6 +189,7 @@ end
 function KingCarmine.Splatter(standModel)
 	print("Splatter fired in Module")
 	local character = standModel.Parent
+	local hrp = character:FindFirstChild("HumanoidRootPart")
 
 	AnimationModule.PlayAnimation(standModel, CHOP_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, CHOP_ENDLAG)
@@ -196,6 +214,30 @@ function KingCarmine.Splatter(standModel)
 		range = 160,
 	})
 
+	-- this will help determiune the direction of the projectile
+	local direction
+	local startPos = hrp.Position
+	local player = Players:GetPlayerFromCharacter(character)
+
+	if player then
+		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
+		if isClose then
+			direction = hrp:GetPivot().LookVector
+		else
+			local maxDistance = 1500
+			local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)
+			if not targetPoint then
+				warn("No target point found")
+				return false
+			end
+
+			-- Determine direction to target
+			direction = (targetPoint - startPos).Unit
+		end
+	else
+		direction = hrp:GetPivot().LookVector
+	end
+
 	HitboxSpawner.spawnProjectile({
 		Stand = standModel,
 		Character = character,
@@ -208,7 +250,10 @@ function KingCarmine.Splatter(standModel)
 		Transparency = 0.3,
 		Name = "BarragePunchHitbox",
 		Speed = 200,
+		Direction = direction,
+		Origin = startPos,
 	})
+	return true
 end
 
 return KingCarmine

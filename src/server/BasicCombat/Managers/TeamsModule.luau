@@ -11,6 +11,7 @@ local PlayerCharacterConnections = {} -- [Player] = connection
 -- Team constants
 TeamsModule.TeamA = "TeamA"
 TeamsModule.TeamB = "TeamB"
+TeamsModule.TeamC = "TeamC"
 
 -- Helper: get a consistent key for entity (Player or Model)
 local function getEntityKey(entity)
@@ -47,7 +48,7 @@ end
 -- Assign entity to a team
 function TeamsModule.SetTeam(entity, teamName)
 	assert(entity, "SetTeam: entity cannot be nil")
-	assert(teamName == TeamsModule.TeamA or teamName == TeamsModule.TeamB, "Invalid team name")
+	assert(teamName == TeamsModule.TeamA or teamName == TeamsModule.TeamB or TeamsModule.TeamC, "Invalid team name")
 
 	local key = getEntityKey(entity)
 	if not key then
@@ -114,6 +115,9 @@ end
 
 -- Check if two entities are teammates
 function TeamsModule.AreTeammates(entity1, entity2)
+	if entity1 == entity2 then
+		return true
+	end
 	local key1 = getEntityKey(entity1)
 	local key2 = getEntityKey(entity2)
 
@@ -130,12 +134,14 @@ function TeamsModule.AutoAssign(entity)
 		return
 	end
 
-	local countA, countB = 0, 0
+	local countA, countB, countC = 0, 0
 	for _, t in pairs(EntityTeams) do
 		if t == TeamsModule.TeamA then
 			countA += 1
 		elseif t == TeamsModule.TeamB then
 			countB += 1
+		elseif t == TeamsModule.TeamC then
+			countC += 1
 		end
 	end
 

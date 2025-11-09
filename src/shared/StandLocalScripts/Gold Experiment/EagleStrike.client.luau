@@ -1,6 +1,6 @@
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local userInputService = game:GetService("UserInputService")
-local EraseEvent = replicatedStorage.Shared.BasicCombat.ThatHand:FindFirstChild("Erase")
+local EagleStrikeEvent = replicatedStorage.Shared.BasicCombat.GoldExperiment:WaitForChild("EagleStrike")
 
 -- Detect T press and send request to server
 userInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -8,7 +8,7 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 
-	if input.KeyCode == Enum.KeyCode.T then
-		EraseEvent:InvokeServer() -- Request summon from the server
+	if input.KeyCode == Enum.KeyCode.Z then
+		EagleStrikeEvent:InvokeServer() -- Request summon from the server
 	end
 end)

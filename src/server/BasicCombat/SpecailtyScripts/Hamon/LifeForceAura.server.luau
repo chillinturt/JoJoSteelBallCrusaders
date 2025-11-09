@@ -35,7 +35,8 @@ LifeForceAuraEvent.OnServerInvoke = function(player)
 		return
 	end
 
-	local SpecName = Players:GetPlayerFromCharacter(character):FindFirstChild("Specialty").Value
+	local powersFolder = player:FindFirstChild("Powers")
+	local SpecName = powersFolder:FindFirstChild("Specialty").Value
 	if SpecName ~= "Hamon" then
 		return
 	end

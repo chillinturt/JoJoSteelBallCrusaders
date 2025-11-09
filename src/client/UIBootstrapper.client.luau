@@ -3,14 +3,16 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
+local powersFolder = player:WaitForChild("Powers")
 local UIManager = require(ReplicatedStorage.Shared.Modules:WaitForChild("UIManager"))
 
 -- Helper function to load all UI
 local function loadAllUI()
 	local playerGui = player:WaitForChild("PlayerGui")
-	local specialty = player:FindFirstChild("Specialty") and player.Specialty.Value or nil
+	local specialty = powersFolder:FindFirstChild("Specialty") and powersFolder.Specialty.Value or nil
+	local race = powersFolder:WaitForChild("Race") and powersFolder.Race.Value or nil
 
-	UIManager.LoadUI(playerGui, specialty or "")
+	UIManager.LoadUI(playerGui, specialty or "", race)
 end
 
 -- Load UI once when game starts
@@ -24,8 +26,14 @@ player.CharacterAdded:Connect(function()
 end)
 
 -- Also detect if the player's specialty changes (in case it updates mid-session)
-if player:FindFirstChild("Specialty") then
-	player.Specialty.Changed:Connect(function()
+if powersFolder:FindFirstChild("Specialty") then
+	powersFolder.Specialty.Changed:Connect(function()
+		loadAllUI()
+	end)
+end
+
+if powersFolder:FindFirstChild("Race") then
+	powersFolder.Race.Changed:Connect(function()
 		loadAllUI()
 	end)
 end

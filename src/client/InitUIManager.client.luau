@@ -3,13 +3,20 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UIManager = require(ReplicatedStorage.Shared:WaitForChild("Modules"):WaitForChild("UIManager"))
 
 local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local powersFolder = character:WaitForChild("Powers")
 local playerGui = player:WaitForChild("PlayerGui")
-local specialtyValue = player:WaitForChild("Specialty")
+local specialtyValue = powersFolder:WaitForChild("Specialty")
+local raceValue = powersFolder:WaitForChild("Race")
 
 -- Initial load (defaults + specialty)
-UIManager.LoadUI(playerGui, specialtyValue.Value)
+UIManager.LoadUI(playerGui, specialtyValue.Value, raceValue.Value)
 
 -- Reload when specialty changes
 specialtyValue.Changed:Connect(function(newSpecialty)
-	UIManager.LoadUI(playerGui, newSpecialty)
+	UIManager.LoadUI(playerGui, newSpecialty, raceValue.Value)
+end)
+
+raceValue.Changed:Connect(function(newRace)
+	UIManager.LoadUI(playerGui, specialtyValue.Value, newRace)
 end)

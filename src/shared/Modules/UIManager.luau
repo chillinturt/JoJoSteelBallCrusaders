@@ -6,6 +6,7 @@ local UIManager = {}
 local uiFolder = ReplicatedStorage:WaitForChild("UIs")
 local defaultFolder = uiFolder:WaitForChild("DefaultUIs")
 local specialtyFolder = uiFolder:WaitForChild("SpecialtyUIs")
+local raceFolder = uiFolder:WaitForChild("RaceUIs")
 
 -- Utility: safely clone a folder of UIs into PlayerGui
 local function cloneUIsInto(playerGui, folder)
@@ -27,7 +28,7 @@ local function clearOldSpecialtyUIs(playerGui)
 end
 
 -- Main function: load UIs
-function UIManager.LoadUI(playerGui, specialty)
+function UIManager.LoadUI(playerGui, specialty, race)
 	-- Step 1: Always ensure default UIs exist
 	for _, defaultUI in ipairs(defaultFolder:GetChildren()) do
 		if not playerGui:FindFirstChild(defaultUI.Name) then
@@ -58,6 +59,14 @@ function UIManager.LoadUI(playerGui, specialty)
 			print("Given player a spec cooldown ui because he has a spec")
 		else
 			print("no spec found, no spec cooldown ui provided")
+		end
+	end
+
+	if race ~= "Human" then
+		local raceUI = raceFolder:FindFirstChild(race .. "UI")
+		if raceUI then
+			local clone = raceUI:Clone()
+			clone.Parent = playerGui
 		end
 	end
 end

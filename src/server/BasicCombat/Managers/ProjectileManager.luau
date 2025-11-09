@@ -1,9 +1,14 @@
 -- ServerScriptService/ProjectileManager
 local RunService = game:GetService("RunService")
-local Debris = game:GetService("Debris")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
+local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("BlockModule"))
+
+local RequestProjectileTarget = Instance.new("RemoteFunction")
+RequestProjectileTarget.Name = "RequestProjectileTarget"
+RequestProjectileTarget.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 
 -- ✅ Corrected ProjectileFolder setup
 local ProjectileFolder = workspace:FindFirstChild("Projectiles")
@@ -14,6 +19,23 @@ if not ProjectileFolder then
 end
 
 local ActiveProjectiles = {} -- list of { hitbox = Part, direction = Vector3, speed = number, owner = Instance or id, createdAt, duration, params }
+
+local function tagHumanoid(humanoid, player)
+	-- Remove old tag
+	local creatorTag = humanoid:FindFirstChild("creator")
+	if creatorTag then
+		creatorTag:Destroy()
+	end
+
+	-- Create new tag
+	creatorTag = Instance.new("ObjectValue")
+	creatorTag.Name = "creator"
+	creatorTag.Value = player
+	creatorTag.Parent = humanoid
+
+	-- Optional: auto-remove after some seconds (so old tags don’t stick forever)
+	game.Debris:AddItem(creatorTag, 2)
+end
 
 local function registerProjectile(entry)
 	table.insert(ActiveProjectiles, entry)
@@ -75,16 +97,25 @@ RunService.Heartbeat:Connect(function(dt)
 							end
 
 							if humanoid and humanoid.Parent then
-								-- damage & stun
-								local newDamage = p.damageFunc and p.damageFunc(targetChar) or p.damage
-								humanoid:TakeDamage(newDamage)
-
-								if not p.getIsBlocking(targetChar).Value then
-									p.applyStun(targetChar, p.stunDuration)
+								local player = ActiveProjectiles[i].owner
+								if player then
+									tagHumanoid(humanoid, player)
 								end
 
-								-- sound (non-blocking)
-								p.playSound(targetChar, newDamage)
+								-- damage & stun
+								local newDamage = p.damageFunc and p.damageFunc(targetChar) or p.damage
+								local isBlocking = p.getIsBlocking(targetChar).Value
+
+								if isBlocking and p.canBlock then
+									-- Blocked hit
+									p.playSound(targetChar, newDamage)
+								else
+									-- Successful hit
+									humanoid:TakeDamage(newDamage)
+									p.playSound(targetChar, newDamage)
+									p.applyStun(targetChar, p.stunDuration)
+									BlockModule.StopBlocking(targetChar)
+								end
 							end
 						end
 					end

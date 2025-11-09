@@ -15,20 +15,21 @@ local ERASE_OFFSET = Vector3.new(2, 0, -8)
 
 local ERASE_ANIM_ID = 90498591949232
 
+local VOID_SHIELDING_AMOUNT = 40
+
 local TEAR_SPACE_SPEED = 60
 local TEAR_SPACE_DURATION = 2.5
 
 local splashingFlags = {}
-local LAST_STAND_DURATION = 8
-local LAST_STAND_INTERVAL = 0.8
+local LAST_STAND_DURATION = 5
+local LAST_STAND_INTERVAL = 0.6
 local LAST_STAND_HITBOX_SIZE = Vector3.new(18, 14, 20)
-local LAST_STAND_DAMAGE = 10
+local LAST_STAND_DAMAGE = 12
 local LAST_STAND_HITBOX_DURATION = 1
 local LAST_STAND_OFFSET = CFrame.new(2, 0, -12)
 
 function ThatHand.Erase(standModel)
 	local character = standModel.Parent
-	local hrp = character:FindFirstChild("HumanoidRootPart")
 
 	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, ERASE_ENDLAG)
@@ -56,6 +57,22 @@ function ThatHand.Erase(standModel)
 	})
 end
 
+function ThatHand.VoidShielding(character)
+	CombatUtils.AddBarrier(character, VOID_SHIELDING_AMOUNT)
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+
+	SoundModule.PlaySound({
+		Root = hrp,
+		soundName = "EraseEffect",
+		soundID = "108584054686428",
+		volume = 1,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+end
+
 function ThatHand.TearSpace(standModel)
 	local character = standModel.Parent
 
@@ -68,6 +85,16 @@ function ThatHand.TearSpace(standModel)
 		Root = standModel.PrimaryPart,
 		soundName = "TearSpaceEffects",
 		soundID = "1228181736",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	SoundModule.PlaySound({
+		Root = standModel.PrimaryPart,
+		soundName = "TearSpaceCall",
+		soundID = "13037428174",
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,

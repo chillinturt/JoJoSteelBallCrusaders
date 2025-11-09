@@ -6,28 +6,31 @@ local PilotModule = require(game.ServerScriptService.BasicCombat:WaitForChild("P
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local hitboxSpawner = require(game.ServerScriptService.BasicCombat:WaitForChild("HitboxSpawner"))
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
+local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
 local originalC0s = {}
 local splashingFlags = {}
 
 local MAX_SPLASH_DURATION = 3 -- seconds
-local SPLASH_INTERVAL = 0.15
+local SPLASH_INTERVAL = 0.1
 local EMERALD_HITBOX_SIZE = Vector3.new(2, 2, 2)
 local EMERALD_DAMAGE = 1.5
 local EMERALD_DURATION = 3
 local EMERALD_SPLASH_SPEED = 300
 local EMERALD_SPLASH_COOLDOWN = 8 -- the cooldown is kept track of in this module due to a glitch.
 --When the player desummons their stand during emerald splash, the cooldown UI won't work unless I do it this way
+local EMERALD_SPLASH_STUN = 0.5
 
 local BARRIER_DURATION = 6
 local BARRIER_SIZE = Vector3.new(24, 15, 24)
 local BARRIER_DAMAGE_DELAY = 0.5
 local BARRIER_DAMAGE = 20
 
-local TWENTY_METER_BARRIER_DURATION = 12
+local TWENTY_METER_BARRIER_DURATION = 8
 local TWENTY_METER_BARRIER_SIZE = Vector3.new(50, 30, 50)
 local TWENTY_METER_BARRIER_DAMAGE_DELAY = 1
 local TWENTY_METER_BARRIER_DAMAGE = 7
+local TWENTY_METER_BARRIER_STUN = 0
 
 local IDLE_ANIM_ID = 89452205434139
 
@@ -62,6 +65,11 @@ function HierophantModule.StartSplash(character)
 		return
 	end
 	actionFlag.Value = true
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
 
 	-- Cache original motor position
 	if not originalC0s[standModel] then
@@ -121,6 +129,35 @@ function HierophantModule.StartSplash(character)
 	-- Start spawning hitboxes
 	task.spawn(function()
 		while splashingFlags[character] do
+			-- this will help determiune the direction of the projectile
+			local direction
+			local startPos = hrp.Position
+			local player = Players:GetPlayerFromCharacter(character)
+
+			if player then
+				if PilotModule.GetBoolPilotMode(character) then
+					direction = standModel:GetPivot().LookVector
+					startPos = standModel.PrimaryPart.Position
+				else
+					local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
+					if isClose then
+						direction = hrp:GetPivot().LookVector
+					else
+						local maxDistance = 1500
+						local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)
+						if not targetPoint then
+							warn("No target point found")
+							return false
+						end
+
+						-- Determine direction to target
+						direction = (targetPoint - startPos).Unit
+					end
+				end
+			else
+				direction = hrp:GetPivot().LookVector
+			end
+
 			hitboxSpawner.spawnProjectile({
 				Stand = standModel,
 				Character = character,
@@ -129,10 +166,12 @@ function HierophantModule.StartSplash(character)
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
 				Duration = EMERALD_DURATION,
-				StunDuration = 0.3,
+				StunDuration = EMERALD_SPLASH_STUN,
 				Transparency = 0.3,
 				Name = "BarragePunchHitbox",
 				Speed = EMERALD_SPLASH_SPEED,
+				Direction = direction,
+				Origin = startPos,
 			})
 			task.wait(SPLASH_INTERVAL)
 		end
@@ -224,7 +263,7 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 
 	local character = standModel.Parent
 	local hitBoxOffset = Vector3.new(0, 0, 0)
-	local placement_position = standModel.HumanoidRootPart.CFrame
+	local placement_position = standModel.PrimaryPart.CFrame
 
 	-- Spawn the slowing field (lasts full duration)
 	hitboxSpawner.SpawnStationarySlowingField({
@@ -251,7 +290,7 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
 				Duration = 1,
-				StunDuration = 1,
+				StunDuration = TWENTY_METER_BARRIER_STUN,
 				Transparency = 0.3,
 				Name = "BarrierDamageHitbox",
 			})

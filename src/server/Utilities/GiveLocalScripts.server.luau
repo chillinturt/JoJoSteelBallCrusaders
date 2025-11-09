@@ -7,13 +7,19 @@ local SpecScripts = ReplicatedStorage.Shared:WaitForChild("SpecialtyLocalScripts
 -- Example: how you store player's stand
 -- You might store this in leaderstats, a DataStore, or an Attribute
 local function getPlayerStand(player)
-	local heroValue = player:FindFirstChild("Hero")
+	local character = player.Character or player.CharacterAdded:Wait()
+	local powersFolder = character:WaitForChild("Powers")
+
+	local heroValue = powersFolder:FindFirstChild("Hero")
 
 	return heroValue.Value -- e.g. "Star Purple"
 end
 
 local function getPlayerSpec(player)
-	local specValue = player:FindFirstChild("Specialty")
+	local character = player.Character or player.CharacterAdded:Wait()
+	local powersFolder = character:FindFirstChild("Powers")
+
+	local specValue = powersFolder:FindFirstChild("Specialty")
 
 	return specValue.Value -- e.g. "Hamon"
 end

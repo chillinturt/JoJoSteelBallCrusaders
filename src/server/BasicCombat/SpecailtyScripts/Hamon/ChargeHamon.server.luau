@@ -8,9 +8,10 @@ ChargeHamonToggle.Parent = replicatedStorage.Shared.BasicCombat.Hamon
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local HamonModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Hamon:WaitForChild("Hamon"))
 
-local COOLDOWN_TIME = 1
+local COOLDOWN_TIME = 0.2
 local lastChargeEndTime = {} -- [player] = tick()
 local isCharging = {} -- [player] = bool
+local deathConnections = {} -- [player] = RBXScriptConnection
 
 ChargeHamonToggle.OnServerInvoke = function(player, isStarting)
 	local character = player.Character
@@ -18,13 +19,20 @@ ChargeHamonToggle.OnServerInvoke = function(player, isStarting)
 		return false
 	end
 
-	local spec = player:FindFirstChild("Specialty")
+	local powersFolder = player:FindFirstChild("Powers")
+	local spec = powersFolder and powersFolder:FindFirstChild("Specialty")
 	if not spec or spec.Value ~= "Hamon" then
 		return false
 	end
 
-	-- Cooldown enforcement (always check before starting)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return false
+	end
+
+	-- === START CHARGING ===
 	if isStarting then
+		-- Cooldown check
 		local lastEnd = lastChargeEndTime[player]
 		if lastEnd and tick() - lastEnd < COOLDOWN_TIME then
 			local remaining = math.ceil(COOLDOWN_TIME - (tick() - lastEnd))
@@ -38,6 +46,7 @@ ChargeHamonToggle.OnServerInvoke = function(player, isStarting)
 			return false
 		end
 
+		-- Cannot charge if stunned
 		if CombatUtils.GetStun(character) then
 			return false
 		end
@@ -47,15 +56,40 @@ ChargeHamonToggle.OnServerInvoke = function(player, isStarting)
 		if success ~= false then
 			isCharging[player] = true
 			print(player.Name .. " started Hamon charge")
+
+			-- Disconnect any old death connection first
+			if deathConnections[player] then
+				deathConnections[player]:Disconnect()
+			end
+
+			-- Stop charging automatically on death
+			deathConnections[player] = humanoid.Died:Connect(function()
+				if isCharging[player] then
+					HamonModule.StopCharge(character)
+					isCharging[player] = nil
+					lastChargeEndTime[player] = tick()
+					print(player.Name .. " died — Hamon charge stopped automatically")
+				end
+			end)
+
 			return true
 		end
+
+		return false
 	else
-		-- Stop charging
+		-- === STOP CHARGING ===
 		if isCharging[player] then
 			HamonModule.StopCharge(character)
-			lastChargeEndTime[player] = tick() -- start cooldown
+			lastChargeEndTime[player] = tick()
 			isCharging[player] = nil
 			print(player.Name .. " stopped charging — cooldown started")
+
+			-- Clean up death connection
+			if deathConnections[player] then
+				deathConnections[player]:Disconnect()
+				deathConnections[player] = nil
+			end
+
 			return true
 		else
 			print(player.Name .. " tried to stop charge, but was not charging")

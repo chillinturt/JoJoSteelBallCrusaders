@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local TwentyMeterBarrierEvent = Instance.new("RemoteFunction")
-TwentyMeterBarrierEvent.Name = "TwentyMeterBarrier"
-TwentyMeterBarrierEvent.Parent = ReplicatedStorage.Shared.BasicCombat.HierophantGrand
+local VoidShieldingEvent = Instance.new("RemoteFunction")
+VoidShieldingEvent.Name = "VoidShielding"
+VoidShieldingEvent.Parent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("ThatHand")
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -11,20 +11,19 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("CooldownUpdateEvent")
 
 local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitForChild("StandUtils"))
-local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
-local HierophantGrandModule =
-	require(serverScriptService.BasicCombat.StandModules.HierophantGrand:WaitForChild("HierophantGrand"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local ThatHandModule = require(serverScriptService.BasicCombat.StandModules.ThatHand:WaitForChild("ThatHand"))
 
-local COOLDOWN_TIME = 40
+local COOLDOWN_TIME = 20
 
-local lastBarrierUseTime = {} -- player -> tick() timestamp
+local lastVoidShieldingUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-TwentyMeterBarrierEvent.OnServerInvoke = function(player)
+VoidShieldingEvent.OnServerInvoke = function(player)
 	local character = player.Character
 	if not character then
 		return false
@@ -34,8 +33,9 @@ TwentyMeterBarrierEvent.OnServerInvoke = function(player)
 	if not standModel then
 		return false
 	end
+
 	local standName = standModel:FindFirstChild("StandTag").Value
-	if standName ~= "Hierophant Grand" then
+	if standName ~= "That Hand" then
 		return
 	end
 
@@ -49,16 +49,16 @@ TwentyMeterBarrierEvent.OnServerInvoke = function(player)
 	end
 
 	-- Cooldown check
-	local lastTwentyMeterBarrier = lastBarrierUseTime[player]
-	if lastTwentyMeterBarrier and tick() - lastTwentyMeterBarrier < COOLDOWN_TIME then
-		print("Barrier on cooldown")
+	local lastVoidShielding = lastVoidShieldingUseTime[player]
+	if lastVoidShielding and tick() - lastVoidShielding < COOLDOWN_TIME then
+		print("VoidShielding on cooldown!")
 		return false
 	end
 
-	lastBarrierUseTime[player] = tick() -- start cooldown timer
+	lastVoidShieldingUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 4, COOLDOWN_TIME) -- CD3, 8 seconds
+	startCooldown(player, 2, COOLDOWN_TIME) -- CD3, 8 seconds
 
-	local success = HierophantGrandModule.TwentyMeterBarrier(standModel)
+	local success = ThatHandModule.VoidShielding(character)
 	return success
 end

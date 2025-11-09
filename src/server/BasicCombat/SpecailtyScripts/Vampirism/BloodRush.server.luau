@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local DivineDrinkEvent = Instance.new("RemoteFunction")
-DivineDrinkEvent.Name = "DivineDrink"
-DivineDrinkEvent.Parent = ReplicatedStorage.Shared.BasicCombat.Vampirism
+local BloodRushEvent = Instance.new("RemoteFunction")
+BloodRushEvent.Name = "BloodRush"
+BloodRushEvent.Parent = ReplicatedStorage.Shared.BasicCombat.Vampirism
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -12,17 +12,19 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local VampirismModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Vampirism:WaitForChild("Vampirism"))
+local VampireModule = require(serverScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
 
 local COOLDOWN_TIME = 8
+local BLOOD_RUSH_COST = 20
 
-local lastDivineDrinkUseTime = {} -- player -> tick() timestamp
+local lastBloodRushUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-DivineDrinkEvent.OnServerInvoke = function(player)
+BloodRushEvent.OnServerInvoke = function(player)
 	local character = player.Character
 	if not character then
 		return false
@@ -43,17 +45,22 @@ DivineDrinkEvent.OnServerInvoke = function(player)
 		return
 	end
 
+	local bloodVal = VampireModule.getBloodValue(character)
+	if not bloodVal or bloodVal.Value < BLOOD_RUSH_COST then
+		return
+	end
+
 	-- Cooldown check
-	local lastDivineDrink = lastDivineDrinkUseTime[player]
-	if lastDivineDrink and tick() - lastDivineDrink < COOLDOWN_TIME then
-		print("DivineDrink on cooldown")
+	local lastBloodRush = lastBloodRushUseTime[player]
+	if lastBloodRush and tick() - lastBloodRush < COOLDOWN_TIME then
+		print("BloodRush on cooldown")
 		return false
 	end
 
-	lastDivineDrinkUseTime[player] = tick() -- start cooldown timer
+	lastBloodRushUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 4, COOLDOWN_TIME) -- CD1, 8 seconds
 
-	local success = VampirismModule.DivineDrink(character)
+	local success = VampirismModule.BloodRush(character)
 	return success
 end
