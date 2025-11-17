@@ -59,7 +59,7 @@ ZoomPunchEvent.OnServerInvoke = function(player)
 
 	lastZoomPunchUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 2, COOLDOWN_TIME) -- CD1, 8 seconds
 
 	local success = HamonModule.ZoomPunch(character)
 	return success

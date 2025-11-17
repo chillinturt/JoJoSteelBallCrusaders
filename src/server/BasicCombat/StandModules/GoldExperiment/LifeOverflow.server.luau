@@ -15,7 +15,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local GoldExperimentModule =
 	require(serverScriptService.BasicCombat.StandModules.GoldExperiment:WaitForChild("GoldExperiment"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 12
 
 local lastLifeOverflowUseTime = {} -- player -> tick() timestamp
 

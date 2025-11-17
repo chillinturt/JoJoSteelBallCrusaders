@@ -2,7 +2,10 @@
 local CombatUtils = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
+
+local SlowingFieldRegistry = require(ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
 
 local CooldownUpdateEvent = Instance.new("RemoteEvent")
 CooldownUpdateEvent.Name = "CooldownUpdateEvent"
@@ -44,21 +47,22 @@ local Debris = game:GetService("Debris")
 
 -- Constants
 local BLOCK_DAMAGE_REDUCTION = 0.1 -- 90% damage reduction
-local HamonDamageReduction = 0.75 -- 25% damage reduction
+local HAMON_DAMAGE_REDUCTION = 0.8 -- 25% damage reduction
 
 -- Constants
 local BLOCK_REGEN_DELAY = 5 -- seconds to wait before regen starts
 local BLOCK_REGEN_RATE = 2 -- HP per second regenerated
 local BLOCK_MAX_HP = 80 -- maximum block HP
+local BLOOD_DRAIN_CONST = 10
 
-local VAMPIRE_DAMAGE_BUFF = 1.25 -- 25%
+local VAMPIRE_DAMAGE_BUFF = 1.2 -- 25%
 
 local activeBarriers = {}
 local BARRIER_COLOR = Color3.fromRGB(0, 170, 255) -- optional visual cue
-local BARRIER_DECAY_RATE = 1 -- set to >0 if barrier should decay over time
 
 --services
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local AnimationModule = require(script.Parent.AnimationModule)
 local VampireModule = require(game.ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
@@ -84,7 +88,7 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	local isVamp = VampireModule.getIsVampireRace(attacker)
 	if isVamp then
 		--Apply Vampire blood buff if applicable
-		if VampireModule.spendBlood(attacker, damage / 3) then
+		if VampireModule.spendBlood(attacker, damage / BLOOD_DRAIN_CONST) then
 			newDamage = newDamage * VAMPIRE_DAMAGE_BUFF
 		end
 	else
@@ -94,7 +98,7 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	-- Apply Hamon damage reduction if applicable
 	local hamonMeter = character:FindFirstChild("HamonMeter")
 	if hamonMeter and hamonMeter.Value > 0 then
-		newDamage = damage * HamonDamageReduction
+		newDamage = newDamage * HAMON_DAMAGE_REDUCTION
 	end
 
 	-- If blocking is allowed
@@ -168,6 +172,11 @@ function CombatUtils.GetStun(character)
 	else
 		return false
 	end
+end
+
+function CombatUtils.GetSlowMultiplier(character)
+	local finalMult = SlowingFieldRegistry.GetFinalMultiplier(character)
+	return finalMult
 end
 
 function CombatUtils.GetIsBlocking(character)
@@ -267,6 +276,9 @@ game.Players.PlayerAdded:Connect(function(player)
 		CombatUtils.SetMoveSpeed(character)
 		CombatUtils.GetJumpHeight(character)
 		CombatUtils.SetJumpHeight(character)
+		local BarrierFolder = Instance.new("Folder")
+		BarrierFolder.Name = "BarrierFolder"
+		BarrierFolder.Parent = character
 	end)
 end)
 
@@ -603,8 +615,13 @@ function CombatUtils.StartSlide(player)
 		moveDir = root.CFrame.LookVector
 	end
 
-	-- ✅ Store slide direction relative to the player's local space
-	local localSlideDir = root.CFrame:VectorToObjectSpace(moveDir)
+	-- Force purely horizontal
+	local localSlideDir = Vector3.new(moveDir.X, 0, moveDir.Z)
+	if localSlideDir.Magnitude > 0 then
+		localSlideDir = localSlideDir.Unit
+	else
+		localSlideDir = root.CFrame.LookVector.Unit
+	end
 
 	local previousY = root.Position.Y
 	local currentMultiplier = 1
@@ -633,10 +650,10 @@ function CombatUtils.StartSlide(player)
 			local forward = right:Cross(up)
 			gyro.CFrame = CFrame.fromMatrix(root.Position, right, up, forward)
 		else
-			airTime += dt -- accumulate time in air
+			airTime += dt
 		end
 
-		-- slope-based acceleration logic...
+		-- slope-based multiplier adjustment
 		if deltaY < 0.1 and deltaY > -0.1 then
 			currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Forward * dt
 		elseif deltaY > 0 then
@@ -646,14 +663,27 @@ function CombatUtils.StartSlide(player)
 		end
 		currentMultiplier = math.clamp(currentMultiplier, 0, SLIDE_SETTINGS.MaxMultiplier)
 
-		local worldSlideDir = root.CFrame:VectorToWorldSpace(localSlideDir)
-		bodyVelocity.Velocity = worldSlideDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
+		-- --- DYNAMIC SLIDE DIRECTION ---
+		local moveDir = humanoid.MoveDirection
+		local horizontalMove = Vector3.new(moveDir.X, 0, moveDir.Z)
+		if horizontalMove.Magnitude > 0.1 then
+			-- Blend input direction with current slide velocity
+			local desiredDir = horizontalMove.Unit
+			local currentDir = bodyVelocity.Velocity.Magnitude > 0.1 and bodyVelocity.Velocity.Unit or root.CFrame.LookVector
+			local slideDir = (currentDir * 0.7 + desiredDir * 0.3).Unit
+			bodyVelocity.Velocity = slideDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
+		else
+			-- No input: keep current direction
+			local currentDir = bodyVelocity.Velocity.Magnitude > 0.1 and bodyVelocity.Velocity.Unit or root.CFrame.LookVector
+			bodyVelocity.Velocity = currentDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
+		end
 
-		-- stop if too slow or in air for too long
+		-- stop if too slow or in air too long
 		if currentMultiplier < 0.1 or airTime >= AIR_GRACE_PERIOD then
 			CombatUtils.StopSlide(player)
 		end
 	end)
+
 
 	slidingPlayers[character] = {
 		Connection = connection,
@@ -726,7 +756,7 @@ function CombatUtils.GetIsDashing(character)
 end
 
 -- === Add a barrier to a character ===
-function CombatUtils.AddBarrier(character, amount)
+function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrierId, maxCap)
 	if not character then
 		return
 	end
@@ -736,13 +766,56 @@ function CombatUtils.AddBarrier(character, amount)
 		return
 	end
 
-	-- Initialize or refresh barrier entry
-	activeBarriers[character] = {
-		Max = amount,
-		Current = amount,
-	}
+	-- Defaults
+	amount = amount or 25
+	decayRate = decayRate or 1
+	decayDelay = decayDelay or 3
+	barrierId = barrierId or "Default"
+	maxCap = maxCap or 200 -- optional upper limit for stacking barrier
 
-	-- Optional: attach a visual effect
+	-- Ensure barrier data structure exists
+	activeBarriers[character] = activeBarriers[character] or {}
+	local barrierGroup = activeBarriers[character]
+
+	-- === Ensure a BarrierFolder exists for client visibility ===
+	local barrierFolder = character:FindFirstChild("BarrierFolder")
+	if not barrierFolder then
+		barrierFolder = Instance.new("Folder")
+		barrierFolder.Name = "BarrierFolder"
+		barrierFolder.Parent = character
+	end
+
+	-- === Find or create the NumberValue for this barrier ===
+	local barrierValue = barrierFolder:FindFirstChild(barrierId .. "Barrier")
+	if not barrierValue then
+		barrierValue = Instance.new("NumberValue")
+		barrierValue.Name = barrierId .. "Barrier"
+		barrierValue.Value = amount
+		barrierValue.Parent = barrierFolder
+	else
+		-- Stack or refresh existing barrier
+		local newValue = math.min(barrierValue.Value + amount, maxCap)
+		barrierValue.Value = newValue
+	end
+
+	-- Create or update internal barrier data
+	if barrierGroup[barrierId] then
+		local data = barrierGroup[barrierId]
+		data.Max = math.min(data.Max + amount, maxCap)
+		data.Current = math.min(data.Current + amount, data.Max)
+		data.LastRefreshed = tick()
+	else
+		barrierGroup[barrierId] = {
+			Max = math.min(amount, maxCap),
+			Current = math.min(amount, maxCap),
+			DecayRate = decayRate,
+			DecayDelay = decayDelay,
+			LastRefreshed = tick(),
+			Value = barrierValue, -- link the NumberValue
+		}
+	end
+
+	-- === Visual feedback ===
 	local barrierEffect = character:FindFirstChild("BarrierEffect")
 	if not barrierEffect then
 		barrierEffect = Instance.new("Highlight")
@@ -752,32 +825,50 @@ function CombatUtils.AddBarrier(character, amount)
 		barrierEffect.Parent = character
 	end
 
-	-- Hook damage interception if not already hooked
+	-- === Hook damage interception once ===
 	if not humanoid:GetAttribute("BarrierHooked") then
 		humanoid:SetAttribute("BarrierHooked", true)
 
 		local lastHealth = humanoid.Health
 		humanoid.HealthChanged:Connect(function(newHealth)
-			local data = activeBarriers[character]
-			if not data then
+			local barriers = activeBarriers[character]
+			if not barriers then
 				lastHealth = newHealth
 				return
 			end
 
 			local delta = newHealth - lastHealth
-
-			-- If health decreased, damage occurred
-			if delta < 0 and data.Current > 0 then
+			if delta < 0 then
 				local damageTaken = -delta
-				local absorb = math.min(data.Current, damageTaken)
+				local remainingDamage = damageTaken
 
-				data.Current -= absorb
+				-- Loop through barriers in insertion order
+				for id, data in pairs(barriers) do
+					if data.Current > 0 and remainingDamage > 0 then
+						local absorb = math.min(data.Current, remainingDamage)
+						data.Current -= absorb
+						remainingDamage -= absorb
+						data.LastRefreshed = tick()
 
-				-- Prevent the health loss from the absorbed damage (no healing!)
-				humanoid.Health = lastHealth - (damageTaken - absorb)
+						-- Update visible NumberValue
+						if data.Value then
+							data.Value.Value = data.Current
+						end
 
-				-- If the barrier is depleted, remove it
-				if data.Current <= 0 then
+						if data.Current <= 0 then
+							if data.Value then
+								data.Value:Destroy()
+							end
+							barriers[id] = nil
+						end
+					end
+				end
+
+				-- Apply leftover damage to health
+				humanoid.Health = lastHealth - remainingDamage
+
+				-- Clean up if no barriers remain
+				if not next(barriers) then
 					activeBarriers[character] = nil
 					if character:FindFirstChild("BarrierEffect") then
 						character.BarrierEffect:Destroy()
@@ -789,25 +880,47 @@ function CombatUtils.AddBarrier(character, amount)
 		end)
 	end
 
-	-- Optional: barrier decay logic
-	if BARRIER_DECAY_RATE > 0 then
-		task.spawn(function()
-			while activeBarriers[character] do
-				task.wait(1)
-				local data = activeBarriers[character]
-				if data then
-					data.Current = math.max(0, data.Current - BARRIER_DECAY_RATE)
-					if data.Current <= 0 then
+	-- === Decay logic per barrier ===
+	task.spawn(function()
+		local data = barrierGroup[barrierId]
+		if not data then
+			return
+		end
+
+		while activeBarriers[character] and activeBarriers[character][barrierId] do
+			task.wait(1)
+			data = activeBarriers[character] and activeBarriers[character][barrierId]
+			if not data then
+				break
+			end
+
+			-- Wait for decay delay after last refresh
+			if tick() - data.LastRefreshed >= data.DecayDelay then
+				data.Current = math.max(0, data.Current - data.DecayRate)
+
+				-- Update visible value
+				if data.Value then
+					data.Value.Value = data.Current
+				end
+
+				if data.Current <= 0 then
+					if data.Value then
+						data.Value:Destroy()
+					end
+					activeBarriers[character][barrierId] = nil
+
+					-- Cleanup if no barriers remain
+					if not next(activeBarriers[character]) then
 						activeBarriers[character] = nil
 						if character:FindFirstChild("BarrierEffect") then
 							character.BarrierEffect:Destroy()
 						end
-						break
 					end
+					break
 				end
 			end
-		end)
-	end
+		end
+	end)
 end
 
 -- === Get remaining barrier ===

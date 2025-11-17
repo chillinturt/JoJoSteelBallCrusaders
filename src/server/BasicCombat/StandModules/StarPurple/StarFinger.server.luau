@@ -14,7 +14,7 @@ local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitF
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local StarPurpleModule = require(serverScriptService.BasicCombat.StandModules.StarPurple:WaitForChild("StarPurple"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 12
 
 local lastStarFingerUseTime = {} -- player -> tick() timestamp
 

@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local VoidShieldingEvent = Instance.new("RemoteFunction")
-VoidShieldingEvent.Name = "VoidShielding"
-VoidShieldingEvent.Parent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("ThatHand")
+local InfiniteRotationEvent = Instance.new("RemoteFunction")
+InfiniteRotationEvent.Name = "InfiniteRotation"
+InfiniteRotationEvent.Parent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("Tusk")
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -12,18 +12,19 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 
 local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
-local ThatHandModule = require(serverScriptService.BasicCombat.StandModules.ThatHand:WaitForChild("ThatHand"))
+local TuskModule = require(serverScriptService.BasicCombat.StandModules.Tusk:WaitForChild("Tusk"))
 
-local COOLDOWN_TIME = 16
+local COOLDOWN_TIME = 6
 
-local lastVoidShieldingUseTime = {} -- player -> tick() timestamp
+local lastInfiniteRotationUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-VoidShieldingEvent.OnServerInvoke = function(player)
+InfiniteRotationEvent.OnServerInvoke = function(player)
+	print("Nail shot fired on server")
 	local character = player.Character
 	if not character then
 		return false
@@ -35,7 +36,12 @@ VoidShieldingEvent.OnServerInvoke = function(player)
 	end
 
 	local standName = standModel:FindFirstChild("StandTag").Value
-	if standName ~= "That Hand" then
+	if
+		standName ~= "Tusk Act 1"
+		and standName ~= "Tusk Act 2"
+		and standName ~= "Tusk Act 3"
+		and standName ~= "Tusk Act 4"
+	then
 		return
 	end
 
@@ -49,16 +55,16 @@ VoidShieldingEvent.OnServerInvoke = function(player)
 	end
 
 	-- Cooldown check
-	local lastVoidShielding = lastVoidShieldingUseTime[player]
-	if lastVoidShielding and tick() - lastVoidShielding < COOLDOWN_TIME then
-		print("VoidShielding on cooldown!")
+	local lastInfiniteRotation = lastInfiniteRotationUseTime[player]
+	if lastInfiniteRotation and tick() - lastInfiniteRotation < COOLDOWN_TIME then
+		print("InfiniteRotation on cooldown!")
 		return false
 	end
 
-	lastVoidShieldingUseTime[player] = tick() -- start cooldown timer
+	lastInfiniteRotationUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 2, COOLDOWN_TIME) -- CD3, 8 seconds
+	startCooldown(player, 4, COOLDOWN_TIME)
 
-	local success = ThatHandModule.VoidShielding(character)
+	local success = TuskModule.InfiniteRotation(character)
 	return success
 end

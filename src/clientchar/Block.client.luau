@@ -6,7 +6,7 @@ local blockEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("BlockEvent
 local CanBlockFunction = ReplicatedStorage.Shared.BasicCombat:WaitForChild("CanBlockFunction")
 
 -- ===== CONFIG =====
-local BUFFER_DURATION = 2 -- How long to hold a buffered F input (reduce from 100s!)
+local BUFFER_DURATION = 30 -- How long to hold a buffered F input (reduce from 100s!)
 local BUFFER_CHECK_RATE = 0.05 -- How often to retry (in seconds)
 
 -- ===== STATE =====

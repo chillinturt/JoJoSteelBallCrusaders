@@ -12,6 +12,15 @@ local function getPlayerStand(player)
 
 	local heroValue = powersFolder:FindFirstChild("Hero")
 
+	if
+		heroValue.Value == "Tusk Act 1"
+		or heroValue.Value == "Tusk Act 2"
+		or heroValue.Value == "Tusk Act 3"
+		or heroValue.Value == "Tusk Act 4"
+	then
+		return "Tusk"
+	end
+
 	return heroValue.Value -- e.g. "Star Purple"
 end
 

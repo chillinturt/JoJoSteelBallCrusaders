@@ -7,6 +7,7 @@ local uiFolder = ReplicatedStorage:WaitForChild("UIs")
 local defaultFolder = uiFolder:WaitForChild("DefaultUIs")
 local specialtyFolder = uiFolder:WaitForChild("SpecialtyUIs")
 local raceFolder = uiFolder:WaitForChild("RaceUIs")
+local heroFolder = uiFolder:WaitForChild("HeroUIs")
 
 -- Utility: safely clone a folder of UIs into PlayerGui
 local function cloneUIsInto(playerGui, folder)
@@ -28,7 +29,7 @@ local function clearOldSpecialtyUIs(playerGui)
 end
 
 -- Main function: load UIs
-function UIManager.LoadUI(playerGui, specialty, race)
+function UIManager.LoadUI(playerGui, specialty, race, hero)
 	-- Step 1: Always ensure default UIs exist
 	for _, defaultUI in ipairs(defaultFolder:GetChildren()) do
 		if not playerGui:FindFirstChild(defaultUI.Name) then
@@ -41,8 +42,8 @@ function UIManager.LoadUI(playerGui, specialty, race)
 	-- Step 2: Clear old specialty UIs
 	clearOldSpecialtyUIs(playerGui)
 
+	-- Step 3: Load specialty UI
 	if specialty ~= "" then
-		-- Step 3: Load specialty UI
 		local specUI = specialtyFolder:FindFirstChild(specialty .. "UI")
 		if specUI then
 			local clone = specUI:Clone()
@@ -56,17 +57,33 @@ function UIManager.LoadUI(playerGui, specialty, race)
 		if specCooldownUI then
 			local clone = specCooldownUI:Clone()
 			clone.Parent = playerGui
-			print("Given player a spec cooldown ui because he has a spec")
+			print("✅ Given player a spec cooldown UI")
 		else
-			print("no spec found, no spec cooldown ui provided")
+			print("No spec cooldown UI found")
 		end
 	end
 
+	-- Step 4: Load race UI
 	if race ~= "Human" then
 		local raceUI = raceFolder:FindFirstChild(race .. "UI")
 		if raceUI then
 			local clone = raceUI:Clone()
 			clone.Parent = playerGui
+			print("✅ Loaded race UI for", race)
+		else
+			print("⚠️ No UI found for race:", race)
+		end
+	end
+
+	-- Step 5: Load hero UI
+	if hero and hero ~= "" then
+		local heroUI = heroFolder:FindFirstChild(hero .. "UI")
+		if heroUI then
+			local clone = heroUI:Clone()
+			clone.Parent = playerGui
+			print("✅ Loaded hero UI for", hero)
+		else
+			print("⚠️ No UI found for hero:", hero)
 		end
 	end
 end

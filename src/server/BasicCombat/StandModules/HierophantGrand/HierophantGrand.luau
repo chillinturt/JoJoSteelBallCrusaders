@@ -14,22 +14,30 @@ local splashingFlags = {}
 local MAX_SPLASH_DURATION = 3 -- seconds
 local SPLASH_INTERVAL = 0.1
 local EMERALD_HITBOX_SIZE = Vector3.new(2, 2, 2)
-local EMERALD_DAMAGE = 1.5
+local EMERALD_DAMAGE = 0.8
 local EMERALD_DURATION = 3
 local EMERALD_SPLASH_SPEED = 300
-local EMERALD_SPLASH_COOLDOWN = 8 -- the cooldown is kept track of in this module due to a glitch.
+local EMERALD_SPLASH_COOLDOWN = 10 -- the cooldown is kept track of in this module due to a glitch.
 --When the player desummons their stand during emerald splash, the cooldown UI won't work unless I do it this way
 local EMERALD_SPLASH_STUN = 0.5
 
 local BARRIER_DURATION = 6
-local BARRIER_SIZE = Vector3.new(24, 15, 24)
+local BARRIER_SIZE = Vector3.new(24, 24, 24)
 local BARRIER_DAMAGE_DELAY = 0.5
 local BARRIER_DAMAGE = 20
 
+local PUPPETMASTER_DAMAGE = 15
+local PUPPETMASTER_ENDLAG = 1
+local PUPPETMASTER_STUN = 2
+local PUPPETMASTER_SIZE = Vector3.new(5, 6, 7)
+local PUPPETMASTER_DURATION = 5
+local PUPPETMASTER_ANIM_ID = 90498591949232
+local PUPPETMASTER_PILOT_ANIM_ID = 136847469830162
+
 local TWENTY_METER_BARRIER_DURATION = 8
-local TWENTY_METER_BARRIER_SIZE = Vector3.new(50, 30, 50)
+local TWENTY_METER_BARRIER_SIZE = Vector3.new(50, 50, 50)
 local TWENTY_METER_BARRIER_DAMAGE_DELAY = 1
-local TWENTY_METER_BARRIER_DAMAGE = 7
+local TWENTY_METER_BARRIER_DAMAGE = 10
 local TWENTY_METER_BARRIER_STUN = 0
 
 local IDLE_ANIM_ID = 89452205434139
@@ -197,7 +205,7 @@ function HierophantModule.StopSplash(character)
 	local player = Players:GetPlayerFromCharacter(character)
 
 	if player then
-		startCooldown(player, 1, EMERALD_SPLASH_COOLDOWN) -- CD1, 8 seconds
+		startCooldown(player, 2, EMERALD_SPLASH_COOLDOWN) -- CD1, 8 seconds
 	end
 	splashingFlags[character] = nil
 
@@ -230,8 +238,13 @@ function HierophantModule.ActivateBarrier(standModel)
 	print("barrier activated on server!")
 
 	local character = standModel.Parent
-	local hitBoxOffset = Vector3.new(0, 0, 0)
-	local standCF = standModel.PrimaryPart.CFrame
+	local hitBoxOffset = CFrame.new(0, 0, 0)
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+
+	local placement_position = hrp.CFrame
+	if PilotModule.GetBoolPilotMode(character) then
+		placement_position = standModel.PrimaryPart.CFrame
+	end
 
 	hitboxSpawner.SpawnStationarySlowingField({
 		StandModel = standModel,
@@ -240,12 +253,13 @@ function HierophantModule.ActivateBarrier(standModel)
 		SlowFactor = 0.6,
 		Offset = hitBoxOffset,
 		Caster = character,
+		Position = placement_position,
 	})
 
 	task.wait(BARRIER_DAMAGE_DELAY)
 
 	hitboxSpawner.spawnStationaryHitbox({
-		Position = standCF,
+		Position = placement_position,
 		Character = character,
 		Damage = BARRIER_DAMAGE,
 		Size = BARRIER_SIZE,
@@ -258,12 +272,64 @@ function HierophantModule.ActivateBarrier(standModel)
 	})
 end
 
+function HierophantModule.PuppetMaster(standModel)
+	local character = standModel.Parent
+
+	local PUPPETMASTER_OFFSET = Vector3.new(2, 0, -8)
+	local animID = PUPPETMASTER_ANIM_ID
+	if PilotModule.GetBoolPilotMode(character) then
+		animID = PUPPETMASTER_PILOT_ANIM_ID
+		PUPPETMASTER_OFFSET = Vector3.new(0, 0, -5)
+	end
+
+	AnimationModule.PlayAnimation(standModel, animID, false, Enum.AnimationPriority.Action, 1)
+	combatUtils.SetActionInProgress(character, PUPPETMASTER_ENDLAG)
+
+	SoundUtils.PlaySound({
+		Root = standModel.PrimaryPart,
+		soundName = "PuppetMasterEffect",
+		soundID = "74238153433253",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	SoundUtils.PlaySound({
+		Root = standModel.PrimaryPart,
+		soundName = "PuppetMasterCall",
+		soundID = "6191516032",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	hitboxSpawner.spawnHitbox({
+		Character = character,
+		Damage = PUPPETMASTER_DAMAGE or 0.1,
+		Size = PUPPETMASTER_SIZE,
+		Offset = CFrame.new(PUPPETMASTER_OFFSET),
+		Color = BrickColor.new("Bright red"),
+		Duration = 0.75,
+		StunDuration = PUPPETMASTER_STUN,
+		Transparency = 1,
+		Name = "BasicPunchHitbox",
+		CanBlock = false,
+	})
+end
+
 function HierophantModule.TwentyMeterBarrier(standModel)
 	print("barrier activated on server!")
 
 	local character = standModel.Parent
+	local hrp = character:FindFirstChild("HumanoidRootPart")
 	local hitBoxOffset = Vector3.new(0, 0, 0)
-	local placement_position = standModel.PrimaryPart.CFrame
+
+	local placement_position = hrp.CFrame
+	if PilotModule.GetBoolPilotMode(character) then
+		placement_position = standModel.PrimaryPart.CFrame
+	end
 
 	-- Spawn the slowing field (lasts full duration)
 	hitboxSpawner.SpawnStationarySlowingField({
@@ -273,6 +339,7 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 		SlowFactor = 0.6,
 		Offset = hitBoxOffset,
 		Caster = character,
+		Position = placement_position,
 	})
 
 	-- Damage loop

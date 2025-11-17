@@ -22,23 +22,26 @@ local lastMachOraUse = {} -- Tracks last activation time per player
 local lastMachOra2Use = {} -- Tracks last use time for MachOra2 per player
 local machOra2Window = {} -- Stores the short window where MachOra2 is valid
 
-local MACH_ORA_DAMAGE = 15
+local MACH_ORA_DAMAGE = 12
 local MACH_ORA_DASH_SPEED = 50 -- Speed of the dash
 local MACH_ORA_DASH_DURATION = 0.4 -- How long the dash lasts in seconds
-local MACH_ORA_ENDLAG = 1
+local MACH_ORA_ENDLAG = 0.4
 local MACH_ORA_SIZE = Vector3.new(5, 6, 9)
+local MACH_ORA_OFFSET = Vector3.new(2, 0, -8)
+local MACH_ORA_STUN = 1.5
 
-local GROUND_POUND_DAMAGE = 20
+local GROUND_POUND_DAMAGE = 15
 local GROUND_POUND_SIZE = Vector3.new(10, 10, 10)
 local GROUND_POUND_OFFSET = Vector3.new(2, 0, -10)
 local GROUND_POUND_ENDLAG = 1
 
 local GROUNDPOUND_ANIM_ID = 90498591949232
 
-local STARFINGER_DAMAGE = 20
+local STARFINGER_DAMAGE = 15
 local STARFINGER_SIZE = Vector3.new(5, 7, 18)
 local STARFINGER_OFFSET = Vector3.new(2, 0, -14)
 local STARFINGER_ENDLAG = 1
+local STARFINGER_STUN = 1.5
 
 local HIT_SOUND_ID = 8255306220
 local BLOCK_SOUND_ID = 132615624053575
@@ -69,6 +72,7 @@ local function MapDamageToSound(damage: number)
 	return volume, pitch
 end
 
+--[[
 local function spawnHitbox(character, offset, rightOffset, upOffset, damage)
 	-- Locate the stand model
 	local standModel = StandUtils.getStandModel(character)
@@ -207,6 +211,7 @@ local function spawnHitbox(character, offset, rightOffset, upOffset, damage)
 	Debris:AddItem(hitbox, duration)
 	return hitbox
 end
+]]
 
 --adds momentum
 local function applyMachOraDash(character)
@@ -309,7 +314,31 @@ function StarPurple.onMachOraRequested(character)
 	-- ⏳ Wait 0.6s, then play punch animation & sound
 	task.wait(0.2)
 	--hitbox spawn
-	spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
+	--spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
+	HitboxSpawner.spawnHitbox({
+		Character = character,
+		Damage = MACH_ORA_DAMAGE or 0.1,
+		Size = MACH_ORA_SIZE,
+		Offset = CFrame.new(MACH_ORA_OFFSET),
+		Color = BrickColor.new("Bright red"),
+		Duration = 0.75,
+		StunDuration = MACH_ORA_STUN,
+		Transparency = 1,
+		Name = "BasicPunchHitbox",
+
+		OnHit = function(projectile, hitResult, horizontalDirection)
+			-- Destroy MachOraVelocity if it exists
+			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			if humanoidRootPart then
+				local machOraVelocity = humanoidRootPart:FindFirstChild("MachOraVelocity")
+				if machOraVelocity then
+					machOraVelocity:Destroy()
+					print("MachOraVelocity has been destroyed!")
+				end
+			end
+		end,
+	})
+
 	task.wait(0.2)
 
 	-- 🔊 Play punch sound
@@ -369,7 +398,30 @@ function StarPurple.onMachOra2Requested(character)
 	applyMachOraDash(character)
 
 	--hitbox spawn
-	spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
+	--spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
+	HitboxSpawner.spawnHitbox({
+		Character = character,
+		Damage = MACH_ORA_DAMAGE or 0.1,
+		Size = MACH_ORA_SIZE,
+		Offset = CFrame.new(MACH_ORA_OFFSET),
+		Color = BrickColor.new("Bright red"),
+		Duration = 0.75,
+		StunDuration = MACH_ORA_STUN,
+		Transparency = 1,
+		Name = "BasicPunchHitbox",
+
+		OnHit = function(projectile, hitResult, horizontalDirection)
+		-- Destroy MachOraVelocity if it exists
+			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+			if humanoidRootPart then
+				local machOraVelocity = humanoidRootPart:FindFirstChild("MachOraVelocity")
+				if machOraVelocity then
+					machOraVelocity:Destroy()
+					print("MachOraVelocity has been destroyed!")
+				end
+			end
+		end,
+	})
 
 	-- 🔊 Find or create Sound objects
 	SoundModule.PlaySound({
@@ -457,8 +509,8 @@ function StarPurple.StarFinger(standModel)
 		Offset = CFrame.new(STARFINGER_OFFSET),
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.75,
-		StunDuration = 1,
-		Transparency = 0.3,
+		StunDuration = STARFINGER_STUN,
+		Transparency = 1,
 		Name = "StarFingerHitbox",
 	})
 
@@ -568,7 +620,12 @@ function StarPurple.TimeStop(caster)
 				if humanoid and player ~= Players:GetPlayerFromCharacter(caster) then
 					local moveSpeed = char:FindFirstChild("MoveSpeed")
 					local jumpHeight = char:FindFirstChild("JumpHeight")
-					humanoid.WalkSpeed = moveSpeed and moveSpeed.Value or 24
+					-- resume movement
+					if moveSpeed then
+						local baseSpeed = CombatUtils.GetMoveSpeed(char).Value
+						local mult = CombatUtils.GetSlowMultiplier(char)
+						humanoid.WalkSpeed = baseSpeed * mult
+					end
 					humanoid.JumpPower = jumpHeight and jumpHeight.Value or 40.996
 				end
 
@@ -594,7 +651,14 @@ function StarPurple.TimeStop(caster)
 				local root = npc:FindFirstChild("HumanoidRootPart")
 
 				if humanoid then
-					humanoid.WalkSpeed = npc:FindFirstChild("MoveSpeed").Value or 24 -- or whatever your NPC default is
+					local moveSpeed = npc:FindFirstChild("MoveSpeed")
+					-- resume movement
+					if moveSpeed then
+						local baseSpeed = CombatUtils.GetMoveSpeed(npc).Value
+						local mult = CombatUtils.GetSlowMultiplier(npc)
+						humanoid.WalkSpeed = baseSpeed * mult
+					end
+
 					humanoid.JumpPower = npc:FindFirstChild("JumpHeight").Value or 40.996
 				end
 

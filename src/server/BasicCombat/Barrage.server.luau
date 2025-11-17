@@ -8,7 +8,7 @@ StandBarrageToggle.Parent = replicatedStorage.Shared.BasicCombat
 local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitForChild("StandUtils"))
 local BasicStandAttacksModule = require(serverScriptService.BasicCombat:WaitForChild("BasicStandAttacks"))
 
-local COOLDOWN_TIME = 5
+local COOLDOWN_TIME = 10
 local MAX_BARRAGE_DURATION = 4 -- seconds before auto-stop (optional)
 
 local lastBarrageEndTime = {} -- player -> tick() timestamp
@@ -16,6 +16,7 @@ local activeBarrages = {} -- player -> true if currently barraging
 local autoStopTasks = {} -- player -> task for auto-stop
 
 StandBarrageToggle.OnServerInvoke = function(player, isStarting)
+	print("Stand barrage on server")
 	local character = player.Character
 	if not character then
 		return false

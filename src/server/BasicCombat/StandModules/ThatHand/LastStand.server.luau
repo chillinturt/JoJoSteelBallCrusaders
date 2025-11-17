@@ -14,7 +14,7 @@ local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitF
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local ThatHandModule = require(serverScriptService.BasicCombat.StandModules.ThatHand:WaitForChild("ThatHand"))
 
-local COOLDOWN_TIME = 20
+local COOLDOWN_TIME = 28
 
 local lastLastStandUseTime = {} -- player -> tick() timestamp
 

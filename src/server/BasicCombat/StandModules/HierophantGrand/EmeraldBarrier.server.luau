@@ -15,7 +15,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local HierophantGrandModule =
 	require(serverScriptService.BasicCombat.StandModules.HierophantGrand:WaitForChild("HierophantGrand"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 12
 
 local lastBarrierUseTime = {} -- player -> tick() timestamp
 
@@ -57,7 +57,7 @@ EmeraldBarrierEvent.OnServerInvoke = function(player)
 
 	lastBarrierUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 2, COOLDOWN_TIME) -- CD3, 8 seconds
+	startCooldown(player, 3, COOLDOWN_TIME) -- CD3, 8 seconds
 
 	local success = HierophantGrandModule.ActivateBarrier(standModel)
 	return success

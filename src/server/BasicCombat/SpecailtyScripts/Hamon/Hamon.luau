@@ -22,24 +22,24 @@ local chargingFlags = {} -- [character] = true/false
 local activeHamonValues = {} -- [character] = NumberValue
 
 local ZOOM_PUNCH_ANIM_ID = 136847469830162
-local ZOOM_PUNCH_ENDLAG = 1
-local ZOO_PUNCH_DAMAGE = 25
+local ZOOM_PUNCH_ENDLAG = 0.8
+local ZOOM_PUNCH_DAMAGE = 15
 local ZOOM_PUNCH_SIZE = Vector3.new(7, 16, 10)
 local ZOOM_PUNCH_OFFSET = Vector3.new(0, 4, -2)
 local ZOOM_PUNCH_COST = 10
-local ZOOM_PUNCH_STUN = 1
+local ZOOM_PUNCH_STUN = 1.4
 local ZOOM_PUNCH_DURATION = 1
 
 local sunlightYellowFlags = {}
 local MAX_SUNLIGHT_YELLOW_DURATION = 5 -- seconds
-local SUNLIGHT_YELLOW_DAMAGE = 1
-local SUNLIGHT_YELLOW_SIZE = Vector3.new(7, 8, 9)
+local SUNLIGHT_YELLOW_DAMAGE = 0.7
+local SUNLIGHT_YELLOW_SIZE = Vector3.new(7, 8, 14)
 local SUNLIGHT_YELLOW_INTERVAL = 0.15
 local SUNLIGHT_YELLOW_ANIM_ID = 127837357946102
 local SUNLIGHT_YELLOW_COST = 1
 
 local BUBBLECUTTER_ENDLAG = 1
-local BUBBLECUTTER_DAMAGE = 9
+local BUBBLECUTTER_DAMAGE = 6
 local BUBBLECUTTER_SIZE = Vector3.new(12, 6, 10)
 local BUBBLECUTTER_OFFSET = Vector3.new(0, 4, -2)
 local BUBBLECUTTER_COST = 10
@@ -51,7 +51,7 @@ local LIFEFORCEAURA_ENDLAG = 1
 local LIFEFORCEAURA_SIZE = Vector3.new(12, 10, 12)
 local LIFEFORCEAURA_OFFSET = Vector3.new(0, 0, 0)
 local LIFEFORCEAURA_COST = 20
-local LIFEFORCEAURA_STUN = 0.5
+local LIFEFORCEAURA_STUN = 1
 local LIFEFORCEAURA_ANIMID = 136847469830162
 local LIFEFORCEAURA_DAMAGE = 10
 local LIFEFORCEAURA_DURATION = 1
@@ -158,13 +158,13 @@ function HamonModule.ZoomPunch(character)
 
 	HitboxSpawner.spawnStandOffHitbox({
 		Character = character,
-		Damage = ZOO_PUNCH_DAMAGE or 0.1,
+		Damage = ZOOM_PUNCH_DAMAGE or 0.1,
 		Size = ZOOM_PUNCH_SIZE,
 		Offset = CFrame.new(ZOOM_PUNCH_OFFSET),
 		Color = BrickColor.new("Bright red"),
 		Duration = ZOOM_PUNCH_DURATION,
 		StunDuration = ZOOM_PUNCH_STUN,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "Zoom Punch Hitbox",
 	})
 
@@ -263,8 +263,13 @@ function HamonModule.StartSunlightYellow(character)
 				Color = BrickColor.new("Bright red"),
 				Duration = 0.1,
 				StunDuration = 0.2,
-				Transparency = 0.3,
+				Transparency = 1,
 				Name = "SunlightYellowPunchHitbox",
+				CanBlock = false,
+
+				OnHit = function(targetChar, humanoid)
+					print(character.Name .. " drained " .. targetChar.Name .. " successfully!")
+				end,
 			})
 			task.wait(SUNLIGHT_YELLOW_INTERVAL)
 		end

@@ -17,20 +17,23 @@ local MAX_TELEPORT_DISTANCE = 60 -- studs
 
 local TIME_ERASE_DURATION = 10
 
-local CHOP_DAMAGE = 10
+local CHOP_DAMAGE = 20
 local CHOP_ENDLAG = 1
-local CHOP_SIZE = Vector3.new(5, 6, 7)
+local CHOP_SIZE = Vector3.new(5, 8, 9)
 local CHOP_OFFSET = Vector3.new(2, 0, -8)
 local CHOP_DPS = 1
 local CHOP_TICK_INTERVAL = 0.25
 local CHOP_DURATION = 5
+local CHOP_STUN = 1.5
 
 local CHOP_ANIM_ID = 90498591949232
 
-local SPLATTER_HITBOX_SIZE = Vector3.new(3, 3, 3)
-local SPLATTER_DAMAGE = 15
+local SPLATTER_HITBOX_SIZE = Vector3.new(10, 6, 10)
+local SPLATTER_DAMAGE = 20
 local SPLATTER_DURATION = 3
 local SPLATTER_OFFSET = Vector3.new(0, 0, 8)
+local SPLATTER_ENDLAG = 0.8
+local SPLATTER_STUN = 1.5
 
 function KingCarmine.Teleport(character)
 	print("Teleport called on module")
@@ -46,7 +49,6 @@ function KingCarmine.Teleport(character)
 	end
 
 	-- === TELEPORT SETTINGS ===
-	local MAX_TELEPORT_DISTANCE = 100 -- adjust if needed
 	local origin = humanoidRootPart.Position
 
 	-- === Get camera direction from client ===
@@ -114,7 +116,6 @@ function KingCarmine.TimeErase(standModel)
 	standHurtbox.CanQuery = false
 
 	CombatUtils.SetActionInProgress(character, TIME_ERASE_DURATION)
-	BlockModule.BlockOn(character) --I turn the lbock on and off simply to prevent barraging
 
 	SoundModule.PlaySound({
 		Root = standModel.PrimaryPart,
@@ -138,13 +139,11 @@ function KingCarmine.TimeErase(standModel)
 
 	task.wait(TIME_ERASE_DURATION)
 
-	BlockModule.BlockOff(character)
 	characterHurtbox.CanQuery = true
 	standHurtbox.CanQuery = true
 end
 
 function KingCarmine.Chop(standModel)
-	print("Time Erase called on module")
 	local character = standModel.Parent
 
 	AnimationModule.PlayAnimation(standModel, CHOP_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
@@ -177,8 +176,8 @@ function KingCarmine.Chop(standModel)
 		Offset = CFrame.new(CHOP_OFFSET),
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.75,
-		StunDuration = 1,
-		Transparency = 0.3,
+		StunDuration = CHOP_STUN,
+		Transparency = 1,
 		Name = "BasicPunchHitbox",
 		DamagePerTick = CHOP_DPS,
 		DOTTickInterval = CHOP_TICK_INTERVAL,
@@ -192,7 +191,7 @@ function KingCarmine.Splatter(standModel)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
 	AnimationModule.PlayAnimation(standModel, CHOP_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
-	CombatUtils.SetActionInProgress(character, CHOP_ENDLAG)
+	CombatUtils.SetActionInProgress(character, SPLATTER_ENDLAG)
 
 	SoundModule.PlaySound({
 		Root = standModel.PrimaryPart,
@@ -246,7 +245,7 @@ function KingCarmine.Splatter(standModel)
 		Offset = SPLATTER_OFFSET,
 		Color = BrickColor.new("Bright red"),
 		Duration = SPLATTER_DURATION,
-		StunDuration = 2,
+		StunDuration = SPLATTER_STUN,
 		Transparency = 0.3,
 		Name = "BarragePunchHitbox",
 		Speed = 200,

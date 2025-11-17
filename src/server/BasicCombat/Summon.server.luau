@@ -22,6 +22,7 @@ end
 
 -- Function to toggle the summoned model on and off using the module
 local function onSummonRequested(player)
+	print("Summon fired on server")
 	local character = player.Character
 	if not character then
 		return
@@ -49,11 +50,12 @@ local function onSummonRequested(player)
 
 	-- ✅ Toggle using SummonStand and RemoveStand
 	if StandUtils.getStandModel(character) then
-		StandUtils.RemoveStand(character, player)
+		StandUtils.RemoveStand(character)
 		pilotModule.ExitPilotMode(character)
 		print("Exit Pilot Mode/ remove stand called")
 	else
 		StandUtils.SummonStand(character, standTag)
+		print("Server fired message to module to summon stand")
 	end
 end
 

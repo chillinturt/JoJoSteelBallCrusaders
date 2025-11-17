@@ -1,5 +1,7 @@
 local BasicStandAttacks = {}
 
+local Players = game:GetService("Players")
+
 local IDLE_ANIM_ID = 89452205434139
 --local PUNCH_ANIMATIONS = {"93085018014908", "103624770697086", "134941790648824"}  -- Animation IDs
 local PUNCH_ANIMATIONS = { "90498591949232", "86291795389163", "88632829279678" } -- Animation IDs
@@ -28,22 +30,24 @@ local comboCooldowns = {}
 local punchCooldowns = {}
 
 local PUNCH_DAMAGE = {
-	["Star Purple"] = 10,
-	["Hierophant Grand"] = 8,
-	["Crazed Diamond"] = 10,
-	["King Carmine"] = 9,
-	["Gold Experiment"] = 8,
-	["Kaiser Queen"] = 8,
-	["Nuclear Rain"] = 7,
-	["That Hand"] = 9,
-	["Heavy Door"] = 9,
-	["White Sake"] = 8,
+	["Star Purple"] = 5,
+	["Hierophant Grand"] = 4,
+	["Crazed Diamond"] = 5,
+	["King Carmine"] = 4.5,
+	["Gold Experiment"] = 4,
+	["Kaiser Queen"] = 4,
+	["Nuclear Rain"] = 4,
+	["That Hand"] = 4.5,
+	["Heavy Door"] = 4.5,
+	["White Sake"] = 4.5,
+	["Tusk Act 4"] = 5,
 }
 
 function BasicStandAttacks.BasicPunch(standModel)
-	local primaryParty = standModel:FindFirstChild("HumanoidRootPart")
+	print("Basic punch in module")
+	local primaryPart = standModel.PrimaryPart
 	local character = standModel.Parent
-	if not primaryParty or not character then
+	if not primaryPart or not character then
 		return false
 	end
 
@@ -69,7 +73,18 @@ function BasicStandAttacks.BasicPunch(standModel)
 	end
 	local index = comboIndices[character]
 
+	local player = Players:GetPlayerFromCharacter(character)
+	local powersFolder
+	if player then
+		powersFolder = player:FindFirstChild("Powers")
+	else
+		powersFolder = character:FindFirstChild("Powers")
+	end
+	
+	local heroValue = powersFolder:FindFirstChild("Hero")
+
 	local hitboxOffset = CFrame.new(2, 0, -8)
+	local rotation = CFrame.Angles(0, 0, 0)
 	-- Stop idle and play punch animation
 	AnimationModule.StopAllAnimations(standModel)
 	if PilotModule.GetBoolPilotMode(character) then
@@ -82,7 +97,13 @@ function BasicStandAttacks.BasicPunch(standModel)
 		)
 		hitboxOffset = CFrame.new(0, 0, -3)
 	else
-		AnimationModule.PlayAnimation(standModel, PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
+		if heroValue.Value == "Nuclear Rain" then
+			AnimationModule.PlayAnimation(character, PILOT_PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
+			rotation = CFrame.Angles(0, math.rad(90), 0)
+			hitboxOffset = CFrame.new(2, 0, 0)
+		else
+			AnimationModule.PlayAnimation(standModel, PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
+		end
 	end
 
 	-- Advance combo index or finish combo
@@ -114,8 +135,9 @@ function BasicStandAttacks.BasicPunch(standModel)
 		Offset = hitboxOffset,
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.1,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "BasicPunchHitbox",
+		Rotation = rotation,
 	})
 
 	--reset index in 3 seconds if index == 1
@@ -132,17 +154,18 @@ function BasicStandAttacks.BasicPunch(standModel)
 end
 
 function BasicStandAttacks.StartBarrage(character)
+	print("Barrage called on module")
 	local standModel = StandUtils.getStandModel(character)
 
 	if not standModel then
 		return false
 	end
 
-	local primaryParty = standModel:FindFirstChild("HumanoidRootPart")
-	if not primaryParty or not character then
+	local primaryPart = standModel.PrimaryPart
+	if not primaryPart or not character then
 		return false
 	end
-	local motor = primaryParty:FindFirstChild("StandMotor", true)
+	local motor = primaryPart:FindFirstChild("StandMotor", true)
 
 	local standTag = standModel:FindFirstChild("StandTag")
 	if not standTag then
@@ -163,6 +186,33 @@ function BasicStandAttacks.StartBarrage(character)
 	end
 	actionFlag.Value = true
 
+	print("checks passed")
+
+	local player = Players:GetPlayerFromCharacter(character)
+	local powersFolder
+	if player then
+		powersFolder = player:FindFirstChild("Powers")
+	else
+		powersFolder = character:FindFirstChild("Powers")
+	end
+	local heroValue = powersFolder:FindFirstChild("Hero")
+
+	if heroValue.Value == "Tusk Act 1" or heroValue.Value == "Tusk Act 2" or heroValue.Value == "Tusk Act 3" then
+		if player then
+			if heroValue then
+				heroValue.Value = "Tusk Act 4"
+				print(player.Name .. " is now Tusk Act 4!")
+			end
+
+			StandUtils.RemoveStand(character)
+			standModel = StandUtils.SummonStand(character, heroValue.Value)
+
+			-- Wait for the new Motor6D to exist
+			local newPrimary = standModel:WaitForChild("HumanoidRootPart")
+			motor = newPrimary:WaitForChild("StandMotor", 2)
+		end
+	end
+
 	-- Cache original motor position
 	if not originalC0s[standModel] then
 		originalC0s[standModel] = motor.C0
@@ -180,12 +230,26 @@ function BasicStandAttacks.StartBarrage(character)
 		-- Keep original orientation, only shift relative position
 		--PilotModule.SetPoseOffset(character, CFrame.new(1.5, 0, 0))
 	else
-		motor.C0 = originalC0s[standModel] * CFrame.new(2, 0, 0)
+		if heroValue.Value == "Nuclear Rain" then
+			motor.C0 = originalC0s[standModel] * CFrame.new(0, 0, 0)
+		else
+			motor.C0 = originalC0s[standModel] * CFrame.new(2, 0, 0)
+		end
 	end
+
+	print("Anotehr test")
 
 	-- Stop idle and play barrage animation
 	AnimationModule.StopAllAnimations(standModel)
-	AnimationModule.PlayAnimation(standModel, STAND_BARRAGE_ANIMID, false, Enum.AnimationPriority.Action, AnimSpeed)
+	local rotation = CFrame.Angles(0, 0, 0)
+	if heroValue.Value == "Nuclear Rain" then
+		STAND_BARRAGE_ANIMID = 127837357946102 -- pilot mode / character barrage
+		AnimationModule.PlayAnimation(character, STAND_BARRAGE_ANIMID, false, Enum.AnimationPriority.Action, AnimSpeed)
+		rotation = CFrame.Angles(0, math.rad(90), 0)
+		hitBoxOffset = CFrame.new(2, 0, 0)
+	else
+		AnimationModule.PlayAnimation(standModel, STAND_BARRAGE_ANIMID, false, Enum.AnimationPriority.Action, AnimSpeed)
+	end
 
 	-- Set barrage flag
 	barragingFlags[character] = true
@@ -208,23 +272,28 @@ function BasicStandAttacks.StartBarrage(character)
 		range = 160,
 	})
 
+	print("all good")
+
 	-- Start spawning hitboxes
 	task.spawn(function()
 		while barragingFlags[character] do
 			hitboxSpawner.spawnHitbox({
 				Character = character,
-				Damage = PUNCH_DAMAGE[standTag.Value] / 4.5 or 0.1,
+				Damage = PUNCH_DAMAGE[heroValue.Value] / 4.5 or 0.1,
 				Size = HITBOX_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
 				Duration = 0.1,
 				StunDuration = 0.2,
-				Transparency = 0.3,
+				Transparency = 1,
 				Name = "BarragePunchHitbox",
+				Rotation = rotation,
 			})
 			task.wait(BARRAGE_INTERVAL)
 		end
 	end)
+
+	print("this is where I expect it to  fail")
 
 	local conn
 	conn = standModel.AncestryChanged:Connect(function(_, parent)
@@ -261,8 +330,21 @@ function BasicStandAttacks.StopBarrage(character)
 	-- Clear barrage flag
 	barragingFlags[character] = nil
 
+	local player = Players:GetPlayerFromCharacter(character)
+	local powersFolder
+	if player then
+		powersFolder = player:FindFirstChild("Powers")
+	else
+		powersFolder = character:FindFirstChild("Powers")
+	end
+	local heroValue = powersFolder:FindFirstChild("Hero")
+
 	-- Reset animation
-	AnimationModule.StopAllAnimations(standModel)
+	if heroValue.Value == "NuclearRain" then
+		AnimationModule.StopAllAnimations(character)
+	else
+		AnimationModule.StopAllAnimations(standModel)
+	end
 	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
 
 	-- Optional: clear cache if stand is despawned frequently

@@ -40,11 +40,6 @@ HeavyRaindropEvent.OnServerInvoke = function(player)
 		return
 	end
 
-	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag.Value then
-		return
-	end
-
 	if CombatUtils.GetStun(character) then
 		return
 	end
@@ -58,7 +53,7 @@ HeavyRaindropEvent.OnServerInvoke = function(player)
 
 	lastHeavyRaindropUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 1, COOLDOWN_TIME)
+	startCooldown(player, 2, COOLDOWN_TIME)
 
 	local success = NuclearRainModule.HeavyRaindrop(character)
 	return success

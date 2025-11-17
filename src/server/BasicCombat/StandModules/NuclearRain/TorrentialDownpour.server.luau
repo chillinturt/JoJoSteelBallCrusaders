@@ -54,7 +54,7 @@ TorrentialDownpourToggle.OnServerInvoke = function(player)
 	local isActive = downpourActive[player]
 	local lastEnd = lastDownpourEndTime[player]
 
-	startCooldown(player, 2, COOLDOWN_TIME)
+	startCooldown(player, 1, COOLDOWN_TIME)
 
 	-- === TURN OFF if currently active ===
 	if isActive then
@@ -81,11 +81,6 @@ TorrentialDownpourToggle.OnServerInvoke = function(player)
 		return false
 	end
 
-	-- Prevent activation while stunned or busy
-	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag and actionFlag.Value then
-		return false
-	end
 	if CombatUtils.GetStun(character) then
 		return false
 	end

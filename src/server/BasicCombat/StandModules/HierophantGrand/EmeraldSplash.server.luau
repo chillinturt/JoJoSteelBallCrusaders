@@ -11,7 +11,7 @@ local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("Combat
 local HierophantGrandModule =
 	require(ServerScriptService.BasicCombat.StandModules.HierophantGrand:WaitForChild("HierophantGrand"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 10
 local MAX_SPLASH_DURATION = 3
 
 local lastSplashEndTime = {} -- player -> tick()

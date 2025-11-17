@@ -15,7 +15,7 @@ local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("Combat
 local GoldExperimentModule =
 	require(serverScriptService.BasicCombat.StandModules.GoldExperiment:WaitForChild("GoldExperiment"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 10
 
 -- Track usage state per player
 local lastEagleStrikeUseTime = {} -- player -> tick()
@@ -70,7 +70,7 @@ EagleStrikeEvent.OnServerInvoke = function(player)
 		-- === First use ===
 		eagleStrikeStage[player] = "first"
 		lastEagleStrikeUseTime[player] = tick()
-		startCooldown(player, 2, COOLDOWN_TIME)
+		startCooldown(player, 3, COOLDOWN_TIME)
 	elseif stageType == "redirect" then
 		-- === Redirect ===
 		eagleStrikeStage[player] = "cooldown"

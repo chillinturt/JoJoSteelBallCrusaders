@@ -14,7 +14,7 @@ local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitF
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local KingCarmineModule = require(serverScriptService.BasicCombat.StandModules.KingCarmine:WaitForChild("KingCarmine"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 12
 
 local lastSplatterUseTime = {} -- player -> tick() timestamp
 

@@ -22,6 +22,17 @@ local TORRENTIALDOWNPOUR_ENDLAG = 0.5
 local TORRENTIALDOWNPOUR_INTERVAL = 0.75
 local TORRENTIALDOWNPOUR_COST = 3
 
+local HEAVYRAINDROP_DAMAGE = 25
+local HEAVYRAINDROP_DURATION = 25
+local HEAVYRAINDROP_SIZE = Vector3.new(10, 10, 10)
+local HEAVYRAINDROP_SPEED = 100
+local HEAVYRAINDROP_STUN = 1.4
+
+local RAINBARRIER_CONSTANT = 3 --damage taken / RAINBARRIER_CONSTANT amount of barrier
+local RAINBARRIER_DECAY_RATE = 0.1
+local RAINBARRIER_DECAY_DELAY = 12
+local RAINBARRIER_MAX = 50
+
 local ERASE_ANIM_ID = 90498591949232
 
 -- State tracking
@@ -141,10 +152,22 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 				Offset = CFrame.new(TORRENTIALDOWNPOUR_OFFSET),
 				Color = BrickColor.new("Bright red"),
 				Duration = 0.75,
-				Transparency = 0.3,
+				Transparency = 0.7,
 				Name = "TorrentialDownpourHitbox",
 				Shape = Enum.PartType.Cylinder,
 				Rotation = CFrame.Angles(0, 0, math.rad(90)),
+
+				OnHit = function(target, trueDamage)
+					print("💥 Nuclear Rain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
+					CombatUtils.AddBarrier(
+						character,
+						trueDamage / RAINBARRIER_CONSTANT,
+						RAINBARRIER_DECAY_RATE,
+						RAINBARRIER_DECAY_DELAY,
+						"RainBarrier",
+						RAINBARRIER_MAX
+					)
+				end,
 			})
 
 			-- Drain the rain meter
@@ -198,10 +221,10 @@ function NuclearRain.HeavyRaindrop(character)
 	-- Create the projectile
 	HitboxSpawner.spawnArcProjectile({
 		Character = character,
-		Size = Vector3.new(5, 5, 5),
-		Damage = 25,
-		Duration = 5,
-		Speed = 100,
+		Size = HEAVYRAINDROP_SIZE,
+		Damage = HEAVYRAINDROP_DAMAGE,
+		Duration = HEAVYRAINDROP_DURATION,
+		Speed = HEAVYRAINDROP_SPEED,
 		Direction = direction,
 		Origin = spawnPos,
 		Color = BrickColor.new("Bright yellow"),
@@ -209,6 +232,19 @@ function NuclearRain.HeavyRaindrop(character)
 		CanBlock = false,
 		Shape = Enum.PartType.Ball,
 		Rotation = CFrame.Angles(0, 0, 0),
+		StunDuration = HEAVYRAINDROP_STUN,
+
+		OnHit = function(target, trueDamage)
+			print("💥 Nuclear Rain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
+			CombatUtils.AddBarrier(
+				character,
+				trueDamage / RAINBARRIER_CONSTANT,
+				RAINBARRIER_DECAY_RATE,
+				RAINBARRIER_DECAY_DELAY,
+				"RainBarrier",
+				RAINBARRIER_MAX
+			)
+		end,
 	})
 
 	-- Optional: add sound or visual effect at the spawn position

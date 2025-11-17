@@ -11,8 +11,9 @@ local function loadAllUI()
 	local playerGui = player:WaitForChild("PlayerGui")
 	local specialty = powersFolder:FindFirstChild("Specialty") and powersFolder.Specialty.Value or nil
 	local race = powersFolder:WaitForChild("Race") and powersFolder.Race.Value or nil
+	local hero = powersFolder:WaitForChild("Hero") and powersFolder.Hero.Value or nil
 
-	UIManager.LoadUI(playerGui, specialty or "", race)
+	UIManager.LoadUI(playerGui, specialty or "", race, hero)
 end
 
 -- Load UI once when game starts
@@ -34,6 +35,12 @@ end
 
 if powersFolder:FindFirstChild("Race") then
 	powersFolder.Race.Changed:Connect(function()
+		loadAllUI()
+	end)
+end
+
+if powersFolder:FindFirstChild("Hero") then
+	powersFolder.Hero.Changed:Connect(function()
 		loadAllUI()
 	end)
 end

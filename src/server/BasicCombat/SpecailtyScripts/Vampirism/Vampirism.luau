@@ -12,38 +12,40 @@ local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("B
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
 local DIVINE_DRINK_ANIM_ID = 136847469830162
-local DIVINE_DRINK_ENDLAG = 1
-local DIVINE_DRINK_DAMAGE = 25
+local DIVINE_DRINK_ENDLAG = 0.7
+local DIVINE_DRINK_DAMAGE = 18
 local DIVINE_DRINK_SIZE = Vector3.new(7, 16, 10)
 local DIVINE_DRINK_OFFSET = Vector3.new(0, 4, -2)
-local DIVINE_DRINK_BLOOD = 30
-local DIVINE_DRINK_STUN = 1
+local DIVINE_DRINK_BLOOD = 20
+local DIVINE_DRINK_STUN = 1.4
 local DIVINE_DRINK_DURATION = 1
 
 local VAPORIZATION_FREEZE_ANIM_ID = 136847469830162
 local VAPORIZATION_FREEZE_ENDLAG = 1
-local VAPORIZATION_FREEZE_DAMAGE = 25
+local VAPORIZATION_FREEZE_DAMAGE = 15
 local VAPORIZATION_FREEZE_SIZE = Vector3.new(9, 10, 10)
 local VAPORIZATION_FREEZE_OFFSET = Vector3.new(0, 4, -2)
 local VAPORIZATION_FREEZE_BLOOD = 1
-local VAPORIZATION_FREEZE_STUN = 1.5
+local VAPORIZATION_FREEZE_STUN = 1.8
 local VAPORIZATION_FREEZE_DURATION = 1
 
-local SPACE_RIPPER_STINGY_EYES_ENDLAG = 1
-local SPACE_RIPPER_STINGY_EYES_DAMAGE = 0.7
+local SPACE_RIPPER_STINGY_EYES_ENDLAG = 0.1
+local SPACE_RIPPER_STINGY_EYES_DAMAGE = 2.0
 local SPACE_RIPPER_STINGY_EYES_SIZE = Vector3.new(6, 6, 6)
-local SPACE_RIPPER_STINGY_EYES_OFFSET = Vector3.new(0, 4, -2)
+local SPACE_RIPPER_STINGY_EYES_OFFSET = Vector3.new(0, 4, 2)
 local SPACE_RIPPER_STINGY_EYES_COST = 10
 local SPACE_RIPPER_STINGY_EYES_STUN = 0
-local SPACE_RIPPER_STINGY_EYES_SHOT_COUNT = 50
-local SPACE_RIPPER_STINGY_EYES_DELAY = 0.05 -- seconds between each shot
-local SPACE_RIPPER_STINGY_EYES_STARTUP = 0.7
+local SPACE_RIPPER_STINGY_EYES_SHOT_COUNT = 10
+local SPACE_RIPPER_STINGY_EYES_DELAY = 0.04 -- seconds between each shot
+local SPACE_RIPPER_STINGY_EYES_STARTUP = 0.6
 
 local BLOOD_RUSH_ENDLAG = 1
 local BLOOD_RUSH_COST = 20
 local BLOOD_RUSH_ANIMID = 136847469830162
 local BLOOD_RUSH_HEAL = 30
 local BLOOD_RUSH_METER = 1
+local BLOOD_RUSH_BARRIER_DECAY = 1
+local BLOOD_RUSH_BARRIER_DELAY = 8
 
 function VampirismModule.DivineDrink(character)
 	AnimationModule.PlayAnimation(character, DIVINE_DRINK_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
@@ -59,13 +61,13 @@ function VampirismModule.DivineDrink(character)
 		Color = BrickColor.new("Bright red"),
 		Duration = DIVINE_DRINK_DURATION,
 		StunDuration = DIVINE_DRINK_STUN,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "DivineDrinkHitbox",
 		CanBlock = false, -- ✅ Unblockable
 		OnHit = function(targetChar, humanoid)
 			print(character.Name .. " drained " .. targetChar.Name .. " successfully!")
 			VampireModule.addBlood(character, DIVINE_DRINK_BLOOD)
-			BlockModule.StopBlocking(targetChar)
+			--BlockModule.StopBlocking(targetChar)
 		end,
 	})
 
@@ -104,13 +106,11 @@ function VampirismModule.VaporizationFreeze(character)
 		Color = BrickColor.new("Bright red"),
 		Duration = VAPORIZATION_FREEZE_DURATION,
 		StunDuration = VAPORIZATION_FREEZE_STUN,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "VaporizationFreezeHitbox",
-		CanBlock = false, -- ✅ Unblockable
 		OnHit = function(targetChar, humanoid)
 			print(character.Name .. " drained " .. targetChar.Name .. " successfully!")
 			VampireModule.addBlood(character, VAPORIZATION_FREEZE_BLOOD)
-			BlockModule.StopBlocking(targetChar)
 		end,
 	})
 
@@ -230,7 +230,7 @@ function VampirismModule.BloodRush(character)
 	local surplus = (currentHealth + healAmount) - maxHealth
 	if surplus > 0 then
 		-- Grant the overheal as a temporary barrier
-		CombatUtils.AddBarrier(character, surplus)
+		CombatUtils.AddBarrier(character, surplus, BLOOD_RUSH_BARRIER_DECAY, BLOOD_RUSH_BARRIER_DELAY)
 	end
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")

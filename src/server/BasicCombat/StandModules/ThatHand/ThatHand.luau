@@ -8,14 +8,17 @@ local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChil
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 
-local ERASE_DAMAGE = 35
+local ERASE_DAMAGE = 50
 local ERASE_ENDLAG = 1
+local ERASE_STUN = 1.7
 local ERASE_SIZE = Vector3.new(5, 8, 9)
 local ERASE_OFFSET = Vector3.new(2, 0, -8)
 
 local ERASE_ANIM_ID = 90498591949232
 
 local VOID_SHIELDING_AMOUNT = 40
+local VOID_SHIELDING_DECAY_RATE = 1
+local VOID_SHIELDING_DECAY_DELAY = 1
 
 local TEAR_SPACE_SPEED = 60
 local TEAR_SPACE_DURATION = 2.5
@@ -24,7 +27,7 @@ local splashingFlags = {}
 local LAST_STAND_DURATION = 5
 local LAST_STAND_INTERVAL = 0.6
 local LAST_STAND_HITBOX_SIZE = Vector3.new(18, 14, 20)
-local LAST_STAND_DAMAGE = 12
+local LAST_STAND_DAMAGE = 8
 local LAST_STAND_HITBOX_DURATION = 1
 local LAST_STAND_OFFSET = CFrame.new(2, 0, -12)
 
@@ -51,14 +54,14 @@ function ThatHand.Erase(standModel)
 		Offset = CFrame.new(ERASE_OFFSET),
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.75,
-		StunDuration = 0.3,
-		Transparency = 0.3,
+		StunDuration = ERASE_STUN,
+		Transparency = 1,
 		Name = "EraseHitbox",
 	})
 end
 
 function ThatHand.VoidShielding(character)
-	CombatUtils.AddBarrier(character, VOID_SHIELDING_AMOUNT)
+	CombatUtils.AddBarrier(character, VOID_SHIELDING_AMOUNT, VOID_SHIELDING_DECAY_RATE, VOID_SHIELDING_DECAY_DELAY)
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
@@ -116,7 +119,7 @@ function ThatHand.LastStand(standModel)
 	-- Set barrage flag
 	splashingFlags[standModel.Parent] = true
 
-	CombatUtils.SetActionInProgress(character, LAST_STAND_DURATION)
+	--CombatUtils.SetActionInProgress(character, LAST_STAND_DURATION)
 
 	-- Auto-stop barrage after max duration
 	task.delay(LAST_STAND_DURATION, function()
@@ -145,6 +148,7 @@ function ThatHand.LastStand(standModel)
 		SlowMultiplier = 0.4,
 		Offset = LAST_STAND_OFFSET,
 		Caster = character,
+		Shape = Enum.PartType.Block
 	})
 
 	-- Start spawning hitboxes

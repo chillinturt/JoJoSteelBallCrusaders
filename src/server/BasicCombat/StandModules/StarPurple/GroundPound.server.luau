@@ -14,7 +14,7 @@ local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitF
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local StarPurpleModule = require(serverScriptService.BasicCombat.StandModules.StarPurple:WaitForChild("StarPurple"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 12
 
 local lastGroundPoundUseTime = {} -- player -> tick() timestamp
 
@@ -52,7 +52,7 @@ GroundPoundEvent.OnServerInvoke = function(player)
 
 	lastGroundPoundUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 2, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 3, COOLDOWN_TIME) -- CD1, 8 seconds
 
 	local success = StarPurpleModule.GroundPound(standModel)
 	return success

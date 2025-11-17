@@ -18,7 +18,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local StarPurpleModule =
 	require(game.ServerScriptService.BasicCombat.StandModules.StarPurple:WaitForChild("StarPurple"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 10
 local lastMachOraUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
@@ -38,6 +38,10 @@ machOraEvent.OnServerInvoke = function(player)
 		return false
 	end
 
+	if CombatUtils.GetStun(character) then
+		return
+	end
+
 	local actionFlag = CombatUtils.GetActionInProgress(character)
 	if actionFlag.Value then
 		return
@@ -52,7 +56,7 @@ machOraEvent.OnServerInvoke = function(player)
 
 	lastMachOraUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 3, COOLDOWN_TIME) -- CD3, 8 seconds
+	startCooldown(player, 2, COOLDOWN_TIME) -- CD3, 8 seconds
 
 	StarPurpleModule.onMachOraRequested(character)
 end

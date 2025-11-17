@@ -13,7 +13,7 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local VampirismModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Vampirism:WaitForChild("Vampirism"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 10
 
 local lastDivineDrinkUseTime = {} -- player -> tick() timestamp
 
@@ -52,7 +52,7 @@ DivineDrinkEvent.OnServerInvoke = function(player)
 
 	lastDivineDrinkUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 2, COOLDOWN_TIME) -- CD1, 8 seconds
 
 	local success = VampirismModule.DivineDrink(character)
 	return success

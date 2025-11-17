@@ -105,17 +105,25 @@ RunService.Heartbeat:Connect(function(dt)
 								-- damage & stun
 								local newDamage = p.damageFunc and p.damageFunc(targetChar) or p.damage
 								local isBlocking = p.getIsBlocking(targetChar).Value
-
-								if isBlocking and p.canBlock then
-									-- Blocked hit
-									p.playSound(targetChar, newDamage)
+								
+								if isBlocking then
+									if p.CanBlock then
+										-- Successful block — do NOT stop blocking
+										p.playSound(targetChar, newDamage)
+									else
+										-- Tried to block an UNBLOCKABLE projectile → force block cancel
+										BlockModule.StopBlocking(targetChar)
+										humanoid:TakeDamage(newDamage)
+										p.playSound(targetChar, newDamage)
+										p.applyStun(targetChar, p.stunDuration)
+									end
 								else
-									-- Successful hit
+									-- Not blocking — normal hit
 									humanoid:TakeDamage(newDamage)
 									p.playSound(targetChar, newDamage)
 									p.applyStun(targetChar, p.stunDuration)
-									BlockModule.StopBlocking(targetChar)
 								end
+
 							end
 						end
 					end

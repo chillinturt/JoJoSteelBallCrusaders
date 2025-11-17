@@ -2,6 +2,9 @@
 local BlockModule = {}
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
+
 local CanBlockFunction = Instance.new("RemoteFunction")
 CanBlockFunction.Name = "CanBlockFunction"
 CanBlockFunction.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
@@ -9,9 +12,11 @@ CanBlockFunction.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 --// Constants
 local BLOCK_ANIMATION_ID = "82125777884940" -- character loop
 local STAND_BLOCK_ANIMATION = "133892948612008" -- Stand loop
-local BLOCK_SLOW = 1.5 -- Movement slowdown
+
+local BLOCK_SLOW = 0.5
 
 --// Services / Modules
+local SlowingFieldRegistry = require(ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
@@ -76,7 +81,10 @@ function BlockModule.StartBlocking(character)
 
 	-- Apply slow
 	if hum and moveSpeed then
-		hum.WalkSpeed = moveSpeed.Value / BLOCK_SLOW
+		SlowingFieldRegistry.SetSlow(character, "Block", BLOCK_SLOW)
+		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		local mult = CombatUtils.GetSlowMultiplier(character)
+		hum.WalkSpeed = baseSpeed * mult
 	end
 
 	-- Set flags
@@ -86,16 +94,33 @@ function BlockModule.StartBlocking(character)
 	-- Stop previous animation
 	stopBlockingAnimation(character)
 
+	local player = Players:GetPlayerFromCharacter(character)
+	local nonBlockStand = false
+	if player then
+		local powersFolder = player:FindFirstChild("Powers")
+		local heroValue = powersFolder:FindFirstChild("Hero")
+		if heroValue then
+			if
+				heroValue.Value == "Tusk Act 1"
+				or heroValue.Value == "Tusk Act 2"
+				or heroValue.Value == "Tusk Act 3"
+				or heroValue.Value == "Nuclear Rain"
+			then
+				nonBlockStand = true
+			end
+		end
+	end
+
 	-- Choose correct animation
 	local track
-	if standModel then
+	if standModel and not nonBlockStand then
 		if PilotModule.GetBoolPilotMode(character) then
 			track = AnimationModule.PlayAnimation(entity, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
 		else
 			track = AnimationModule.PlayAnimation(entity, STAND_BLOCK_ANIMATION, false, Enum.AnimationPriority.Action)
 		end
 	else
-		track = AnimationModule.PlayAnimation(entity, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
+		track = AnimationModule.PlayAnimation(character, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
 	end
 
 	if track then
@@ -126,7 +151,10 @@ function BlockModule.StopBlocking(character)
 
 	-- Restore movement
 	if hum and moveSpeed then
-		hum.WalkSpeed = moveSpeed.Value
+		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		SlowingFieldRegistry.ClearSlow(character, "Block")
+		local mult = CombatUtils.GetSlowMultiplier(character)
+		hum.WalkSpeed = baseSpeed * mult
 	end
 
 	stopBlockingAnimation(character)
@@ -143,8 +171,12 @@ function BlockModule.BlockOn(character)
 
 	local hum = character:FindFirstChild("Humanoid")
 	local moveSpeed = character:FindFirstChild("MoveSpeed")
+	-- Apply slow
 	if hum and moveSpeed then
-		hum.WalkSpeed = moveSpeed.Value / BLOCK_SLOW
+		SlowingFieldRegistry.SetSlow(character, "Block", BLOCK_SLOW)
+		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		local mult = CombatUtils.GetSlowMultiplier(character)
+		hum.WalkSpeed = baseSpeed * mult
 	end
 end
 
@@ -154,9 +186,14 @@ function BlockModule.BlockOff(character)
 
 	local hum = character:FindFirstChild("Humanoid")
 	local moveSpeed = character:FindFirstChild("MoveSpeed")
+	-- Restore movement
 	if hum and moveSpeed then
-		hum.WalkSpeed = moveSpeed.Value
+		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		SlowingFieldRegistry.ClearSlow(character, "Block")
+		local mult = CombatUtils.GetSlowMultiplier(character)
+		hum.WalkSpeed = baseSpeed * mult
 	end
+
 end
 
 --=============================================================

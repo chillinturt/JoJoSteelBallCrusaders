@@ -1,9 +1,9 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local VoidShieldingEvent = Instance.new("RemoteFunction")
-VoidShieldingEvent.Name = "VoidShielding"
-VoidShieldingEvent.Parent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("ThatHand")
+local PuppetMasterEvent = Instance.new("RemoteFunction")
+PuppetMasterEvent.Name = "PuppetMaster"
+PuppetMasterEvent.Parent = ReplicatedStorage.Shared.BasicCombat.HierophantGrand
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -12,18 +12,19 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 
 local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
-local ThatHandModule = require(serverScriptService.BasicCombat.StandModules.ThatHand:WaitForChild("ThatHand"))
+local HierophantGrandModule =
+	require(serverScriptService.BasicCombat.StandModules.HierophantGrand:WaitForChild("HierophantGrand"))
 
-local COOLDOWN_TIME = 16
+local COOLDOWN_TIME = 10
 
-local lastVoidShieldingUseTime = {} -- player -> tick() timestamp
+local lastBarrierUseTime = {} -- player -> tick() timestamp
 
 -- Example cooldown trigger
 local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
-VoidShieldingEvent.OnServerInvoke = function(player)
+PuppetMasterEvent.OnServerInvoke = function(player)
 	local character = player.Character
 	if not character then
 		return false
@@ -33,9 +34,8 @@ VoidShieldingEvent.OnServerInvoke = function(player)
 	if not standModel then
 		return false
 	end
-
 	local standName = standModel:FindFirstChild("StandTag").Value
-	if standName ~= "That Hand" then
+	if standName ~= "Hierophant Grand" then
 		return
 	end
 
@@ -49,16 +49,16 @@ VoidShieldingEvent.OnServerInvoke = function(player)
 	end
 
 	-- Cooldown check
-	local lastVoidShielding = lastVoidShieldingUseTime[player]
-	if lastVoidShielding and tick() - lastVoidShielding < COOLDOWN_TIME then
-		print("VoidShielding on cooldown!")
+	local lastBarrier = lastBarrierUseTime[player]
+	if lastBarrier and tick() - lastBarrier < COOLDOWN_TIME then
+		print("Barrier on cooldown")
 		return false
 	end
 
-	lastVoidShieldingUseTime[player] = tick() -- start cooldown timer
+	lastBarrierUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 2, COOLDOWN_TIME) -- CD3, 8 seconds
+	startCooldown(player, 1, COOLDOWN_TIME) -- CD3, 8 seconds
 
-	local success = ThatHandModule.VoidShielding(character)
+	local success = HierophantGrandModule.PuppetMaster(standModel)
 	return success
 end

@@ -8,13 +8,20 @@ local isBarrageActive = false
 -- Start Barrage
 local function startBarrage()
 	if not isBarrageActive then
-		local success = barrageRemote:InvokeServer(true) -- Ask server: can we barrage?
-		if success then
+		local ok, result = pcall(function()
+			return barrageRemote:InvokeServer(true)
+		end)
+
+		if not ok then
+			warn("Error while trying to start barrage:", result) -- <-- this will print the actual server error
+			return
+		end
+
+		if result then
 			isBarrageActive = true
 			print("isBarrageActive set to true")
 		else
-			print("Barrage not available right now. ")
-			print(isBarrageActive)
+			print("Barrage not available right now.")
 		end
 	else
 		print("Barrage is active or on cooldown.")

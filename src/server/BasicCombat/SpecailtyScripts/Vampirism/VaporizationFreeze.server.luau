@@ -52,7 +52,7 @@ VaporizationFreezeEvent.OnServerInvoke = function(player)
 
 	lastVaporizationFreezeUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 2, COOLDOWN_TIME) -- CD1, 8 seconds
+	startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
 
 	local success = VampirismModule.VaporizationFreeze(character)
 	return success

@@ -15,7 +15,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local GoldExperimentModule =
 	require(serverScriptService.BasicCombat.StandModules.GoldExperiment:WaitForChild("GoldExperiment"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 10
 
 local lastTreeOfLifeUseTime = {} -- player -> tick() timestamp
 
@@ -58,7 +58,7 @@ TreeOfLifeEvent.OnServerInvoke = function(player)
 
 	lastTreeOfLifeUseTime[player] = tick() -- start cooldown timer
 
-	startCooldown(player, 3, COOLDOWN_TIME)
+	startCooldown(player, 2, COOLDOWN_TIME)
 
 	local success = GoldExperimentModule.TreeOfLife(character)
 	return success

@@ -13,8 +13,11 @@ local ProjectileManager = require(
 	game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("ProjectileManager")
 )
 local ArcProjectileManager = require(game.ServerScriptService.BasicCombat.Managers:WaitForChild("ArcProjectileManager"))
+local GuidedProjectileManager =
+	require(game.ServerScriptService.BasicCombat.Managers:WaitForChild("GuidedProjectileManager"))
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
+local SlowingFieldRegistry = require(game.ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
 
 local Debris = game:GetService("Debris")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -74,7 +77,7 @@ function HitboxSpawner.spawnHitbox(params)
 	local color = params.Color or BrickColor.new("Bright yellow")
 	local duration = params.Duration or 0.3
 	local stunDuration = params.StunDuration
-	local transparency = params.Transparency or 0.5
+	local transparency = params.Transparency or 1
 	local name = params.Name or "PunchHitbox"
 	local damagePerTick = params.DamagePerTick
 	local DOTTickInterval = params.DOTTickInterval
@@ -95,12 +98,19 @@ function HitboxSpawner.spawnHitbox(params)
 	end
 
 	local standRoot = standModel.PrimaryPart
+	local standRootCFrame
+	
+	if standRoot then
+		standRootCFrame = standRoot.CFrame
+	else
+		standRootCFrame = standModel:GetPivot()
+	end
 
 	-- Create the hitbox
 	local hitbox = Instance.new("Part")
 	hitbox.Name = name
 	hitbox.Size = size
-	hitbox.CFrame = standRoot.CFrame * offset * rotation
+	hitbox.CFrame = standRootCFrame * offset * rotation
 	hitbox.Anchored = false
 	hitbox.CanCollide = false
 	hitbox.Massless = true
@@ -111,10 +121,13 @@ function HitboxSpawner.spawnHitbox(params)
 	hitbox.Shape = shape
 	RaycastIgnoreModule.AddToIgnore(hitbox)
 
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = standRoot
-	weld.Part1 = hitbox
-	weld.Parent = hitbox
+	-- Only weld if PrimaryPart exists
+	if standRoot then
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = standRoot
+		weld.Part1 = hitbox
+		weld.Parent = hitbox
+	end
 
 	-- Overlap setup
 	local paramsFilter = OverlapParams.new()
@@ -171,6 +184,9 @@ function HitboxSpawner.spawnHitbox(params)
 						hitPlayers[targetChar.Name] = true
 						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
+						if params.OnHit then
+							params.OnHit(targetChar, newDamage)
+						end
 
 						--apply damage over time here
 						if damagePerTick then
@@ -231,7 +247,7 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	local color = params.Color or BrickColor.new("Bright yellow")
 	local duration = params.Duration or 0.3
 	local stunDuration = params.StunDuration
-	local transparency = params.Transparency or 0.5
+	local transparency = params.Transparency or 1
 	local name = params.Name or "PunchHitbox"
 	local heal = params.Heal
 	local onHit = params.OnHit
@@ -321,7 +337,11 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 						VampireModule.addBlood(character, newDamage / VAMP_BLOOD_GAIN_RATE)
 
 						-- Play correct sound and apply stun
-						if not CombatUtils.GetIsBlocking(targetChar).Value or not canBlock then
+						local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+						if not isBlocking or not canBlock then
+							if isBlocking then
+								BlockModule.StopBlocking(targetChar)
+							end
 							CombatUtils.applyStun(targetChar, stunDuration)
 							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
 
@@ -498,7 +518,10 @@ function HitboxSpawner.spawnProjectile(params)
 	local transparency = params.Transparency or 0
 	local name = params.Name or "Hitbox"
 	local speed = params.Speed or 50
-	local canBlock = params.CanBlock -- defaults to true unless explicitly false
+	local canBlock = params.CanBlock
+	if canBlock == nil then
+		canBlock = true
+	end -- defaults to true unless explicitly false
 	local origin = params.Origin
 	local direction = params.Direction
 
@@ -676,6 +699,126 @@ function HitboxSpawner.spawnArcProjectile(params)
 		DetectSurface = detectSurface,
 		OnSurfaceHit = params.OnSurfaceHit,
 		CanBlock = canBlock,
+		onHit = params.OnHit,
+
+		-- wrapped dependencies
+		damageFunc = function(target)
+			return CombatUtils.ReturnDamage(target, damage, canBlock, character)
+		end,
+
+		getIsBlocking = function(target)
+			return CombatUtils.GetIsBlocking(target)
+		end,
+
+		applyStun = function(target, duration)
+			if target and target.Parent then
+				CombatUtils.applyStun(target, duration)
+				AnimationModule.PlayAnimation(target, STUN_ANIMATION_ID)
+			end
+		end,
+
+		playSound = function(targetChar, dmg)
+			if not targetChar or not targetChar.Parent then
+				return
+			end
+			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+			if isBlocking and canBlock then
+				SoundUtils.PlaySound({
+					Root = targetChar,
+					soundName = "BlockHitSound",
+					soundID = BLOCK_SOUND_ID,
+					volume = 1,
+					playbackSpeed = 1,
+					looped = false,
+					range = 160,
+				})
+			else
+				local volume, pitch = MapDamageToSound(dmg)
+				SoundUtils.PlaySound({
+					Root = targetChar,
+					soundName = "HitSound",
+					soundID = HIT_SOUND_ID,
+					volume = volume,
+					playbackSpeed = 1,
+					looped = false,
+					range = 160,
+					pitch = pitch,
+				})
+			end
+		end,
+	})
+
+	return hitbox
+end
+
+function HitboxSpawner.spawnGuidedProjectile(params)
+	assert(params.Size, "Size (Vector3) is required")
+	assert(params.Duration, "Duration (number) is required")
+
+	local stand = params.Stand
+	local character = params.Character
+	local damage = params.Damage or 0
+	local stunDuration = params.StunDuration or 0
+	local size = params.Size
+	local offset = params.Offset or Vector3.new()
+	local color = params.Color or BrickColor.new("Bright blue")
+	local duration = params.Duration
+	local transparency = params.Transparency or 0
+	local name = params.Name or "GuidedProjectile"
+	local speed = params.Speed or 100
+	local canBlock = params.CanBlock ~= false
+	local detectSurface = params.DetectSurface or false
+	local shape = params.Shape or Enum.PartType.Ball
+	local rotation = params.Rotation or CFrame.Angles(0, 0, 0)
+	local maxDistance = params.MaxDistance or 200
+
+	-- === Create projectile part ===
+	local hitbox = Instance.new("Part")
+	hitbox.Name = name
+	hitbox.Size = size
+	hitbox.Anchored = true
+	hitbox.CanCollide = false
+	hitbox.CanQuery = false
+	hitbox.CanTouch = false
+	hitbox.Transparency = transparency
+	hitbox.BrickColor = color
+	hitbox.Shape = shape
+	RaycastIgnoreModule.AddToIgnore(hitbox)
+
+	hitbox.Parent = workspace:FindFirstChild("GuidedProjectiles") or workspace
+
+	-- === Initial CFrame placement ===
+	if stand then
+		hitbox.CFrame = stand.PrimaryPart:GetPivot() * CFrame.new(offset) * rotation
+	else
+		hitbox.CFrame = character:FindFirstChild("HumanoidRootPart"):GetPivot() * CFrame.new(offset) * rotation
+	end
+
+	-- === Overlap params ===
+	local paramsFilter = OverlapParams.new()
+	paramsFilter.FilterType = Enum.RaycastFilterType.Exclude
+	paramsFilter.FilterDescendantsInstances = { character, hitbox }
+
+	-- === Track who was hit ===
+	local hitPlayers = {}
+
+	-- === Register in GuidedProjectileManager ===
+	GuidedProjectileManager.Register({
+		hitbox = hitbox,
+		character = character,
+		owner = character,
+		speed = speed,
+		duration = duration,
+		maxDistance = maxDistance,
+		paramsFilter = paramsFilter,
+		hitPlayers = hitPlayers,
+		damage = damage,
+		stunDuration = stunDuration,
+		DetectSurface = detectSurface,
+		OnSurfaceHit = params.OnSurfaceHit,
+		CanBlock = canBlock,
+		onHit = params.OnHit,
+		createdAt = tick(),
 
 		-- wrapped dependencies
 		damageFunc = function(target)
@@ -740,10 +883,16 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	local character = params.Character -- attacker (to exclude from hits)
 	local stand = params.Stand
 	local offset = params.Offset
+	if typeof(offset) == "Vector3" then
+		offset = CFrame.new(offset)
+	elseif typeof(offset) ~= "CFrame" then
+		offset = CFrame.new(0,0,0)
+	end
 	local canBlock = params.CanBlock or true
 	local rotation = params.Rotation
 	local heal = params.Heal
 	local canSelfHit = params.CanSelfHit or false
+	local shape = params.Shape or Enum.PartType.Ball
 
 	print("Stationary hitbox called, can self hit = " .. tostring(canSelfHit))
 
@@ -758,6 +907,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	hitbox.BrickColor = color
 	hitbox.Parent = workspace
 	hitbox.CastShadow = false
+	hitbox.Shape = shape
 	RaycastIgnoreModule.AddToIgnore(hitbox)
 
 	-- === Set rotation and position ===
@@ -782,14 +932,14 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 			else
 				lookVector = Vector3.new(0, 0, -1)
 			end
-			hitbox.CFrame = CFrame.new(baseCF.Position, baseCF.Position + lookVector) * CFrame.new(offset)
+			hitbox.CFrame = CFrame.new(baseCF.Position, baseCF.Position + lookVector) * offset
 		else
-			hitbox.CFrame = baseCF * CFrame.new(offset)
+			hitbox.CFrame = baseCF * offset
 		end
 	elseif stand and stand.PrimaryPart then
-		hitbox.CFrame = stand.PrimaryPart.CFrame * CFrame.new(offset)
+		hitbox.CFrame = stand.PrimaryPart.CFrame * offset
 	else
-		hitbox.CFrame = CFrame.new(offset)
+		hitbox.CFrame = offset
 	end
 
 	-- Overlap setup
@@ -894,9 +1044,9 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	return hitbox
 end
 
--- Spawn a slowing field
 function HitboxSpawner.SpawnSlowingField(params)
 	local standModel = params.StandModel
+	local caster = params.Caster
 	local size = params.Size or Vector3.new(6, 6, 6)
 	local duration = params.Duration or 3
 	local slowFactor = params.SlowFactor or 0.5
@@ -904,11 +1054,12 @@ function HitboxSpawner.SpawnSlowingField(params)
 	local color = params.Color or BrickColor.new("Bright blue")
 	local name = params.Name or "SlowingField"
 	local offset = params.Offset or CFrame.new(2, 0, -8)
-	local caster = params.Caster -- ✅ Player who created the field
+	local shape = params.Shape or Enum.PartType.Ball
 
 	local standRoot = standModel.PrimaryPart
 	local standCF = standRoot.CFrame
 
+	-- Create slowing field part
 	local field = Instance.new("Part")
 	field.Name = name
 	field.Size = size
@@ -917,86 +1068,111 @@ function HitboxSpawner.SpawnSlowingField(params)
 	field.Massless = true
 	field.Transparency = transparency
 	field.BrickColor = color
+	field.Shape = shape
+	field.CastShadow = false
 	field.CFrame = standCF * offset
 	field.Parent = workspace
-	field.CastShadow = false
+
 	RaycastIgnoreModule.AddToIgnore(field)
 
+	-- Weld to stand
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = standRoot
 	weld.Part1 = field
 	weld.Parent = field
 
-	-- 🧹 Helper: restore player speed
-	local function restoreSpeed(targetChar)
-		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value
-		end
+	-- GLOBAL list of field effects
+	activeFields = activeFields or {} -- [character] = { [field] = slowFactor }
+
+	----------------------------------------------------------------
+	-- ⭐ Apply final movement multiplier via SlowingFieldRegistry
+	----------------------------------------------------------------
+	local function updateSpeed(character)
+		local hum = character:FindFirstChildOfClass("Humanoid")
+		if not hum then return end
+
+		local baseSpeedObj = character:FindFirstChild("MoveSpeed")
+		if not baseSpeedObj then return end
+
+		local base = baseSpeedObj.Value
+		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
+
+		hum.WalkSpeed = base * mult
 	end
 
-	-- 🧹 Helper: remove this field’s effects
-	local function cleanupField()
-		for targetChar, fields in pairs(activeFields) do
-			if fields[field] then
-				fields[field] = nil
-				if next(fields) == nil then
-					activeFields[targetChar] = nil
-					restoreSpeed(targetChar)
-				end
+	----------------------------------------------------------------
+	-- Remove this field from a character
+	----------------------------------------------------------------
+	local function removeCharacterField(character)
+		if activeFields[character] and activeFields[character][field] then
+
+			activeFields[character][field] = nil
+			SlowingFieldRegistry.ClearSlow(character, field)
+
+			if next(activeFields[character]) == nil then
+				activeFields[character] = nil
 			end
+
+			updateSpeed(character)
 		end
 	end
 
-	-- 🔁 Main loop
-	local connection
-	connection = RunService.Heartbeat:Connect(function()
+	----------------------------------------------------------------
+	-- Heartbeat loop: detect characters touching the field
+	----------------------------------------------------------------
+	local heartbeatConn
+	heartbeatConn = RunService.Heartbeat:Connect(function()
 		if not field.Parent then
-			connection:Disconnect()
+			heartbeatConn:Disconnect()
 			return
 		end
 
 		local touching = workspace:GetPartsInPart(field)
-		local seenCharacters = {}
+		local seen = {}
 
 		for _, part in ipairs(touching) do
-			local targetChar = part:FindFirstAncestorWhichIsA("Model")
-			local humanoid = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
-			if humanoid then
-				-- ✅ Skip the caster’s character
-				if targetChar and targetChar == caster then
-					continue
-				end
+			local character = part:FindFirstAncestorWhichIsA("Model")
+			local hum = character and character:FindFirstChildOfClass("Humanoid")
 
-				seenCharacters[targetChar] = true
+			if hum and character ~= caster then
+				seen[character] = true
 
-				activeFields[targetChar] = activeFields[targetChar] or {}
+				-- Ensure they have an entry
+				activeFields[character] = activeFields[character] or {}
 
-				if not activeFields[targetChar][field] then
-					activeFields[targetChar][field] = true
+				-- Not already affected by this field?
+				if not activeFields[character][field] then
+					activeFields[character][field] = slowFactor
 
-					-- ✅ Apply slow
-					humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value * slowFactor
+					-- Register slow source in your combat system
+					SlowingFieldRegistry.SetSlow(character, field, slowFactor)
+
+					updateSpeed(character)
 				end
 			end
 		end
 
-		-- 🧩 Handle those who left
+		-- Characters no longer touching the field
 		for character, fields in pairs(activeFields) do
-			if fields[field] and not seenCharacters[character] then
-				fields[field] = nil
-				if next(fields) == nil then
-					activeFields[character] = nil
-					restoreSpeed(character)
-				end
+			if fields[field] and not seen[character] then
+				removeCharacterField(character)
 			end
 		end
 	end)
 
-	-- ⏰ End of life
+	----------------------------------------------------------------
+	-- When duration expires
+	----------------------------------------------------------------
 	task.delay(duration, function()
-		connection:Disconnect()
-		cleanupField()
+		if heartbeatConn then heartbeatConn:Disconnect() end
+
+		-- Remove field effect from everyone
+		for character, fields in pairs(activeFields) do
+			if fields[field] then
+				removeCharacterField(character)
+			end
+		end
+
 		field:Destroy()
 	end)
 
@@ -1004,54 +1180,82 @@ function HitboxSpawner.SpawnSlowingField(params)
 end
 
 function HitboxSpawner.SpawnStationarySlowingField(params)
-	local standModel = params.StandModel
+	local caster = params.Caster
 	local size = params.Size or Vector3.new(6, 6, 6)
 	local duration = params.Duration or 3
 	local slowFactor = params.SlowFactor or 0.5
 	local transparency = params.Transparency or 0.5
 	local color = params.Color or BrickColor.new("Bright blue")
 	local name = params.Name or "SlowingField"
-	local offset = params.Offset or CFrame.new(2, 0, -8)
-	local caster = params.Caster -- ✅ Player who created the field
+	local offset = params.Offset
+if typeof(offset) == "Vector3" then
+    offset = CFrame.new(offset)
+elseif typeof(offset) ~= "CFrame" then
+    offset = CFrame.new(0,0,0)
+end
 
+	local position = params.Position
+	local shape = params.Shape or Enum.PartType.Ball
+
+	local standModel = params.StandModel
 	local standRoot = standModel.PrimaryPart
 	local standCF = standRoot.CFrame
 
+	-- Create the field part
 	local field = Instance.new("Part")
 	field.Name = name
 	field.Size = size
 	field.Anchored = true
 	field.CanCollide = false
 	field.Massless = true
+	field.Shape = shape
 	field.Transparency = transparency
 	field.BrickColor = color
-	field.CFrame = standCF * CFrame.new(offset)
-	field.Parent = workspace
 	field.CastShadow = false
+	field.CFrame = position and (position * offset) or (standCF * offset)
+	field.Parent = workspace
+
 	RaycastIgnoreModule.AddToIgnore(field)
 
-	-- 🧹 Helper: restore player speed
-	local function restoreSpeed(targetChar)
-		local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
-		if humanoid then
-			humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value
-		end
+	-- Track active slowing fields
+	activeFields = activeFields or {} -- [character] = { [fieldInstance] = slowFactor }
+
+	----------------------------------------------------------------
+	-- ⭐ Recalculate final WalkSpeed
+	----------------------------------------------------------------
+	local function updateSpeed(character)
+		local hum = character:FindFirstChildOfClass("Humanoid")
+		if not hum then return end
+
+		local baseSpeedObj = character:FindFirstChild("MoveSpeed")
+		if not baseSpeedObj then return end
+
+		local base = baseSpeedObj.Value
+		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
+
+		hum.WalkSpeed = base * mult
 	end
 
-	-- 🧹 Helper: remove this field’s effects
-	local function cleanupField()
-		for targetChar, fields in pairs(activeFields) do
-			if fields[field] then
-				fields[field] = nil
-				if next(fields) == nil then
-					activeFields[targetChar] = nil
-					restoreSpeed(targetChar)
-				end
+	----------------------------------------------------------------
+	-- ❌ Remove this field from a character
+	----------------------------------------------------------------
+	local function removeField(character)
+		if activeFields[character] and activeFields[character][field] then
+
+			activeFields[character][field] = nil
+			SlowingFieldRegistry.ClearSlow(character, field)
+
+			if next(activeFields[character]) == nil then
+				activeFields[character] = nil
 			end
+
+			updateSpeed(character)
 		end
 	end
 
-	-- 🔁 Main loop
+	----------------------------------------------------------------
+	-- 🔁 Heartbeat loop
+	----------------------------------------------------------------
 	local connection
 	connection = RunService.Heartbeat:Connect(function()
 		if not field.Parent then
@@ -1060,45 +1264,49 @@ function HitboxSpawner.SpawnStationarySlowingField(params)
 		end
 
 		local touching = workspace:GetPartsInPart(field)
-		local seenCharacters = {}
+		local seen = {}
 
 		for _, part in ipairs(touching) do
-			local targetChar = part:FindFirstAncestorWhichIsA("Model")
-			local humanoid = targetChar and targetChar:FindFirstChildOfClass("Humanoid")
-			if humanoid then
-				if targetChar and targetChar == caster then
-					continue
-				end
+			local character = part:FindFirstAncestorWhichIsA("Model")
+			local hum = character and character:FindFirstChildOfClass("Humanoid")
 
-				seenCharacters[targetChar] = true
+			if hum and character ~= caster then
+				seen[character] = true
 
-				activeFields[targetChar] = activeFields[targetChar] or {}
+				activeFields[character] = activeFields[character] or {}
 
-				if not activeFields[targetChar][field] then
-					activeFields[targetChar][field] = true
+				if not activeFields[character][field] then
+					activeFields[character][field] = slowFactor
 
-					-- ✅ Apply slow
-					humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(targetChar).Value * slowFactor
+					-- Register slow in the global registry
+					SlowingFieldRegistry.SetSlow(character, field, slowFactor)
+
+					updateSpeed(character)
 				end
 			end
 		end
 
-		-- 🧩 Handle those who left
+		-- Characters who left the field
 		for character, fields in pairs(activeFields) do
-			if fields[field] and not seenCharacters[character] then
-				fields[field] = nil
-				if next(fields) == nil then
-					activeFields[character] = nil
-					restoreSpeed(character)
-				end
+			if fields[field] and not seen[character] then
+				removeField(character)
 			end
 		end
 	end)
 
-	-- ⏰ End of life
+	----------------------------------------------------------------
+	-- ⏰ Lifetime end
+	----------------------------------------------------------------
 	task.delay(duration, function()
-		connection:Disconnect()
-		cleanupField()
+		if connection then connection:Disconnect() end
+
+		-- Remove slow from all characters affected by this field
+		for character, fields in pairs(activeFields) do
+			if fields[field] then
+				removeField(character)
+			end
+		end
+
 		field:Destroy()
 	end)
 

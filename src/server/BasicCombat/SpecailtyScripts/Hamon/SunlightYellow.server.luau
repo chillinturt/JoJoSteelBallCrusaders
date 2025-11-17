@@ -11,8 +11,9 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("SpecCooldownUpdateEvent")
 
 local HamonModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Hamon:WaitForChild("Hamon"))
+local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 10
 local MAX_SunlightYellow_DURATION = 4 -- seconds before auto-stop (optional)
 local SUNLIGHT_YELLOW_COST = 1
 
@@ -46,6 +47,10 @@ StandSunlightYellowToggle.OnServerInvoke = function(player, isStarting)
 		-- Prevent double start
 		if activeSunlightYellows[player] then
 			return false
+		end
+
+		if CombatUtils.GetStun(character) then
+			return
 		end
 
 		-- Cooldown check
@@ -91,7 +96,7 @@ StandSunlightYellowToggle.OnServerInvoke = function(player, isStarting)
 			autoStopTasks[player] = nil
 		end
 
-		startCooldown(player, 2, COOLDOWN_TIME) -- CD1, 8 seconds
+		startCooldown(player, 1, COOLDOWN_TIME) -- CD1, 8 seconds
 
 		return true
 	end
