@@ -29,7 +29,7 @@ RAYCAST_PARAMS.FilterType = Enum.RaycastFilterType.Exclude
 
 -- Slide configuration
 local SLIDE_SETTINGS = {
-	BaseSpeed = 65,
+	BaseSpeed = 70,
 	MaxMultiplier = 1.75,
 	SpeedChangeRate = {
 		Forward = 1,
@@ -520,12 +520,14 @@ function CombatUtils.Clear(character)
 	end
 end
 
--- Helper: Stop the slide
+--[[ Helper: Stop the slide
 function CombatUtils.StopSlide(player)
 	local character = player.Character
 	if not character then
 		return
 	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
 
 	local state = slidingPlayers[character]
 	if not state then
@@ -545,155 +547,37 @@ function CombatUtils.StopSlide(player)
 	slidingPlayers[character] = nil
 
 	AnimationModule.StopAllAnimations(character)
+
+	humanoid:ChangeState(Enum.HumanoidStateType.Running)
+end
+]]
+
+function CombatUtils.StopSlide(player)
+    local character = player.Character
+    if not character then return end
+
+    local state = slidingPlayers[character]
+    if not state then return end
+
+    if state.Connection then
+        state.Connection:Disconnect()
+    end
+
+    if state.BodyVelocity then
+        state.BodyVelocity:Destroy()
+    end
+
+    slidingPlayers[character] = nil
+
+    -- Return to normal movement
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        humanoid:ChangeState(Enum.HumanoidStateType.Running)
+    end
+
+	AnimationModule.StopAllAnimations(character)
 end
 
--- Start the slide (called by server when player requests)
-function CombatUtils.StartSlide(player)
-	local character = player.Character
-	if not character then
-		return false
-	end
-
-	local root = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not root or not humanoid then
-		return false
-	end
-
-	-- prevent double slides
-	if slidingPlayers[character] then
-		return false
-	end
-
-	if CombatUtils.GetIsDashing(character) then
-		return
-	end
-
-	-- must be grounded
-	local params = RaycastParams.new()
-	params.FilterDescendantsInstances = { character }
-	params.FilterType = Enum.RaycastFilterType.Exclude
-	local groundRay = workspace:Raycast(root.Position, -root.CFrame.UpVector * 5, params)
-	if not groundRay then
-		return false
-	end
-
-	-- ✅ measure slope and current speed
-	local velocity = root.AssemblyLinearVelocity
-	local horizontalSpeed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
-	local slopeNormal = groundRay.Normal
-	local slopeAngle = math.deg(math.acos(slopeNormal:Dot(Vector3.new(0, 1, 0))))
-
-	-- ✅ Minimum slide speed (adjustable)
-	local MIN_SLIDE_SPEED = 28
-	local MAX_SLOPE_TO_ALLOW_SLOW_SLIDE = 20
-
-	-- disallow slide if moving too slow and not downhill
-	if horizontalSpeed < MIN_SLIDE_SPEED and slopeAngle < MAX_SLOPE_TO_ALLOW_SLOW_SLIDE then
-		return false
-	end
-
-	-- animation
-	AnimationModule.PlayAnimation(character, SLIDE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
-
-	-- create movers
-	local bodyVelocity = Instance.new("BodyVelocity")
-	bodyVelocity.MaxForce = Vector3.new(40000, 0, 40000)
-	bodyVelocity.Parent = root
-
-	local gyro = Instance.new("BodyGyro")
-	gyro.MaxTorque = Vector3.new(3e5, 3e5, 3e5)
-	gyro.P = 10000
-	gyro.Parent = root
-
-	-- Determine initial slide direction
-	local horizontalVelocity = Vector3.new(velocity.X, 0, velocity.Z)
-	local moveDir
-	if horizontalVelocity.Magnitude > 1 then
-		moveDir = horizontalVelocity.Unit
-	else
-		moveDir = root.CFrame.LookVector
-	end
-
-	-- Force purely horizontal
-	local localSlideDir = Vector3.new(moveDir.X, 0, moveDir.Z)
-	if localSlideDir.Magnitude > 0 then
-		localSlideDir = localSlideDir.Unit
-	else
-		localSlideDir = root.CFrame.LookVector.Unit
-	end
-
-	local previousY = root.Position.Y
-	local currentMultiplier = 1
-
-	-- slide loop
-	local connection
-	local airTime = 0
-	local AIR_GRACE_PERIOD = 0.5 -- seconds
-
-	connection = RunService.Heartbeat:Connect(function(dt)
-		if not root.Parent then
-			CombatUtils.StopSlide(player)
-			return
-		end
-
-		local currentY = root.Position.Y
-		local deltaY = currentY - previousY
-		previousY = currentY
-
-		local ray = workspace:Raycast(root.Position, -root.CFrame.UpVector * 10, params)
-
-		if ray then
-			airTime = 0 -- reset timer when on ground
-			local right = root.CFrame.RightVector
-			local up = ray.Normal
-			local forward = right:Cross(up)
-			gyro.CFrame = CFrame.fromMatrix(root.Position, right, up, forward)
-		else
-			airTime += dt
-		end
-
-		-- slope-based multiplier adjustment
-		if deltaY < 0.1 and deltaY > -0.1 then
-			currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Forward * dt
-		elseif deltaY > 0 then
-			currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Upward * dt
-		else
-			currentMultiplier += SLIDE_SETTINGS.SpeedChangeRate.Downward * dt
-		end
-		currentMultiplier = math.clamp(currentMultiplier, 0, SLIDE_SETTINGS.MaxMultiplier)
-
-		-- --- DYNAMIC SLIDE DIRECTION ---
-		local moveDir = humanoid.MoveDirection
-		local horizontalMove = Vector3.new(moveDir.X, 0, moveDir.Z)
-		if horizontalMove.Magnitude > 0.1 then
-			-- Blend input direction with current slide velocity
-			local desiredDir = horizontalMove.Unit
-			local currentDir = bodyVelocity.Velocity.Magnitude > 0.1 and bodyVelocity.Velocity.Unit or root.CFrame.LookVector
-			local slideDir = (currentDir * 0.7 + desiredDir * 0.3).Unit
-			bodyVelocity.Velocity = slideDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
-		else
-			-- No input: keep current direction
-			local currentDir = bodyVelocity.Velocity.Magnitude > 0.1 and bodyVelocity.Velocity.Unit or root.CFrame.LookVector
-			bodyVelocity.Velocity = currentDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
-		end
-
-		-- stop if too slow or in air too long
-		if currentMultiplier < 0.1 or airTime >= AIR_GRACE_PERIOD then
-			CombatUtils.StopSlide(player)
-		end
-	end)
-
-
-	slidingPlayers[character] = {
-		Connection = connection,
-		BodyVelocity = bodyVelocity,
-		Gyro = gyro,
-		LocalSlideDir = localSlideDir,
-	}
-
-	return true
-end
 
 -- Cancel slide early (e.g., when jumping mid-slide)
 function CombatUtils.CancelSlide(player, cancelMultiplier)
@@ -754,6 +638,355 @@ function CombatUtils.GetIsDashing(character)
 
 	return false
 end
+
+--[[
+function CombatUtils.StartSlide(player)
+    local character = player.Character
+    if not character then return false end
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not root or not humanoid then return false end
+
+    -- Prevent double slides / conflict with dash
+    if slidingPlayers[character] then return false end
+    if CombatUtils.GetIsDashing(character) then return false end
+
+    -- Ground detection
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = { character }
+    params.FilterType = Enum.RaycastFilterType.Exclude
+
+    local groundRay = workspace:Raycast(root.Position, -root.CFrame.UpVector * 5, params)
+    if not groundRay then return false end
+
+    -- Velocity + slope properties
+    local vel = root.AssemblyLinearVelocity
+    local flatVel = Vector3.new(vel.X, 0, vel.Z)
+    local flatSpeed = flatVel.Magnitude
+
+    local slopeNormal = groundRay.Normal
+    local slopeAngle = math.deg(math.acos(slopeNormal:Dot(Vector3.new(0,1,0))))
+
+    local MIN_SLIDE_SPEED = 28
+    local MAX_SLOPE_TO_ALLOW_SLOW_SLIDE = 20
+
+    if flatSpeed < MIN_SLIDE_SPEED and slopeAngle < MAX_SLOPE_TO_ALLOW_SLOW_SLIDE then
+        return false
+    end
+
+    -- Animation
+    AnimationModule.PlayAnimation(character, SLIDE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
+
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+    ----------------------------------------------------------------------
+    -- 1. Choose initial direction
+    ----------------------------------------------------------------------
+    local initialDir
+    if flatSpeed > 1 then
+        initialDir = flatVel.Unit
+    else
+        local look = root.CFrame.LookVector
+        initialDir = Vector3.new(look.X, 0, look.Z).Unit
+    end
+
+    ----------------------------------------------------------------------
+    -- 2. Project direction onto slope tangent plane
+    ----------------------------------------------------------------------
+    local function ProjectOntoPlane(v, normal)
+        return (v - normal * v:Dot(normal)).Unit
+    end
+
+    local slideDirectionWorld = ProjectOntoPlane(initialDir, slopeNormal)
+
+    ----------------------------------------------------------------------
+    -- 3. Guarantee minimum launch speed
+    ----------------------------------------------------------------------
+    local MIN_LAUNCH = 100
+
+    if flatSpeed < MIN_LAUNCH then
+        local boosted = slideDirectionWorld * MIN_LAUNCH
+        root.AssemblyLinearVelocity = Vector3.new(
+            boosted.X,
+            vel.Y,
+            boosted.Z
+        )
+    end
+
+    ----------------------------------------------------------------------
+    -- Convert slide dir into local space to allow rotation during sliding
+    ----------------------------------------------------------------------
+    local localSlideDir = root.CFrame:VectorToObjectSpace(slideDirectionWorld)
+
+    local prevY = root.Position.Y
+    local currentMultiplier = 1
+    local airTime = 0
+    local AIR_GRACE = 0.5
+
+    -- State required for StopSlide
+    local state = {
+        Connection = nil,
+        UsingVelocityControl = true -- so StopSlide knows no BodyVelocity exists
+    }
+
+    slidingPlayers[character] = state
+
+    state.Connection = RunService.Heartbeat:Connect(function(dt)
+        if not root.Parent then
+            CombatUtils.StopSlide(player)
+            return
+        end
+
+        ------------------------------------------------------------------
+        -- Ground / slope tracking
+        ------------------------------------------------------------------
+        local ray = workspace:Raycast(root.Position, -root.CFrame.UpVector * 10, params)
+
+        local posY = root.Position.Y
+        local deltaY = posY - prevY
+        prevY = posY
+
+        if ray then
+            airTime = 0
+
+            -- recompute slope-orientation for alignment
+            local up = ray.Normal
+            local right = root.CFrame.RightVector
+            local forward = right:Cross(up)
+
+            -- optional: reorient player to slope without forcing facing direction
+            -- (comment out if undesired)
+            -- root.CFrame = CFrame.fromMatrix(root.Position, right, up, forward)
+        else
+            airTime += dt
+        end
+
+        ------------------------------------------------------------------
+        -- Slope-based accel/decel
+        ------------------------------------------------------------------
+        if math.abs(deltaY) < 0.1 then
+            currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Forward * dt
+        elseif deltaY > 0 then
+            currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Upward * dt
+        else
+            currentMultiplier += SLIDE_SETTINGS.SpeedChangeRate.Downward * dt
+        end
+
+        currentMultiplier = math.clamp(currentMultiplier, 0, SLIDE_SETTINGS.MaxMultiplier)
+
+        ------------------------------------------------------------------
+        -- Convert stored local dir back into world space (allows rotation)
+        ------------------------------------------------------------------
+        local worldDir = root.CFrame:VectorToWorldSpace(localSlideDir)
+
+        ------------------------------------------------------------------
+        -- APPLY VELOCITY DIRECTLY INSTEAD OF USING BODYVELOCITY
+        ------------------------------------------------------------------
+		local gravity = workspace.Gravity
+
+		-- Compute horizontal slide velocity
+		local horizontalVel = worldDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
+
+		-- Preserve vertical velocity (so Roblox gravity works)
+		local currentVel = root.AssemblyLinearVelocity
+		root.AssemblyLinearVelocity = Vector3.new(
+			horizontalVel.X,
+			currentVel.Y + gravity * dt, -- preserve default vertical velocity
+			horizontalVel.Z
+		)
+
+        ------------------------------------------------------------------
+        -- Stop conditions
+        ------------------------------------------------------------------
+        if currentMultiplier < 0.1 or airTime > AIR_GRACE then
+            CombatUtils.StopSlide(player)
+        end
+    end)
+
+    return true
+end
+]]
+
+function CombatUtils.StartSlide(player)
+    local character = player.Character
+    if not character then return false end
+
+    local root = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not root or not humanoid then return false end
+
+    -- Prevent double slides / conflict with dash
+    if slidingPlayers[character] then return false end
+    if CombatUtils.GetIsDashing(character) then return false end
+
+    -------------------------------------------------------------------------
+    -- Ground detection
+    -------------------------------------------------------------------------
+    local params = RaycastParams.new()
+    params.FilterDescendantsInstances = { character }
+    params.FilterType = Enum.RaycastFilterType.Exclude
+
+    local groundRay = workspace:Raycast(root.Position, -root.CFrame.UpVector * 5, params)
+    if not groundRay then return false end
+
+    -------------------------------------------------------------------------
+    -- Velocity + slope checks
+    -------------------------------------------------------------------------
+    local vel = root.AssemblyLinearVelocity
+    local flatVel = Vector3.new(vel.X, 0, vel.Z)
+    local flatSpeed = flatVel.Magnitude
+
+    local slopeNormal = groundRay.Normal
+    local slopeAngle = math.deg(math.acos(slopeNormal:Dot(Vector3.new(0,1,0))))
+
+    local MIN_SLIDE_SPEED = 28
+    local MAX_SLOPE_TO_ALLOW_SLOW_SLIDE = 20
+
+    if flatSpeed < MIN_SLIDE_SPEED and slopeAngle < MAX_SLOPE_TO_ALLOW_SLOW_SLIDE then
+        return false
+    end
+
+    -------------------------------------------------------------------------
+    -- Animation
+    -------------------------------------------------------------------------
+    AnimationModule.PlayAnimation(
+        character,
+        SLIDE_ANIM_ID,
+        true,
+        Enum.AnimationPriority.Action,
+        1
+    )
+
+    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
+
+    -------------------------------------------------------------------------
+    -- 1. Determine initial sliding direction
+    -------------------------------------------------------------------------
+    local initialDir
+    if flatSpeed > 1 then
+        initialDir = flatVel.Unit
+    else
+        local look = root.CFrame.LookVector
+        initialDir = Vector3.new(look.X, 0, look.Z).Unit
+    end
+
+    -------------------------------------------------------------------------
+    -- 2. Project direction onto slope plane
+    -------------------------------------------------------------------------
+    local function ProjectOntoPlane(v, normal)
+        return (v - normal * v:Dot(normal)).Unit
+    end
+
+    local slideDirectionWorld = ProjectOntoPlane(initialDir, slopeNormal)
+
+    -------------------------------------------------------------------------
+    -- 3. Guarantee minimum launch speed (horizontal only)
+    -------------------------------------------------------------------------
+    local MIN_LAUNCH = 70
+
+    if flatSpeed < MIN_LAUNCH then
+        local boosted = slideDirectionWorld * MIN_LAUNCH
+        root.AssemblyLinearVelocity = Vector3.new(
+            boosted.X,
+            vel.Y, -- vertical preserved
+            boosted.Z
+        )
+    end
+
+    -------------------------------------------------------------------------
+    -- Allow rotation during slide (convert to local space)
+    -------------------------------------------------------------------------
+    local localSlideDir = root.CFrame:VectorToObjectSpace(slideDirectionWorld)
+
+    local prevY = root.Position.Y
+    local currentMultiplier = 1
+    local airTime = 0
+    local AIR_GRACE = 0.5
+
+    -------------------------------------------------------------------------
+    -- Create horizontal-only BodyVelocity
+    -------------------------------------------------------------------------
+    local bv = Instance.new("BodyVelocity")
+    bv.MaxForce = Vector3.new(1e6, 0, 1e6) -- No Y force -> gravity & jumping work
+    bv.P = 5000
+    bv.Velocity = Vector3.new(0, 0, 0)
+    bv.Parent = root
+
+    -------------------------------------------------------------------------
+    -- Register sliding state
+    -------------------------------------------------------------------------
+    local state = {
+        BodyVelocity = bv,
+        Connection = nil
+    }
+
+    slidingPlayers[character] = state
+
+    -------------------------------------------------------------------------
+    -- Heartbeat loop
+    -------------------------------------------------------------------------
+    state.Connection = RunService.Heartbeat:Connect(function(dt)
+        if not root.Parent then
+            CombatUtils.StopSlide(player)
+            return
+        end
+
+        ---------------------------------------------------------------------
+        -- Ground check
+        ---------------------------------------------------------------------
+        local ray = workspace:Raycast(root.Position, -root.CFrame.UpVector * 10, params)
+
+        local posY = root.Position.Y
+        local deltaY = posY - prevY
+        prevY = posY
+
+        if ray then
+            airTime = 0
+        else
+            airTime += dt
+        end
+
+        ---------------------------------------------------------------------
+        -- Slope acceleration / deceleration
+        ---------------------------------------------------------------------
+        if math.abs(deltaY) < 0.1 then
+            currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Forward * dt
+        elseif deltaY > 0 then
+            currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Upward * dt
+        else
+            currentMultiplier += SLIDE_SETTINGS.SpeedChangeRate.Downward * dt
+        end
+
+        currentMultiplier = math.clamp(currentMultiplier, 0, SLIDE_SETTINGS.MaxMultiplier)
+
+        ---------------------------------------------------------------------
+        -- Convert direction back into world space
+        ---------------------------------------------------------------------
+        local worldDir = root.CFrame:VectorToWorldSpace(localSlideDir)
+
+        ---------------------------------------------------------------------
+        -- APPLY SLIDE USING BODYVELOCITY (HORIZONTAL ONLY)
+        ---------------------------------------------------------------------
+        local horizontalVel = worldDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
+
+        state.BodyVelocity.Velocity = Vector3.new(
+            horizontalVel.X,
+            0, -- no vertical force; gravity handles Y
+            horizontalVel.Z
+        )
+
+        ---------------------------------------------------------------------
+        -- Stop conditions
+        ---------------------------------------------------------------------
+        if currentMultiplier < 0.1 or airTime > AIR_GRACE then
+            CombatUtils.StopSlide(player)
+        end
+    end)
+
+    return true
+end
+
 
 -- === Add a barrier to a character ===
 function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrierId, maxCap)
