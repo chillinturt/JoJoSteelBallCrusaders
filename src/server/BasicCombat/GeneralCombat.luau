@@ -15,7 +15,7 @@ local punchCooldowns = {}
 local HITBOX_SIZE = Vector3.new(6, 8, 9)
 local PILOT_PUNCH_ANIMATIONS = { "136847469830162", "116981576719265", "115059281874785" }
 
-STAND_OFF_PUNCH_DAMAGE = 5
+local STAND_OFF_PUNCH_DAMAGE = 5
 
 function GeneralCombat.StandOffPunch(character)
 	local primaryParty = character:FindFirstChild("HumanoidRootPart")
@@ -73,7 +73,7 @@ function GeneralCombat.StandOffPunch(character)
 
 	hitboxSpawner.spawnStandOffHitbox({
 		Character = character,
-		Damage = 10 or 0.1,
+		Damage = STAND_OFF_PUNCH_DAMAGE,
 		Size = HITBOX_SIZE,
 		Offset = hitboxOffset,
 		Color = BrickColor.new("Bright red"),

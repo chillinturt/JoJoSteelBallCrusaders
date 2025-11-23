@@ -99,7 +99,7 @@ function HitboxSpawner.spawnHitbox(params)
 
 	local standRoot = standModel.PrimaryPart
 	local standRootCFrame
-	
+
 	if standRoot then
 		standRootCFrame = standRoot.CFrame
 	else
@@ -872,7 +872,7 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 end
 
 function HitboxSpawner.spawnStationaryHitbox(params)
-	local position = params.Position or Vector3.new(0, 5, 0)
+	local position = params.Position
 	local size = params.Size or Vector3.new(6, 6, 6)
 	local duration = params.Duration or 0.5
 	local damage = params.Damage
@@ -886,15 +886,14 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	if typeof(offset) == "Vector3" then
 		offset = CFrame.new(offset)
 	elseif typeof(offset) ~= "CFrame" then
-		offset = CFrame.new(0,0,0)
+		offset = CFrame.new(0, 0, 0)
 	end
 	local canBlock = params.CanBlock or true
 	local rotation = params.Rotation
 	local heal = params.Heal
 	local canSelfHit = params.CanSelfHit or false
 	local shape = params.Shape or Enum.PartType.Ball
-
-	print("Stationary hitbox called, can self hit = " .. tostring(canSelfHit))
+	local onHit = print("Stationary hitbox called, can self hit = " .. tostring(canSelfHit))
 
 	-- Create the hitbox
 	local hitbox = Instance.new("Part")
@@ -1007,6 +1006,10 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
 
+						if params.OnHit then
+							params.OnHit(targetChar, newDamage)
+						end
+
 						if not CombatUtils.GetIsBlocking(targetChar).Value then
 							CombatUtils.applyStun(targetChar, stunDuration)
 							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
@@ -1089,10 +1092,14 @@ function HitboxSpawner.SpawnSlowingField(params)
 	----------------------------------------------------------------
 	local function updateSpeed(character)
 		local hum = character:FindFirstChildOfClass("Humanoid")
-		if not hum then return end
+		if not hum then
+			return
+		end
 
 		local baseSpeedObj = character:FindFirstChild("MoveSpeed")
-		if not baseSpeedObj then return end
+		if not baseSpeedObj then
+			return
+		end
 
 		local base = baseSpeedObj.Value
 		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
@@ -1105,7 +1112,6 @@ function HitboxSpawner.SpawnSlowingField(params)
 	----------------------------------------------------------------
 	local function removeCharacterField(character)
 		if activeFields[character] and activeFields[character][field] then
-
 			activeFields[character][field] = nil
 			SlowingFieldRegistry.ClearSlow(character, field)
 
@@ -1164,7 +1170,9 @@ function HitboxSpawner.SpawnSlowingField(params)
 	-- When duration expires
 	----------------------------------------------------------------
 	task.delay(duration, function()
-		if heartbeatConn then heartbeatConn:Disconnect() end
+		if heartbeatConn then
+			heartbeatConn:Disconnect()
+		end
 
 		-- Remove field effect from everyone
 		for character, fields in pairs(activeFields) do
@@ -1188,11 +1196,11 @@ function HitboxSpawner.SpawnStationarySlowingField(params)
 	local color = params.Color or BrickColor.new("Bright blue")
 	local name = params.Name or "SlowingField"
 	local offset = params.Offset
-if typeof(offset) == "Vector3" then
-    offset = CFrame.new(offset)
-elseif typeof(offset) ~= "CFrame" then
-    offset = CFrame.new(0,0,0)
-end
+	if typeof(offset) == "Vector3" then
+		offset = CFrame.new(offset)
+	elseif typeof(offset) ~= "CFrame" then
+		offset = CFrame.new(0, 0, 0)
+	end
 
 	local position = params.Position
 	local shape = params.Shape or Enum.PartType.Ball
@@ -1225,10 +1233,14 @@ end
 	----------------------------------------------------------------
 	local function updateSpeed(character)
 		local hum = character:FindFirstChildOfClass("Humanoid")
-		if not hum then return end
+		if not hum then
+			return
+		end
 
 		local baseSpeedObj = character:FindFirstChild("MoveSpeed")
-		if not baseSpeedObj then return end
+		if not baseSpeedObj then
+			return
+		end
 
 		local base = baseSpeedObj.Value
 		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
@@ -1241,7 +1253,6 @@ end
 	----------------------------------------------------------------
 	local function removeField(character)
 		if activeFields[character] and activeFields[character][field] then
-
 			activeFields[character][field] = nil
 			SlowingFieldRegistry.ClearSlow(character, field)
 
@@ -1298,7 +1309,9 @@ end
 	-- ⏰ Lifetime end
 	----------------------------------------------------------------
 	task.delay(duration, function()
-		if connection then connection:Disconnect() end
+		if connection then
+			connection:Disconnect()
+		end
 
 		-- Remove slow from all characters affected by this field
 		for character, fields in pairs(activeFields) do

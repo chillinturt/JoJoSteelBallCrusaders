@@ -18,23 +18,6 @@ local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("Soun
 local IDLE_ANIM_ID = 89452205434139
 local HURTBOX_SIZE = Vector3.new(4, 6, 4) -- Adjust size as needed
 
-local StandSummonSounds = {
-	["Star Purple"] = "5371606324",
-	["Hierophant Grand"] = "6191514689",
-	["King Carmine"] = "6995205240",
-	["Gold Experiment"] = "4959222677",
-	["Kaiser Queen"] = "2652080817",
-	["Crazed Diamond"] = "6678129999",
-	["That Hand"] = "98271580708859",
-	["Nuclear Rain"] = "5978825194",
-	["Heavy Door"] = "7280545782",
-	["White Sake"] = "72453705794819",
-	["Tusk Act 1"] = "5024213083",
-	["Tusk Act 2"] = "5024213083",
-	["Tusk Act 3"] = "5024213083",
-	["Tusk Act 4"] = "5024213083",
-}
-
 function StandUtils.getStandModel(character)
 	if not character then
 		return nil
@@ -43,7 +26,7 @@ function StandUtils.getStandModel(character)
 	-- Customize this logic depending on how you parent your stands
 	for _, child in ipairs(character:GetChildren()) do
 		if child:IsA("Model") and child:FindFirstChild("StandTag") then
-			print("Found a model: "..child.Name)
+			print("Found a model: " .. child.Name)
 			return child
 		end
 	end
@@ -282,7 +265,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 
 	-- Weld to HumanoidRootPart
 	local humanoidRoot = entity:FindFirstChild("HumanoidRootPart")
-	if humanoidRoot and standModel.PrimaryPart then
+	if humanoidRoot and standModel.PrimaryPart then --primart part is normally the stand's HRP
 		local weld = Instance.new("Motor6D")
 		weld.Part0 = humanoidRoot
 		weld.Part1 = standModel.PrimaryPart
@@ -310,6 +293,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		["Tusk Act 2"] = "5024213083",
 		["Tusk Act 3"] = "5024213083",
 		["Tusk Act 4"] = "5024213083",
+		["Magicians Red"] = "4732804275",
 	}
 	local vol = 1
 

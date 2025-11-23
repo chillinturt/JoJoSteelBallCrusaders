@@ -30,7 +30,6 @@ function VampireModule.spendBlood(character, cost)
 end
 
 function VampireModule.addBlood(character, amount)
-	print("add blood function called")
 	if not character or typeof(amount) ~= "number" then
 		print("Invalid arguments in add blood")
 		return false -- invalid input

@@ -14,7 +14,7 @@ local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local HamonModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Hamon:WaitForChild("Hamon"))
 
-local COOLDOWN_TIME = 8
+local COOLDOWN_TIME = 12
 local LIFEFORCEAURA_COST = 10
 
 local lastLifeForceAuraUseTime = {} -- player -> tick() timestamp

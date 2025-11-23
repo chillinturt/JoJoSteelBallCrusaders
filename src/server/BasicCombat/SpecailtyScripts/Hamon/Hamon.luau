@@ -209,7 +209,7 @@ function HamonModule.StartSunlightYellow(character)
 		return
 	end
 
-	local AnimSpeed = 1.5
+	local AnimSpeed = 2
 	local hitBoxOffset = CFrame.new(0, 0, -2)
 
 	-- Stop idle and play SunlightYellow animation

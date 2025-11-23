@@ -1,211 +1,233 @@
+-- SaveData.lua
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local StandItemsFolder = ReplicatedStorage.Items.StandItems:WaitForChild("InventoryTools")
 local RaceItemsFolder = ReplicatedStorage.Items.RaceItems:WaitForChild("InventoryTools")
-local playerDataStore = DataStoreService:GetDataStore("PlayerData") -- inventory + hero + xp/level
+local playerDataStore = DataStoreService:GetDataStore("PlayerData")
 
--- Convert backpack into a savable table
+local QuestManager = require(ServerScriptService.DataSaving:WaitForChild("QuestManager"))
+
+-- Inventory serialization
 local function serializeInventory(player)
 	local data = {}
-
 	for _, tool in ipairs(player.Backpack:GetChildren()) do
 		if tool:IsA("Tool") then
-			table.insert(data, {
-				Name = tool.Name,
-				Amount = tool:GetAttribute("amount") or 1,
-			})
+			table.insert(data, { Name = tool.Name, Amount = tool:GetAttribute("amount") or 1 })
 		end
 	end
-
 	return data
 end
 
--- Restore tools from saved data
 local function deserializeInventory(player, data)
 	if not data then
 		return
 	end
 	local backpack = player:WaitForChild("Backpack")
 
-	-- Clear existing tools to prevent duplicates
 	for _, tool in ipairs(backpack:GetChildren()) do
 		if tool:IsA("Tool") then
 			tool:Destroy()
 		end
 	end
 
-	-- Restore from data
 	for _, itemData in ipairs(data) do
 		local toolTemplate = StandItemsFolder:FindFirstChild(itemData.Name)
+			or RaceItemsFolder:FindFirstChild(itemData.Name)
 		if toolTemplate then
 			local tool = toolTemplate:Clone()
 			tool:SetAttribute("amount", itemData.Amount or 1)
 			tool.Parent = backpack
 		else
-			warn("⚠️ Could not find tool template for:", itemData.Name)
-			local raceToolTemplate = RaceItemsFolder:FindFirstChild(itemData.Name)
-			if raceToolTemplate then
-				local tool = raceToolTemplate:Clone()
-				tool:SetAttribute("amount", itemData.Amount or 1)
-				tool.Parent = backpack
-				print("Item is a race item!")
+			warn("⚠️ Missing tool template for", itemData.Name)
+		end
+	end
+end
+
+-- Quests serialization
+local function serializeQuests(player)
+	local quests = QuestManager.GetQuests(player)
+	local data = {}
+	for questId, quest in pairs(quests) do
+		data[questId] = {
+			Completed = quest.Completed or false,
+			ReadyToTurnIn = quest.ReadyToTurnIn or false,
+			Objectives = {},
+		}
+		for i, obj in ipairs(quest.Objectives or {}) do
+			data[questId].Objectives[i] = {
+				Type = obj.Type,
+				Target = obj.Target,
+				Completed = obj.Completed,
+				Progress = obj.Progress or 0,
+				Required = obj.Required or 0,
+			}
+		end
+	end
+	return data
+end
+
+local function deserializeQuests(player, questData)
+	if not questData then
+		return
+	end
+	for questId, questInfo in pairs(questData) do
+		QuestManager.AddQuest(player, questId)
+		local playerQuest = QuestManager.GetQuests(player)[questId]
+		if playerQuest then
+			playerQuest.Completed = questInfo.Completed
+			playerQuest.ReadyToTurnIn = questInfo.ReadyToTurnIn or false
+			for i, objInfo in ipairs(questInfo.Objectives) do
+				if playerQuest.Objectives[i] then
+					playerQuest.Objectives[i].Completed = objInfo.Completed
+					playerQuest.Objectives[i].Progress = objInfo.Progress
+				end
 			end
 		end
 	end
 end
 
--- Save player data (inventory + hero + xp + level)
+-- Completed quests serialization
+local function serializeCompletedQuests(player)
+	local completed = QuestManager.GetCompletedQuests(player) or {}
+	local data = {}
+	for questId in pairs(completed) do
+		data[questId] = true
+	end
+	return data
+end
+
+local function deserializeCompletedQuests(player, data)
+	if not data then
+		return
+	end
+	QuestManager.SetCompletedQuests(player, data)
+end
+
+-- Save all player data
 local function savePlayerData(player)
+	local stats = player:FindFirstChild("Stats")
+	local powers = player:FindFirstChild("Powers")
+	local data = {
+		Inventory = serializeInventory(player),
+		Hero = powers and powers:FindFirstChild("Hero") and powers.Hero.Value or "",
+		Specialty = powers and powers:FindFirstChild("Specialty") and powers.Specialty.Value or "",
+		Race = powers and powers:FindFirstChild("Race") and powers.Race.Value or "Human",
+		XP = stats and stats:FindFirstChild("XP") and stats.XP.Value or 0,
+		Level = stats and stats:FindFirstChild("Level") and stats.Level.Value or 1,
+		MaxXP = stats and stats:FindFirstChild("MaxXP") and stats.MaxXP.Value or 100,
+		Cash = stats and stats:FindFirstChild("Cash") and stats.Cash.Value or 0,
+		Quests = serializeQuests(player),
+		CompletedQuests = serializeCompletedQuests(player),
+	}
+
 	local success, err = pcall(function()
-		local playerPowersFolder = player:FindFirstChild("Powers")
-		local heroValue = playerPowersFolder:FindFirstChild("Hero")
-		local specValue = playerPowersFolder:FindFirstChild("Specialty")
-		local raceValue = playerPowersFolder:FindFirstChild("Race")
-
-		local stats = player:FindFirstChild("Stats")
-
-		local data = {
-			Inventory = serializeInventory(player),
-			Hero = heroValue and heroValue.Value or "",
-			Spec = specValue and specValue.Value or "",
-			Race = raceValue and raceValue.Value or "Human",
-			XP = stats and stats:FindFirstChild("XP") and stats.XP.Value or 0,
-			Level = stats and stats:FindFirstChild("Level") and stats.Level.Value or 1,
-			MaxXP = stats and stats:FindFirstChild("MaxXP") and stats.MaxXP.Value or 100,
-		}
-
 		playerDataStore:SetAsync(player.UserId .. "_Data", data)
 	end)
-
 	if not success then
 		warn("⚠️ Failed to save data for " .. player.Name .. ": " .. tostring(err))
 	end
 end
 
--- Load player data
+-- Load all player data
 local function loadPlayerData(player)
 	local success, data = pcall(function()
 		return playerDataStore:GetAsync(player.UserId .. "_Data")
 	end)
-
-	if success and data then
-		return data
-	else
-		if not success then
-			warn("⚠️ Failed to load data for " .. player.Name .. ": " .. tostring(data))
-		end
+	if not success then
+		warn("⚠️ Failed to load data for " .. player.Name .. ": " .. tostring(data))
 		return nil
 	end
+	return data
 end
 
--- Handle respawn (restore inventory after death)
+-- Handle character respawn
 local function setupCharacter(player, character)
 	local humanoid = character:WaitForChild("Humanoid")
-
-	--character powers are not stored. They are set up for use elsewhere (such as vampire)
-	local playerPowersFolder = player:FindFirstChild("Powers")
-
-	local characterPowersFolder = Instance.new("Folder")
-	characterPowersFolder.Name = "Powers"
-	characterPowersFolder.Parent = character
-
-	local heroValue = Instance.new("StringValue")
-	heroValue.Name = "Hero"
-	heroValue.Parent = characterPowersFolder
-	heroValue.Value = playerPowersFolder.Hero.Value
-
-	local specValue = Instance.new("StringValue")
-	specValue.Name = "Specialty"
-	specValue.Parent = characterPowersFolder
-	specValue.Value = playerPowersFolder.Specialty.Value
-
-	local raceValue = Instance.new("StringValue")
-	raceValue.Name = "Race"
-	raceValue.Parent = characterPowersFolder
-	raceValue.Value = playerPowersFolder.Race.Value
-
-	-- Sync when hero changes
-	if playerPowersFolder then
-		playerPowersFolder.Hero.Changed:Connect(function()
-			heroValue.Value = playerPowersFolder.Hero.Value
-		end)
-		playerPowersFolder.Specialty.Changed:Connect(function()
-			specValue.Value = playerPowersFolder.Specialty.Value
-		end)
-		playerPowersFolder.Race.Changed:Connect(function()
-			raceValue.Value = playerPowersFolder.Race.Value
-		end)
+	local powersFolder = player:FindFirstChild("Powers")
+	if not powersFolder then
+		powersFolder = Instance.new("Folder")
+		powersFolder.Name = "Powers"
+		powersFolder.Parent = player
 	end
 
-	-- Patch: Force equipped tools back into Backpack + save immediately on death
+	local charPowers = Instance.new("Folder")
+	charPowers.Name = "Powers"
+	charPowers.Parent = character
+
+	for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
+		local value = Instance.new("StringValue")
+		value.Name = statName
+		value.Value = powersFolder and powersFolder:FindFirstChild(statName) and powersFolder[statName].Value or ""
+		value.Parent = charPowers
+		if powersFolder and powersFolder:FindFirstChild(statName) then
+			powersFolder[statName].Changed:Connect(function()
+				value.Value = powersFolder[statName].Value
+			end)
+		end
+	end
+
+	-- Restore equipped tools on death + save
 	humanoid.Died:Connect(function()
-		-- Move any equipped tools back into Backpack
 		for _, tool in ipairs(character:GetChildren()) do
 			if tool:IsA("Tool") then
 				tool.Parent = player.Backpack
 			end
 		end
-
-		-- Save instantly
 		savePlayerData(player)
 	end)
 end
 
 -- Player connections
 Players.PlayerAdded:Connect(function(player)
-	-- Load saved data
 	local savedData = loadPlayerData(player)
 
-	local playerPowersFolder = Instance.new("Folder")
-	playerPowersFolder.Name = "Powers"
-	playerPowersFolder.Parent = player
-
-	local heroValue = Instance.new("StringValue")
-	heroValue.Name = "Hero"
-	heroValue.Parent = playerPowersFolder
-
-	local specValue = Instance.new("StringValue")
-	specValue.Name = "Specialty"
-	specValue.Parent = playerPowersFolder
-
-	local raceValue = Instance.new("StringValue")
-	raceValue.Name = "Race"
-	raceValue.Parent = playerPowersFolder
-
-	-- Restore hero immediately
-	if savedData and savedData.Hero and playerPowersFolder:FindFirstChild("Hero") then
-		heroValue.Value = savedData.Hero
+	-- Create powers folder
+	local powersFolder = Instance.new("Folder")
+	powersFolder.Name = "Powers"
+	powersFolder.Parent = player
+	for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
+		local value = Instance.new("StringValue")
+		value.Name = statName
+		value.Value = savedData and savedData[statName] or ""
+		value.Parent = powersFolder
 	end
-	if savedData and savedData.Spec and playerPowersFolder:FindFirstChild("Specialty") then
-		specValue.Value = savedData.Spec
+
+	-- Restore completed quests first
+	if savedData and savedData.CompletedQuests then
+		deserializeCompletedQuests(player, savedData.CompletedQuests)
 	else
-		print("no spec loaded")
-	end
-	if savedData and savedData.Race and playerPowersFolder:FindFirstChild("Race") then
-		raceValue.Value = savedData.Race
+		-- Initialize empty table to avoid nil
+		QuestManager.SetCompletedQuests(player, {})
 	end
 
-	-- Restore XP/Level immediately
+	-- Restore active quests
+	if savedData and savedData.Quests then
+		deserializeQuests(player, savedData.Quests)
+	end
+
+	-- Add starting quest only if not completed and not already active
+	if
+		not QuestManager.HasPlayerCompletedQuest(player, "TalkToGiorno1")
+		and not QuestManager.GetQuests(player)["TalkToGiorno1"]
+	then
+		QuestManager.AddQuest(player, "TalkToGiorno1")
+	end
+
+	-- Restore XP/Level
 	if savedData and player:FindFirstChild("Stats") then
 		local stats = player.Stats
-		if savedData.XP and stats:FindFirstChild("XP") then
-			stats.XP.Value = savedData.XP
-		end
-		if savedData.Level and stats:FindFirstChild("Level") then
-			stats.Level.Value = savedData.Level
-		end
-		if savedData.MaxXP and stats:FindFirstChild("MaxXP") then
-			stats.MaxXP.Value = savedData.MaxXP
-		end
+		stats.XP.Value = savedData.XP or stats.XP.Value
+		stats.Level.Value = savedData.Level or stats.Level.Value
+		stats.MaxXP.Value = savedData.MaxXP or stats.MaxXP.Value
+		stats.Cash.Value = savedData.Cash or stats.Cash.Value
 	end
 
-	-- CharacterAdded: restore inventory + setup death handling
+	-- Character setup
 	player.CharacterAdded:Connect(function(character)
 		setupCharacter(player, character)
-
-		-- Restore latest inventory
 		local latestData = loadPlayerData(player)
 		if latestData and latestData.Inventory then
 			task.defer(function()
@@ -214,11 +236,12 @@ Players.PlayerAdded:Connect(function(player)
 		end
 	end)
 
-	-- Auto-save on Backpack changes
-	player:WaitForChild("Backpack").ChildAdded:Connect(function()
+	-- Auto-save backpack changes
+	local backpack = player:WaitForChild("Backpack")
+	backpack.ChildAdded:Connect(function()
 		savePlayerData(player)
 	end)
-	player.Backpack.ChildRemoved:Connect(function()
+	backpack.ChildRemoved:Connect(function()
 		savePlayerData(player)
 	end)
 

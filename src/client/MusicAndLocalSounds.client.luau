@@ -9,6 +9,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- events
 local MusicEvents = ReplicatedStorage:WaitForChild("MusicEvents")
 local MusicSettingsEvent = MusicEvents:WaitForChild("MusicSettingsEvent")
+local CashGainedEvent = MusicEvents:WaitForChild("CashGainedEvent")
 
 -- ✅ Match your hierarchy
 local regionsFolder = workspace:WaitForChild("Audio"):WaitForChild("MusicRegions")
@@ -34,6 +35,16 @@ local isSwitching = false
 local switchCooldown = 1.5
 local lastSwitchTime = 0
 local HYSTERESIS_BUFFER = 10 -- must be this much closer before switching regions
+
+-- Create sound object (cha-ching)
+local cashSound = Instance.new("Sound")
+cashSound.SoundId = "rbxassetid://7112275565" -- replace with your cha-ching sound ID
+cashSound.Volume = 1
+cashSound.Parent = player:WaitForChild("PlayerGui") -- attach to GUI for local playback
+
+CashGainedEvent.OnClientEvent:Connect(function()
+	cashSound:Play()
+end)
 
 -- === Helper Functions ===
 local function getPlayerPosition()
@@ -161,23 +172,22 @@ local function connectToggleButton()
 	updateButtonText()
 
 	toggleButton.MouseButton1Click:Connect(function()
-	musicEnabled = not musicEnabled
-	updateButtonText()
+		musicEnabled = not musicEnabled
+		updateButtonText()
 
-	-- 🔹 Save preference to server
-	MusicSettingsEvent:FireServer(musicEnabled)
+		-- 🔹 Save preference to server
+		MusicSettingsEvent:FireServer(musicEnabled)
 
-	if not musicEnabled then
-		stopCurrentMusic()
-	else
-		local pos = getPlayerPosition()
-		if pos then
-			local nearest = getClosestRegion(pos)
-			playRegionMusic(nearest)
+		if not musicEnabled then
+			stopCurrentMusic()
+		else
+			local pos = getPlayerPosition()
+			if pos then
+				local nearest = getClosestRegion(pos)
+				playRegionMusic(nearest)
+			end
 		end
-	end
-end)
-
+	end)
 end
 
 -- ⬇️ CLIENT receives saved setting here

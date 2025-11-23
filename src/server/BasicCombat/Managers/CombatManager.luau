@@ -10,11 +10,15 @@ local EPSILON = 0.05
 
 -- Add or refresh a stun
 local function registerStun(character, duration)
-	if not (character and character.Parent) then return end
+	if not (character and character.Parent) then
+		return
+	end
 
 	local now = tick()
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then return end
+	if not humanoid then
+		return
+	end
 
 	local entry = ActiveStuns[character]
 	if entry then
@@ -23,7 +27,7 @@ local function registerStun(character, duration)
 	else
 		-- Create new stun entry
 		ActiveStuns[character] = {
-			expiresAt = now + duration
+			expiresAt = now + duration,
 		}
 
 		-- Apply slowing effect
@@ -56,7 +60,9 @@ local function unregisterStun(character)
 
 	-- remove debug value
 	local stunVal = character:FindFirstChild("Stun")
-	if stunVal then stunVal:Destroy() end
+	if stunVal then
+		stunVal:Destroy()
+	end
 	humanoid.JumpPower = character:FindFirstChild("JumpHeight").Value
 
 	ActiveStuns[character] = nil
@@ -100,5 +106,5 @@ end)
 
 return {
 	RegisterStun = registerStun,
-	UnregisterStun = unregisterStun
+	UnregisterStun = unregisterStun,
 }

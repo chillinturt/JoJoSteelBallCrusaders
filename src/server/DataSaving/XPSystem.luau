@@ -13,9 +13,12 @@ end
 
 -- Public function to set up stats on a new player
 function XPSystem.SetupPlayer(player)
-	local stats = Instance.new("Folder")
-	stats.Name = "Stats"
-	stats.Parent = player
+	local stats = player:FindFirstChild("Stats")
+	if not stats then
+		stats = Instance.new("Folder")
+		stats.Name = "Stats"
+		stats.Parent = player
+	end
 
 	local level = Instance.new("IntValue")
 	level.Name = "Level"

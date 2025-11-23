@@ -41,6 +41,7 @@ local PUNCH_DAMAGE = {
 	["Heavy Door"] = 4.5,
 	["White Sake"] = 4.5,
 	["Tusk Act 4"] = 5,
+	["Magicians Red"] = 4.5,
 }
 
 function BasicStandAttacks.BasicPunch(standModel)
@@ -80,7 +81,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 	else
 		powersFolder = character:FindFirstChild("Powers")
 	end
-	
+
 	local heroValue = powersFolder:FindFirstChild("Hero")
 
 	local hitboxOffset = CFrame.new(2, 0, -8)
@@ -98,11 +99,23 @@ function BasicStandAttacks.BasicPunch(standModel)
 		hitboxOffset = CFrame.new(0, 0, -3)
 	else
 		if heroValue.Value == "Nuclear Rain" then
-			AnimationModule.PlayAnimation(character, PILOT_PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
+			AnimationModule.PlayAnimation(
+				character,
+				PILOT_PUNCH_ANIMATIONS[index],
+				false,
+				Enum.AnimationPriority.Action,
+				1.5
+			)
 			rotation = CFrame.Angles(0, math.rad(90), 0)
 			hitboxOffset = CFrame.new(2, 0, 0)
 		else
-			AnimationModule.PlayAnimation(standModel, PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
+			AnimationModule.PlayAnimation(
+				standModel,
+				PUNCH_ANIMATIONS[index],
+				false,
+				Enum.AnimationPriority.Action,
+				1.5
+			)
 		end
 	end
 
