@@ -1,15 +1,15 @@
 -- ExtraHealthServer.lua
--- Gives players extra maximum and current HP on spawn and respawn
+-- Applies health upgrades from CharacterUpgrades + live health updates
 
 local Players = game:GetService("Players")
 
 -- === CONFIG ===
-local EXTRA_HEALTH = 100 -- amount of extra HP to add
-local INITIAL_HEALTH = 100 -- Roblox default Humanoid health
+local BASE_HEALTH = 100 -- Default humanoid HP
+local HEALTH_PER_UPGRADE = 2 -- HP added per upgrade point
 
 -- === FUNCTIONS ===
-local function applyExtraHealth(character)
-	if not character then
+local function applyUpgradeHealth(player, character)
+	if not player or not character then
 		return
 	end
 
@@ -18,26 +18,55 @@ local function applyExtraHealth(character)
 		return
 	end
 
-	-- Wait until humanoid loads its properties
-	humanoid.MaxHealth = INITIAL_HEALTH + EXTRA_HEALTH
-	humanoid.Health = humanoid.MaxHealth
+	local upgradeFolder = player:FindFirstChild("UpgradeData")
+	if not upgradeFolder then
+		return
+	end
+
+	local hpUpgrades = upgradeFolder:FindFirstChild("HealthUpgrades")
+	if not hpUpgrades then
+		return
+	end
+
+	local extraHealth = hpUpgrades.Value * HEALTH_PER_UPGRADE
+	local newMax = BASE_HEALTH + extraHealth
+
+	humanoid.MaxHealth = newMax
+	humanoid.Health = newMax -- Heal to new maximum
 end
 
--- Called when the player’s character spawns
-local function onCharacterAdded(character)
-	-- Wait briefly to ensure Humanoid exists
+local function setupLiveUpgradeUpdates(player)
+	-- Wait for upgrade folder (CharacterUpgrades module creates it)
+	local upgradeFolder = player:WaitForChild("UpgradeData")
+	local hpUpgrades = upgradeFolder:WaitForChild("HealthUpgrades")
+
+	-- Update health LIVE when upgrade value changes
+	hpUpgrades:GetPropertyChangedSignal("Value"):Connect(function()
+		local character = player.Character
+		if character then
+			applyUpgradeHealth(player, character)
+		end
+	end)
+end
+
+local function onCharacterAdded(player, character)
 	character:WaitForChild("Humanoid")
 	task.wait(0.1)
-	applyExtraHealth(character)
+	applyUpgradeHealth(player, character)
 end
 
--- Called when a new player joins
+-- Player join setup
 Players.PlayerAdded:Connect(function(player)
-	-- For their initial character
-	player.CharacterAdded:Connect(onCharacterAdded)
+	-- Listen for character spawn
+	player.CharacterAdded:Connect(function(character)
+		onCharacterAdded(player, character)
+	end)
 
-	-- If character already exists (e.g., studio test)
+	-- Set up live upgrade connection
+	setupLiveUpgradeUpdates(player)
+
+	-- Studio immediate spawn
 	if player.Character then
-		onCharacterAdded(player.Character)
+		onCharacterAdded(player, player.Character)
 	end
 end)

@@ -256,7 +256,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 
 	local rotation = CFrame.Angles(0, 0, 0)
 	local offset = CFrame.new(-2, 1, 3)
-	if tag.Value == "Nuclear Rain" then
+	if tag.Value == "NuclearRain" then
 		offset = CFrame.new(0, 1, 0)
 		rotation = CFrame.Angles(0, math.rad(90), 0)
 	end
@@ -279,30 +279,29 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 	CreateStandHurtbox(standModel)
 
 	local StandSummonSounds = {
-		["Star Purple"] = "5371606324",
-		["Hierophant Grand"] = "6191514689",
-		["King Carmine"] = "6995205240",
-		["Gold Experiment"] = "4959222677",
-		["Kaiser Queen"] = "2652080817",
-		["Crazed Diamond"] = "6678129999",
-		["That Hand"] = "98271580708859",
-		["Nuclear Rain"] = "5978825194",
-		["Heavy Door"] = "7280545782",
-		["White Sake"] = "72453705794819",
-		["Tusk Act 1"] = "5024213083",
-		["Tusk Act 2"] = "5024213083",
-		["Tusk Act 3"] = "5024213083",
-		["Tusk Act 4"] = "5024213083",
-		["Magicians Red"] = "4732804275",
+		["StarPurple"] = "5371606324",
+		["HierophantGrand"] = "6191514689",
+		["KingCarmine"] = "6995205240",
+		["GoldExperiment"] = "4959222677",
+		["KaiserQueen"] = "2652080817",
+		["CrazedDiamond"] = "6678129999",
+		["ThatHand"] = "98271580708859",
+		["NuclearRain"] = "5978825194",
+		["HeavyDoor"] = "7280545782",
+		["WhiteSake"] = "72453705794819",
+		["TuskAct1"] = "5024213083",
+		["TuskAct2"] = "5024213083",
+		["TuskAct3"] = "5024213083",
+		["TuskAct4"] = "5024213083",
+		["MagiciansRed"] = "4732804275",
 	}
 	local vol = 1
 
-	if standTag == "King Carmine" then
+	if standTag == "KingCarmine" then
 		vol = 3
-	elseif standTag == "Kaiser Queen" then
-		print("has kaiser queen")
+	elseif standTag == "KaiserQueen" then
 		vol = 3
-	elseif standTag == "Hierophant Grand" then
+	elseif standTag == "HierophantGrand" then
 		vol = 0.75
 	end
 

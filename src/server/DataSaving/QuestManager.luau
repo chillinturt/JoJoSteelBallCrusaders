@@ -57,7 +57,13 @@ end
 function QuestManager.AddQuest(player, questId)
 	InitPlayerData(player)
 
-	if QuestManager.HasQuest(player, questId) or QuestManager.HasPlayerCompletedQuest(player, questId) then
+	local isRepeatable = QuestDefinitions[questId].Repeatable
+
+	if QuestManager.HasQuest(player, questId) then
+		return
+	end
+
+	if not isRepeatable and QuestManager.HasPlayerCompletedQuest(player, questId) then
 		return
 	end
 
@@ -103,7 +109,11 @@ function QuestManager.CompleteQuest(player, questId)
 
 	-- Mark completed
 	quest.Completed = true
-	QuestManager.MarkQuestCompleted(player, questId)
+
+	-- Only mark permanent completion if NOT repeatable
+	if not quest.Repeatable then
+		QuestManager.MarkQuestCompleted(player, questId)
+	end
 
 	-- Give rewards
 	local stats = player:FindFirstChild("Stats")
@@ -185,96 +195,111 @@ function QuestManager.CheckCompletion(player, questId)
 	return true
 end
 
--- 🔹 Unified NPC interaction
-function QuestManager.InteractWithNPC(player, npcName)
+local function HasActiveQuestFromNPC(player, npcName)
 	local quests = playerQuests[player]
-	local completedQuests = playerCompletedQuests[player] or {}
-
-	-- 1️⃣ If the player has NO active quests, search for a quest this NPC can offer
-	if next(quests) == nil then
-		for questId, def in pairs(QuestDefinitions) do
-			if def.Giver == npcName and not completedQuests[questId] then
-				-- Start the quest
-				QuestManager.AddQuest(player, questId)
-				return def.Dialog.Offer, "Offer", questId
-			end
-		end
-
-		-- NPC has no quest to offer
-		return npcName .. " has nothing for you.", "None", nil
+	if not quests then
+		return false
 	end
 
-	-- 2️⃣ Player has active quests → check each quest for talk, turn-ins, and dialog
+	for questId, questData in pairs(quests) do
+		local def = QuestDefinitions[questId]
+		if def and def.Giver == npcName and not questData.Completed then
+			return true
+		end
+	end
+
+	return false
+end
+
+-- 🔹 Unified NPC interaction
+function QuestManager.InteractWithNPC(player, npcName)
+	local quests = playerQuests[player] or {}
+	local completedQuests = playerCompletedQuests[player] or {}
+
+	-- Helper: true if all objectives completed
+	local function objectivesCompleted(questData)
+		for _, obj in ipairs(questData.Objectives) do
+			if not obj.Completed then
+				return false
+			end
+		end
+		return true
+	end
+
+	--------------------------------------------------------------------
+	-- 1️⃣ Check ACTIVE quests first (Talk objectives, Turn-ins)
+	--------------------------------------------------------------------
 	for questId, questData in pairs(quests) do
 		local def = QuestDefinitions[questId]
 
-		-- Skip if quest is already completed
-		if questData.Completed then
-			return def.Dialog.Completed or "You've already done this.", "Completed", questId
-		end
-
-		-- 2.1️⃣ Check TALK objectives
+		-- TALK objectives
 		for _, obj in ipairs(questData.Objectives) do
 			if obj.Type == "Talk" and obj.Target == npcName and not obj.Completed then
 				obj.Completed = true
-
-				-- Update quest after marking the objective completed
 				QuestManager.CheckCompletion(player, questId)
-
-				return def.Dialog.InProgress or "Thanks.", "InProgress", questId
+				return def.Dialog.InProgress or { "Thanks." }, "InProgress", questId
 			end
 
-			if obj.Type == "Specialty" then
-				local specialtyFolder = player:FindFirstChild("Powers")
-				local specialtyValue = specialtyFolder and specialtyFolder:FindFirstChild("Specialty")
-
-				if specialtyValue and specialtyValue.Value == obj.Target then
+			if obj.Type == "Specialty" and not obj.Completed then
+				-- Replace this with your actual player specialty check
+				if player:FindFirstChild("Powers") and player.Powers:FindFirstChild(obj.Target) then
 					obj.Completed = true
-
 					QuestManager.CheckCompletion(player, questId)
-
-					return def.Dialog.InProgress or "Thanks.", "InProgress", questId
+					return def.Dialog.InProgress or { "You have proven your power." }, "InProgress", questId
 				end
 			end
 		end
 
-		-- 2.2️⃣ Turn-in checks
+		-- TURN-IN CHECK
 		if def.TurnInNpc then
-			local list = def.TurnInNpc
-			if typeof(list) ~= "table" then
-				list = { list }
-			end
+			local list = (typeof(def.TurnInNpc) == "table") and def.TurnInNpc or { def.TurnInNpc }
 
-			for _, validNpc in ipairs(list) do
-				if validNpc == npcName then
-					-- Check if all objectives completed
-					local allDone = true
-					for _, obj in ipairs(questData.Objectives) do
-						if not obj.Completed then
-							allDone = false
-							break
-						end
-					end
-
-					if allDone then
-						-- Complete the quest
-						QuestManager.CompleteQuest(player, questId)
-
-						return def.Dialog.TurnIn or "Quest completed.", "TurnIn", questId
-					end
-
-					-- They are talking to correct turn-in NPC but haven't finished objectives
-					return def.Dialog.InProgress or "You're not done yet.", "InProgress", questId
+			if table.find(list, npcName) then
+				-- If all objectives done → complete quest
+				if objectivesCompleted(questData) then
+					QuestManager.CompleteQuest(player, questId)
+					return def.Dialog.TurnIn or { "Quest completed." }, "TurnIn", questId
+				else
+					-- Talking to turn-in NPC but not done
+					return def.Dialog.InProgress or { "You're not done yet." }, "InProgress", questId
 				end
 			end
 		end
-
-		-- 2.3️⃣ Quest has no turn-in NPC (auto completion quests)
-		QuestManager.CheckCompletion(player, questId)
 	end
 
-	-- Default fallback
-	return npcName .. " has nothing new for you.", "None", nil
+	--------------------------------------------------------------------
+	-- 2️⃣ If the player has no ACTIVE quest from this NPC → offer a quest
+	--------------------------------------------------------------------
+
+	-- The player has 0 or more active quests, but none from THIS npc → allow offers.
+	for questId, def in pairs(QuestDefinitions) do
+		if def.Giver == npcName then
+			local alreadyCompleted = completedQuests[questId] == true
+			local isRepeatable = def.Repeatable == true
+
+			-- Offer repeatable quests EVEN if completed
+			if isRepeatable then
+				-- Don't offer again if the player already has this quest active
+				if quests[questId] == nil then
+					QuestManager.AddQuest(player, questId)
+					return def.Dialog.Offer, "Offer", questId
+				end
+			end
+
+			-- Offer normal quests ONLY if not completed yet
+			if not isRepeatable and not alreadyCompleted then
+				if quests[questId] == nil then
+					QuestManager.AddQuest(player, questId)
+					return def.Dialog.Offer, "Offer", questId
+				end
+			end
+		end
+	end
+
+	--------------------------------------------------------------------
+	-- 3️⃣ If we are here, NPC has nothing for this player
+	--------------------------------------------------------------------
+	return npcName .. " has nothing for you.", "None", nil
 end
 
 -- 🔹 Handle defeating enemies for any quest type

@@ -1,6 +1,8 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
+local ChopEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityEvent")
+
 local ChopEvent = Instance.new("RemoteFunction")
 ChopEvent.Name = "Chop"
 ChopEvent.Parent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("KingCarmine")

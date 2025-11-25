@@ -128,6 +128,8 @@ QuestDefinitions.DefeatThugs1 = {
 	Name = "Stop the Thugs",
 	Description = "Defeat 5 thugs in the alley.",
 	NextQuest = "RobROBank",
+	RewardXP = 100,
+	RewardCash = 100,
 
 	Giver = "Jotaro",
 
@@ -401,6 +403,41 @@ QuestDefinitions.TalkToBaronZepelli1 = {
 
 		Completed = {
 			"Our conversation is finished. Let your Hamon flow with purpose.",
+		},
+	},
+}
+
+QuestDefinitions.DefeatThugsRepeatable = {
+	Name = "Stop the Thugs",
+	Description = "Defeat 5 thugs at the Motor Store.",
+
+	Repeatable = true, -- 🔹 NEW
+
+	Giver = "Josuke",
+	RewardCash = 100,
+	RewardXP = 100,
+
+	Objectives = {
+		{ Type = "Defeat", Target = "Thug", Required = 5, Progress = 0, Completed = false },
+	},
+
+	TurnInNpc = "Josuke",
+
+	Dialog = {
+		Offer = {
+			"These Thugs are crazy! Take out 5 of them for me and I'll give you a reward.",
+		},
+
+		InProgress = {
+			"Keep going. Take out a few more thugs — I think I heard one make fun of my hair!",
+		},
+
+		TurnIn = {
+			"Nice work. Let’s keep the alley clean.",
+		},
+
+		Completed = {
+			"Ready for more work? These thugs always come back!",
 		},
 	},
 }

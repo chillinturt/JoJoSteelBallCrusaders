@@ -94,7 +94,5 @@ for _, objectivePart in ipairs(ThreeTeamsKOTHObjectivesFolder:GetChildren()) do
 				end
 			end
 		end)
-
-		print("Spawned control point at:", position)
 	end
 end

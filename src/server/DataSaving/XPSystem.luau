@@ -25,6 +25,11 @@ function XPSystem.SetupPlayer(player)
 	level.Value = 1
 	level.Parent = stats
 
+	local abilityPoints = Instance.new("IntValue")
+	abilityPoints.Name = "AbilityPoints"
+	abilityPoints.Value = 0
+	abilityPoints.Parent = stats
+
 	local xp = Instance.new("IntValue")
 	xp.Name = "XP"
 	xp.Value = 0
@@ -46,6 +51,7 @@ function XPSystem.AddXP(player, amount)
 	local xp = stats:FindFirstChild("XP")
 	local level = stats:FindFirstChild("Level")
 	local maxXP = stats:FindFirstChild("MaxXP")
+	local abilityPoints = stats:FindFirstChild("AbilityPoints")
 
 	if not (xp and level and maxXP) then
 		return
@@ -63,6 +69,7 @@ function XPSystem.AddXP(player, amount)
 	while xp.Value >= maxXP.Value and level.Value < MAX_LEVEL do
 		xp.Value -= maxXP.Value
 		level.Value += 1
+		abilityPoints.Value += 2
 		maxXP.Value = getXPRequirement(level.Value)
 	end
 

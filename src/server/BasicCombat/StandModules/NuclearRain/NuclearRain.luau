@@ -58,9 +58,14 @@ function NuclearRain.initRainForPlayer(player)
 	-- When the character spawns, ensure it has a HamonMeter
 	player.CharacterAdded:Connect(function(character)
 		character:WaitForChild("Humanoid") -- wait until the character is fully loaded
-		local powersFolder = player:WaitForChild("Powers")
+		local powersFolder = player:WaitForChild("Powers", 5)
+		if not powersFolder then
+			warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
+			return
+		end
+
 		local heroValue = powersFolder:WaitForChild("Hero")
-		if heroValue and heroValue.Value == "Nuclear Rain" then
+		if heroValue and heroValue.Value == "NuclearRain" then
 			NuclearRain.getRainValue(character)
 			NuclearRain.StartRainRegen(character)
 		end
@@ -158,7 +163,7 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 				Rotation = CFrame.Angles(0, 0, math.rad(90)),
 
 				OnHit = function(target, trueDamage)
-					print("💥 Nuclear Rain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
+					print("💥 NuclearRain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
 					CombatUtils.AddBarrier(
 						character,
 						trueDamage / RAINBARRIER_CONSTANT,
@@ -235,7 +240,7 @@ function NuclearRain.HeavyRaindrop(character)
 		StunDuration = HEAVYRAINDROP_STUN,
 
 		OnHit = function(target, trueDamage)
-			print("💥 Nuclear Rain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
+			print("💥 NuclearRain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
 			CombatUtils.AddBarrier(
 				character,
 				trueDamage / RAINBARRIER_CONSTANT,

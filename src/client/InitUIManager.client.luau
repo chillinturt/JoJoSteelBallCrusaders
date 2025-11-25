@@ -3,8 +3,11 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UIManager = require(ReplicatedStorage.Shared:WaitForChild("Modules"):WaitForChild("UIManager"))
 
 local player = Players.LocalPlayer
-local character = player.Character or player.CharacterAdded:Wait()
-local powersFolder = character:WaitForChild("Powers")
+local powersFolder = player:WaitForChild("Powers", 5)
+if not powersFolder then
+	warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
+	return
+end
 local playerGui = player:WaitForChild("PlayerGui")
 local specialtyValue = powersFolder:WaitForChild("Specialty")
 local raceValue = powersFolder:WaitForChild("Race")

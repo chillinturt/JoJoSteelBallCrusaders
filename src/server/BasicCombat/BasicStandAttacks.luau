@@ -30,18 +30,18 @@ local comboCooldowns = {}
 local punchCooldowns = {}
 
 local PUNCH_DAMAGE = {
-	["Star Purple"] = 5,
-	["Hierophant Grand"] = 4,
-	["Crazed Diamond"] = 5,
-	["King Carmine"] = 4.5,
-	["Gold Experiment"] = 4,
-	["Kaiser Queen"] = 4,
-	["Nuclear Rain"] = 4,
-	["That Hand"] = 4.5,
-	["Heavy Door"] = 4.5,
-	["White Sake"] = 4.5,
-	["Tusk Act 4"] = 5,
-	["Magicians Red"] = 4.5,
+	["StarPurple"] = 5,
+	["HierophantGrand"] = 4,
+	["CrazedDiamond"] = 5,
+	["KingCarmine"] = 4.5,
+	["GoldExperiment"] = 4,
+	["KaiserQueen"] = 4,
+	["NuclearRain"] = 4,
+	["ThatHand"] = 4.5,
+	["HeavyDoor"] = 4.5,
+	["WhiteSake"] = 4.5,
+	["TuskAct4"] = 5,
+	["MagiciansRed"] = 4.5,
 }
 
 function BasicStandAttacks.BasicPunch(standModel)

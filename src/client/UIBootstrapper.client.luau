@@ -3,7 +3,11 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
-local powersFolder = player:WaitForChild("Powers")
+local powersFolder = player:WaitForChild("Powers", 5)
+if not powersFolder then
+	warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
+	return
+end
 local UIManager = require(ReplicatedStorage.Shared.Modules:WaitForChild("UIManager"))
 
 -- Helper function to load all UI
@@ -17,14 +21,7 @@ local function loadAllUI()
 end
 
 -- Load UI once when game starts
-loadAllUI()
-
--- Reload UI when the player respawns (CharacterAdded fires on each respawn)
-player.CharacterAdded:Connect(function()
-	-- Wait for PlayerGui to reset
-	task.wait(0.5)
-	loadAllUI()
-end)
+--loadAllUI()
 
 -- Also detect if the player's specialty changes (in case it updates mid-session)
 if powersFolder:FindFirstChild("Specialty") then

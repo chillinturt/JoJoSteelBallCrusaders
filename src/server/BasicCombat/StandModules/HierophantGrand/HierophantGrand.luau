@@ -55,6 +55,10 @@ local function startCooldown(player, abilityNumber, cooldownDuration)
 	CooldownUpdateEvent:FireClient(player, abilityNumber, cooldownDuration)
 end
 
+function HierophantModule.IsSplashActive(character)
+	return splashingFlags[character] == true
+end
+
 function HierophantModule.StartSplash(character)
 	local standModel = standUitls.getStandModel(character)
 	local primaryParty = standModel.PrimaryPart

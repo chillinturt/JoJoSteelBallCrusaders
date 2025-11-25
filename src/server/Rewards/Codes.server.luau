@@ -9,18 +9,18 @@ codeEvent.Parent = ReplicatedStorage
 
 -- List of valid stands (your stand names)
 local VALID_STAND_CODES = {
-	["Star Purple"] = true,
-	["Hierophant Grand"] = true,
-	["Crazed Diamond"] = true,
-	["King Carmine"] = true,
-	["Gold Experiment"] = true,
-	["Kaiser Queen"] = true,
-	["Nuclear Rain"] = true,
-	["That Hand"] = true,
-	["Heavy Door"] = true,
-	["White Sake"] = true,
-	["Tusk Act 4"] = true,
-	["Magicians Red"] = true,
+	["StarPurple"] = true,
+	["HierophantGrand"] = true,
+	["CrazedDiamond"] = true,
+	["KingCarmine"] = true,
+	["GoldExperiment"] = true,
+	["KaiserQueen"] = true,
+	["NuclearRain"] = true,
+	["ThatHand"] = true,
+	["HeavyDoor"] = true,
+	["WhiteSake"] = true,
+	["TuskAct4"] = true,
+	["MagiciansRed"] = true,
 	-- add more here
 }
 

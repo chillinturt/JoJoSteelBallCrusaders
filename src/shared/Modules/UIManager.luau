@@ -1,90 +1,160 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local UIManager = {}
 
--- Folder references
+-- DEBUG: Force mobile UI in Studio for testing
+local FORCE_MOBILE_IN_STUDIO = false
+
+-- UI folders in ReplicatedStorage
 local uiFolder = ReplicatedStorage:WaitForChild("UIs")
 local defaultFolder = uiFolder:WaitForChild("DefaultUIs")
 local specialtyFolder = uiFolder:WaitForChild("SpecialtyUIs")
 local raceFolder = uiFolder:WaitForChild("RaceUIs")
 local heroFolder = uiFolder:WaitForChild("HeroUIs")
+local mobileFolder = uiFolder:WaitForChild("MobileUIs")
 
--- Utility: safely clone a folder of UIs into PlayerGui
-local function cloneUIsInto(playerGui, folder)
+-- Roblox protected UIs that should never be deleted
+local ROBLOX_PROTECTED_UIS = {
+	["TouchGui"] = true,
+	["Chat"] = true,
+}
+
+----------------------------------------------------------
+-- Utility: Clone all ScreenGuis in a folder into PlayerGui
+----------------------------------------------------------
+local function cloneFolderUIs(folder, playerGui)
 	for _, ui in ipairs(folder:GetChildren()) do
-		if ui:IsA("ScreenGui") then
-			local clone = ui:Clone()
-			clone.Parent = playerGui
+		if ui:IsA("ScreenGui") and not playerGui:FindFirstChild(ui.Name) then
+			ui:Clone().Parent = playerGui
 		end
 	end
 end
 
--- Clear all old specialty UIs but keep default ones
-local function clearOldSpecialtyUIs(playerGui)
+----------------------------------------------------------
+-- Remove all non-default, non-protected UIs
+----------------------------------------------------------
+local function clearNonDefaultUIs(playerGui)
 	for _, ui in ipairs(playerGui:GetChildren()) do
-		if ui:IsA("ScreenGui") and not defaultFolder:FindFirstChild(ui.Name) then
-			ui:Destroy()
+		if ui:IsA("ScreenGui") then
+			if
+				not ROBLOX_PROTECTED_UIS[ui.Name]
+				and not defaultFolder:FindFirstChild(ui.Name)
+				and not mobileFolder:FindFirstChild(ui.Name)
+			then
+				ui:Destroy()
+			end
 		end
 	end
 end
 
--- Main function: load UIs
+----------------------------------------------------------
+-- Ensure Default UIs Are Loaded
+----------------------------------------------------------
+local function ensureDefaultUIs(playerGui)
+	cloneFolderUIs(defaultFolder, playerGui)
+end
+
+----------------------------------------------------------
+-- Load Specialty UI
+----------------------------------------------------------
+local function loadSpecialtyUI(playerGui, specialty)
+	if specialty == "" then
+		return
+	end
+
+	local ui = specialtyFolder:FindFirstChild(specialty .. "UI")
+	if ui then
+		ui:Clone().Parent = playerGui
+	end
+
+	local cooldownUI = specialtyFolder:FindFirstChild("SpecCooldownUI")
+	if cooldownUI then
+		cooldownUI:Clone().Parent = playerGui
+	end
+end
+
+----------------------------------------------------------
+-- Load Race UI
+----------------------------------------------------------
+local function loadRaceUI(playerGui, race)
+	if race == "Human" then
+		return
+	end
+
+	local raceUI = raceFolder:FindFirstChild(race .. "UI")
+	if raceUI then
+		raceUI:Clone().Parent = playerGui
+	end
+end
+
+----------------------------------------------------------
+-- Load Hero UI
+----------------------------------------------------------
+local function loadHeroUI(playerGui, hero)
+	if not hero or hero == "" then
+		return
+	end
+
+	local heroUI = heroFolder:FindFirstChild(hero .. "UI")
+	if heroUI then
+		heroUI:Clone().Parent = playerGui
+	end
+end
+
+----------------------------------------------------------
+-- Load Mobile UI (waits until UserInputService is ready)
+----------------------------------------------------------
+local function loadMobileUI(playerGui)
+	local isMobile = FORCE_MOBILE_IN_STUDIO or UserInputService.TouchEnabled
+
+	if not isMobile then
+		return
+	end
+
+	print("[UIManager] Loading mobile UIs...")
+	for _, ui in ipairs(mobileFolder:GetChildren()) do
+		if ui:IsA("ScreenGui") and not playerGui:FindFirstChild(ui.Name) then
+			ui:Clone().Parent = playerGui
+		end
+	end
+end
+
+----------------------------------------------------------
+-- Public Function: Load All UI
+----------------------------------------------------------
 function UIManager.LoadUI(playerGui, specialty, race, hero)
-	-- Step 1: Always ensure default UIs exist
-	for _, defaultUI in ipairs(defaultFolder:GetChildren()) do
-		if not playerGui:FindFirstChild(defaultUI.Name) then
-			local clone = defaultUI:Clone()
-			clone.Parent = playerGui
-			print("✅ Loaded default UI:", defaultUI.Name)
+	-- 1) Determine if this player is on mobile
+	local isMobile = FORCE_MOBILE_IN_STUDIO or UserInputService.TouchEnabled
+
+	-- 2) Protect mobile UI names first
+	if isMobile then
+		for _, ui in ipairs(mobileFolder:GetChildren()) do
+			if ui:IsA("ScreenGui") then
+				ROBLOX_PROTECTED_UIS[ui.Name] = true
+			end
 		end
 	end
 
-	-- Step 2: Clear old specialty UIs
-	clearOldSpecialtyUIs(playerGui)
-
-	-- Step 3: Load specialty UI
-	if specialty ~= "" then
-		local specUI = specialtyFolder:FindFirstChild(specialty .. "UI")
-		if specUI then
-			local clone = specUI:Clone()
-			clone.Parent = playerGui
-			print("✅ Loaded specialty UI for", specialty)
-		else
-			warn("⚠️ No UI found for specialty:", specialty)
-		end
-
-		local specCooldownUI = specialtyFolder:FindFirstChild("SpecCooldownUI")
-		if specCooldownUI then
-			local clone = specCooldownUI:Clone()
-			clone.Parent = playerGui
-			print("✅ Given player a spec cooldown UI")
-		else
-			print("No spec cooldown UI found")
-		end
+	-- 3) Load mobile UIs early (so they exist in PlayerGui before any cleanup)
+	if isMobile then
+		loadMobileUI(playerGui)
 	end
 
-	-- Step 4: Load race UI
-	if race ~= "Human" then
-		local raceUI = raceFolder:FindFirstChild(race .. "UI")
-		if raceUI then
-			local clone = raceUI:Clone()
-			clone.Parent = playerGui
-			print("✅ Loaded race UI for", race)
-		else
-			print("⚠️ No UI found for race:", race)
-		end
-	end
+	-- 4) Load default UIs
+	ensureDefaultUIs(playerGui)
 
-	-- Step 5: Load hero UI
-	if hero and hero ~= "" then
-		local heroUI = heroFolder:FindFirstChild(hero .. "UI")
-		if heroUI then
-			local clone = heroUI:Clone()
-			clone.Parent = playerGui
-			print("✅ Loaded hero UI for", hero)
-		else
-			print("⚠️ No UI found for hero:", hero)
-		end
+	-- 5) Clear old non-default UIs (mobile UIs are protected now)
+	clearNonDefaultUIs(playerGui)
+
+	-- 6) Load Specialty / Race / Hero
+	loadSpecialtyUI(playerGui, specialty)
+	loadRaceUI(playerGui, race)
+	loadHeroUI(playerGui, hero)
+
+	-- 7) Safety check for Roblox TouchGui
+	if isMobile and not playerGui:FindFirstChild("TouchGui") then
+		warn("⚠ TouchGui missing. Roblox should auto-regenerate it soon.")
 	end
 end
 
