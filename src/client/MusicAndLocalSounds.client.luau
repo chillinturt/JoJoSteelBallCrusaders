@@ -1,3 +1,21 @@
+-- Safe helper
+local function safeWaitForChild(parent, childName, timeout)
+	local obj = parent:FindFirstChild(childName)
+	if obj then
+		return obj
+	end
+	local start = tick()
+	while tick() - start < (timeout or 20) do
+		obj = parent:FindFirstChild(childName)
+		if obj then
+			return obj
+		end
+		task.wait(0.1)
+	end
+	warn("safeWaitForChild timeout: " .. childName)
+	return nil
+end
+
 -- LocalScript: StarterPlayerScripts/LocalMusicController
 local player = game.Players.LocalPlayer
 local runService = game:GetService("RunService")
@@ -15,7 +33,11 @@ local CashGainedEvent = MusicEvents:WaitForChild("CashGainedEvent")
 local regionsFolder = workspace:WaitForChild("Audio"):WaitForChild("MusicRegions")
 
 -- ✅ Match your UI hierarchy
-local gui = player:WaitForChild("PlayerGui"):WaitForChild("SettingsGUI")
+local gui = safeWaitForChild(player:WaitForChild("PlayerGui"), "SettingsGUI")
+if not gui then
+	return
+end
+
 local settingsWindow = gui:WaitForChild("SettingsWindow")
 local scrollingFrame = settingsWindow:WaitForChild("ScrollingFrame")
 local toggleButton = scrollingFrame:WaitForChild("MuteMusicButton")

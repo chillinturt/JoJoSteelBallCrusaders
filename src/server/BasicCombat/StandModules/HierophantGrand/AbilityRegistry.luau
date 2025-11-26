@@ -1,79 +1,77 @@
 local HierophantGrand = require(script.Parent:WaitForChild("HierophantGrand"))
-local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 
-local AbilityRegistry = {
+local AbilityRegistry = {}
 
-	------------------------------------------------------------------------
-	-- Ability 1
-	------------------------------------------------------------------------
-	[1] = {
-		Name = "PuppetMaster",
-		Cooldown = 10,
-		Execute = function(standModel, player)
-			HierophantGrand.PuppetMaster(standModel)
-		end,
-	},
+--------------------------------------------------------------------
+-- Ability Types (Sent to Client)
+-- Types: "Press", "Hold", "Toggle"
+--------------------------------------------------------------------
+AbilityRegistry.AbilityTypes = {
+	[1] = "Press",
+	[2] = "Hold",
+	[3] = "Press",
+	[4] = "Press",
+}
 
-	------------------------------------------------------------------------
-	-- Ability 2: Emerald Splash (TOGGLE)
-	------------------------------------------------------------------------
-	[2] = {
-		Name = "EmeraldSplash",
-		Cooldown = 0, -- cooldown handled INSIDE StopSplash()
-		Execute = function(standModel, player)
-			local character = standModel.Parent
-			if not character then
-				return
-			end
+--------------------------------------------------------------------
+-- Ability 1 - Puppet Master (Press)
+--------------------------------------------------------------------
+AbilityRegistry[1] = {
+	Name = "PuppetMaster",
+	Type = "Press", -- << Add this
+	Cooldown = 10,
+	Execute = function(standModel, player)
+		HierophantGrand.PuppetMaster(standModel)
+	end,
+}
 
-			-- Access Hierophant's internal active flag
-			local isSplashing = HierophantGrand.IsSplashActive(character)
-
-			-- If already splashing -> STOP it
-			if isSplashing then
-				HierophantGrand.StopSplash(character)
-				return
-			end
-
-			-- Otherwise -> try to START it
-			-- respect stun or action lock BEFORE calling your module
-			local actionFlag = CombatUtils.GetActionInProgress(character)
-			if actionFlag and actionFlag.Value then
-				return
-			end
-			if CombatUtils.GetStun(character) then
-				return
-			end
-
+--------------------------------------------------------------------
+-- Ability 2 - Emerald Splash (Hold)
+--------------------------------------------------------------------
+AbilityRegistry[2] = {
+	Name = "EmeraldSplash",
+	Type = "Hold", -- << Add this
+	Cooldown = 10, -- handled internally
+	ExecuteStart = function(standModel, player)
+		local character = standModel.Parent
+		if character then
 			HierophantGrand.StartSplash(character)
-		end,
-	},
+		end
+	end,
+	ExecuteStop = function(standModel, player)
+		local character = standModel.Parent
+		if character then
+			HierophantGrand.StopSplash(character)
+		end
+	end,
+}
 
-	------------------------------------------------------------------------
-	-- Ability 3
-	------------------------------------------------------------------------
-	[3] = {
-		Name = "EmeraldBarrier",
-		Cooldown = 12,
-		Execute = function(standModel, player)
-			local character = standModel.Parent
-			if character then
-				HierophantGrand.ActivateBarrier(standModel)
-			end
-		end,
-	},
+--------------------------------------------------------------------
+-- Ability 3 - Emerald Barrier (Press)
+--------------------------------------------------------------------
+AbilityRegistry[3] = {
+	Name = "EmeraldBarrier",
+	Type = "Press", -- << Add this
+	Cooldown = 12,
+	Execute = function(standModel, player)
+		local character = standModel.Parent
+		if character then
+			HierophantGrand.ActivateBarrier(standModel)
+		end
+	end,
+}
 
-	------------------------------------------------------------------------
-	-- Ability 4
-	------------------------------------------------------------------------
-	[4] = {
-		Name = "TwentyMeterBarrier",
-		Cooldown = 40,
-		Execute = function(standModel, player)
-			HierophantGrand.TwentyMeterBarrier(standModel)
-		end,
-	},
+--------------------------------------------------------------------
+-- Ability 4 - Twenty Meter Barrier (Press)
+--------------------------------------------------------------------
+AbilityRegistry[4] = {
+	Name = "TwentyMeterBarrier",
+	Type = "Press", -- << Add this
+	Cooldown = 40,
+	Execute = function(standModel, player)
+		HierophantGrand.TwentyMeterBarrier(standModel)
+	end,
 }
 
 return AbilityRegistry

@@ -48,9 +48,9 @@ machOraEvent.OnServerInvoke = function(player)
 	end
 
 	-- Cooldown check
-	local lastStarFinger = lastMachOraUseTime[player]
-	if lastStarFinger and tick() - lastStarFinger < COOLDOWN_TIME then
-		print("StarFinger on cooldown")
+	local lastMachOra = lastMachOraUseTime[player]
+	if lastMachOra and tick() - lastMachOra < COOLDOWN_TIME then
+		print("MachOra on cooldown")
 		return false
 	end
 

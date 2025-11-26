@@ -24,6 +24,7 @@ local GUIDEDNAIL_AOE_SIZE = Vector3.new(15, 15, 15)
 local GUIDEDNAIL_AOE_DAMAGE = 20
 
 function Tusk.NailShot(character)
+	print("Nail shot on module!")
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return false
@@ -61,8 +62,8 @@ function Tusk.NailShot(character)
 		local powersFolder = player:FindFirstChild("Powers")
 		local heroValue = powersFolder:FindFirstChild("Hero")
 		if heroValue then
-			heroValue.Value = "Tusk Act 1"
-			print(player.Name .. " is now Tusk Act 1!")
+			heroValue.Value = "TuskAct1"
+			print(player.Name .. " is now TuskAct1!")
 		end
 
 		StandUtils.RemoveStand(character)
@@ -140,8 +141,8 @@ function Tusk.GuidedNail(character)
 		local powersFolder = player:FindFirstChild("Powers")
 		local heroValue = powersFolder:FindFirstChild("Hero")
 		if heroValue then
-			heroValue.Value = "Tusk Act 2"
-			print(player.Name .. " is now Tusk Act 2!")
+			heroValue.Value = "TuskAct2"
+			print(player.Name .. " is now TuskAct2!")
 		end
 
 		StandUtils.RemoveStand(character)
@@ -240,8 +241,8 @@ function Tusk.SpinWormhole(character)
 		local powersFolder = player:FindFirstChild("Powers")
 		local heroValue = powersFolder:FindFirstChild("Hero")
 		if heroValue then
-			heroValue.Value = "Tusk Act 3"
-			print(player.Name .. " is now Tusk Act 3!")
+			heroValue.Value = "TuskAct3"
+			print(player.Name .. " is now TuskAct3!")
 		end
 
 		StandUtils.RemoveStand(character)
@@ -339,8 +340,8 @@ function Tusk.InfiniteRotation(character)
 		local powersFolder = player:FindFirstChild("Powers")
 		local heroValue = powersFolder:FindFirstChild("Hero")
 		if heroValue then
-			heroValue.Value = "Tusk Act 4"
-			print(player.Name .. " is now Tusk Act 4!")
+			heroValue.Value = "TuskAct4"
+			print(player.Name .. " is now TuskAct4!")
 		end
 
 		StandUtils.RemoveStand(character)

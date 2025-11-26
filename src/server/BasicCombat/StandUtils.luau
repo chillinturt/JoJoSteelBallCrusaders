@@ -7,6 +7,7 @@ local standCache = {}
 
 -- ServerScriptService.BasicCombat.StandUtils
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local CameraEvent = ReplicatedStorage.Shared:WaitForChild("BasicCombat"):WaitForChild("PilotCameraEvent")
 local exitPilotEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("ExitPilotMode")
@@ -213,6 +214,7 @@ end
 
 -- Summon a stand for an NPC or Player
 function StandUtils.SummonStand(entity: Model, standTag: string)
+	print("Summon stand in module!!!11")
 	-- Check if a stand already exists
 	if activeStands[entity] then
 		warn(entity.Name .. " already has a stand!")
@@ -251,6 +253,33 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 			part.Massless = true
 			part.Anchored = false
 			part.CollisionGroup = "NoCollision"
+		end
+	end
+
+	-- After summoning the stand and setting up the StandTag:
+	local player = Players:GetPlayerFromCharacter(entity)
+	if player then
+		print("player summoned stand...")
+		if standTag == "TuskAct1" or standTag == "TuskAct2" or standTag == "TuskAct3" or standTag == "TuskAct4" then
+			standTag = "Tusk"
+		end
+		local standFolder = game.ServerScriptService.BasicCombat.StandModules:FindFirstChild(standTag)
+
+		if standFolder then
+			print("stand folder found!")
+			local registryModule = standFolder:FindFirstChild("AbilityRegistry")
+			if registryModule then
+				print("Found ability registry...")
+				local registry = require(registryModule)
+				if registry.AbilityTypes then
+					print("found ability types in registry!")
+					-- Fire the ability types to the client immediately
+					local StandAbilityTypesRemote =
+						game.ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityTypes")
+					StandAbilityTypesRemote:FireClient(player, registry.AbilityTypes)
+					print("[StandUtils] Sent ability types to", player.Name, "for stand", standTag)
+				end
+			end
 		end
 	end
 
@@ -293,6 +322,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		["TuskAct2"] = "5024213083",
 		["TuskAct3"] = "5024213083",
 		["TuskAct4"] = "5024213083",
+		["Tusk"] = "5024213083",
 		["MagiciansRed"] = "4732804275",
 	}
 	local vol = 1

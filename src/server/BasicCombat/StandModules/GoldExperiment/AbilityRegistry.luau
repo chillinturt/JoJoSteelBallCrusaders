@@ -1,61 +1,135 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local GoldExperiment = require(script.Parent:WaitForChild("GoldExperiment"))
+local CooldownUpdateEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
 
--- Ability Registry for King Carmine Stand
--- This defines cooldowns, names, and how to execute each ability.
--- No RemoteEvents belong here. No validation belongs here.
--- Only mappings from abilityNumber → execution function.
+local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 
-local AbilityRegistry = {
-	------------------------------------------------------------------------
-	-- Ability 1: Chop
-	------------------------------------------------------------------------
-	[1] = {
-		Name = "LifeOverflow",
-		Cooldown = 12,
-		Execute = function(standModel, player)
-			-- standModel is passed directly from the RemoteEvent handler
-			GoldExperiment.LifeOverflow(standModel)
-		end,
-	},
+-- ====================================================================
+-- EagleStrike custom state
+-- ====================================================================
+local COOLDOWN_TIME = 10
 
-	------------------------------------------------------------------------
-	-- Ability 2: Splatter
-	------------------------------------------------------------------------
-	[2] = {
-		Name = "TreeOfLife",
-		Cooldown = 10,
-		Execute = function(standModel, player)
-			local character = standModel.Parent
-			if character then
-				GoldExperiment.TreeOfLife(character)
+local lastEagleUse = {} -- player → tick() of launch OR redirect
+local eagleFollowup = {} -- player → tick() when redirect expires
+
+-- ====================================================================
+-- Registry
+-- ====================================================================
+local AbilityRegistry = {}
+
+--------------------------------------------------------------------
+-- Ability Types (all Press)
+--------------------------------------------------------------------
+AbilityRegistry.AbilityTypes = {
+	[1] = "Press",
+	[2] = "Press",
+	[3] = "Press", -- EagleStrike 2-stage
+	[4] = "Press",
+}
+
+--------------------------------------------------------------------
+-- Ability 1 - LifeOverflow
+--------------------------------------------------------------------
+AbilityRegistry[1] = {
+	Name = "LifeOverflow",
+	Type = "Press",
+	Cooldown = 12,
+	Execute = function(standModel, player)
+		GoldExperiment.LifeOverflow(standModel)
+	end,
+}
+
+--------------------------------------------------------------------
+-- Ability 2 - TreeOfLife
+--------------------------------------------------------------------
+AbilityRegistry[2] = {
+	Name = "TreeOfLife",
+	Type = "Press",
+	Cooldown = 10,
+	Execute = function(standModel, player)
+		local char = standModel.Parent
+		if char then
+			GoldExperiment.TreeOfLife(char)
+		end
+	end,
+}
+
+--------------------------------------------------------------------
+-- Ability 3 - EagleStrike (Launch → Redirect)
+--------------------------------------------------------------------
+AbilityRegistry[3] = {
+	Name = "EagleStrike",
+	Type = "Press",
+	Cooldown = COOLDOWN_TIME,
+
+	-- ⭐ We handle our own cooldown (like MachOra)
+	BypassGlobalCooldown = true,
+
+	Execute = function(standModel, player)
+		local character = standModel.Parent
+		if not character then
+			return
+		end
+
+		local now = tick()
+		local last = lastEagleUse[player] or 0
+		local redirectExpiry = eagleFollowup[player] or 0
+
+		-- ===================================================================
+		-- 1) REDIRECT — does NOT obey cooldown/stun/action rules
+		-- ===================================================================
+		if now <= redirectExpiry then
+			local success = GoldExperiment.EagleStrike(character)
+			if success then
+				-- redirect consumed
+				eagleFollowup[player] = nil
+				lastEagleUse[player] = now
 			end
-		end,
-	},
+			return
+		end
 
-	------------------------------------------------------------------------
-	-- Ability 3: Teleport
-	------------------------------------------------------------------------
-	[3] = {
-		Name = "EagleStrike",
-		Cooldown = 10,
-		Execute = function(standModel, player)
-			local character = standModel.Parent
-			if character then
-				GoldExperiment.EagleStrike(character)
-			end
-		end,
-	},
+		-- ===================================================================
+		-- 2) LAUNCH — obeys stun & action
+		-- ===================================================================
+		if CombatUtils.GetStun(character) then
+			return
+		end
+		if CombatUtils.GetActionInProgress(character).Value then
+			return
+		end
 
-	------------------------------------------------------------------------
-	-- Ability 4: Time Erase
-	------------------------------------------------------------------------
-	[4] = {
-		Name = "TimeErase",
-		Cooldown = 45,
-		Execute = function(standModel, player)
-			--GoldExperiment.TimeErase(standModel)
-		end,
-	},
+		-- Check cooldown
+		if now - last < COOLDOWN_TIME then
+			return
+		end
+
+		-- Perform launch
+		local success = GoldExperiment.EagleStrike(character)
+		if not success then
+			return
+		end
+
+		-- start cooldown
+		lastEagleUse[player] = now
+		CooldownUpdateEvent:FireClient(player, 3, COOLDOWN_TIME)
+
+		-- allow redirect for 2 seconds (same as your old implementation)
+		eagleFollowup[player] = now + 2
+	end,
+}
+
+--------------------------------------------------------------------
+-- Ability 4 - TimeErase
+--------------------------------------------------------------------
+AbilityRegistry[4] = {
+	Name = "TimeErase",
+	Type = "Press",
+	Cooldown = 45,
+	Execute = function(standModel, player)
+		-- GoldExperiment.TimeErase(standModel)
+	end,
 }
 
 return AbilityRegistry

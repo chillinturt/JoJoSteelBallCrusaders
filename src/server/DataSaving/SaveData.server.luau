@@ -213,101 +213,131 @@ local function setupCharacter(player, character)
 	end)
 end
 
+local function ensurePowersFolder(player)
+	-- Try to find existing folder
+	local powers = player:FindFirstChild("Powers")
+	if not powers then
+		powers = Instance.new("Folder")
+		powers.Name = "Powers"
+		powers.Parent = player
+	end
+
+	-- Ensure each StringValue exists
+	for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
+		local value = powers:FindFirstChild(statName)
+		if not value then
+			value = Instance.new("StringValue")
+			value.Name = statName
+			value.Value = "" -- default, will be overwritten if loading data
+			value.Parent = powers
+		end
+	end
+
+	return powers
+end
+
 ---------------------------------------------------------------------
 -- PLAYER CONNECTIONS
 ---------------------------------------------------------------------
 Players.PlayerAdded:Connect(function(player)
-	-- 1️⃣ Ensure player.Powers folder exists
+	-- ✅ Immediately ensure Powers exists
 	local powersFolder = player:FindFirstChild("Powers")
 	if not powersFolder then
 		powersFolder = Instance.new("Folder")
 		powersFolder.Name = "Powers"
 		powersFolder.Parent = player
-	end
 
-	-- Ensure Hero, Specialty, Race exist
-	for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
-		if not powersFolder:FindFirstChild(statName) then
-			local value = Instance.new("StringValue")
-			value.Name = statName
-			value.Value = "" -- default, will be replaced by saved data
-			value.Parent = powersFolder
-		end
-	end
-
-	-- Load saved data
-	local savedData = loadPlayerData(player)
-	if savedData then
-		powersFolder.Hero.Value = savedData.Hero or ""
-		powersFolder.Specialty.Value = savedData.Specialty or ""
-		powersFolder.Race.Value = savedData.Race or "Human"
-	end
-
-	-- Restore completed quests
-	if savedData and savedData.CompletedQuests then
-		deserializeCompletedQuests(player, savedData.CompletedQuests)
-	else
-		QuestManager.SetCompletedQuests(player, {})
-	end
-
-	-- Restore active quests
-	if savedData and savedData.Quests then
-		deserializeQuests(player, savedData.Quests)
-	end
-
-	-- Add starting quest
-	if
-		not QuestManager.HasPlayerCompletedQuest(player, "TalkToGiorno1")
-		and not QuestManager.GetQuests(player)["TalkToGiorno1"]
-	then
-		QuestManager.AddQuest(player, "TalkToGiorno1")
-	end
-
-	-- Restore stats
-	local stats = player:FindFirstChild("Stats")
-	if savedData and stats then
-		stats.XP.Value = savedData.XP or stats.XP.Value
-		stats.Level.Value = savedData.Level or stats.Level.Value
-		stats.AbilityPoints.Value = savedData.AbilityPoints or stats.AbilityPoints.Value
-		stats.MaxXP.Value = savedData.MaxXP or stats.MaxXP.Value
-		stats.Cash.Value = savedData.Cash or stats.Cash.Value
-	end
-
-	-- Restore UpgradeData
-	local upgradeFolder = player:FindFirstChild("UpgradeData")
-	if upgradeFolder and savedData and savedData.UpgradeData then
-		for upgradeName, value in pairs(savedData.UpgradeData) do
-			local upgradeValue = upgradeFolder:FindFirstChild(upgradeName)
-			if upgradeValue and upgradeValue:IsA("IntValue") then
-				upgradeValue.Value = value
-			else
-				local newUpgrade = Instance.new("IntValue")
-				newUpgrade.Name = upgradeName
-				newUpgrade.Value = value
-				newUpgrade.Parent = upgradeFolder
+		for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
+			if not powersFolder:FindFirstChild(statName) then
+				local val = Instance.new("StringValue")
+				val.Name = statName
+				val.Value = "" -- default
+				val.Parent = powersFolder
 			end
 		end
 	end
 
-	-- Connect character setup
-	player.CharacterAdded:Connect(function(character)
-		setupCharacter(player, character)
-		-- Restore inventory
-		local latestData = loadPlayerData(player)
-		if latestData and latestData.Inventory then
-			task.defer(function()
-				deserializeInventory(player, latestData.Inventory)
-			end)
-		end
-	end)
+	-- ✅ Now spawn async code safely
+	task.spawn(function()
+		local success, err = pcall(function()
+			-- Load saved data
+			local savedData = loadPlayerData(player)
+			if savedData then
+				powersFolder.Hero.Value = savedData.Hero or ""
+				powersFolder.Specialty.Value = savedData.Specialty or ""
+				powersFolder.Race.Value = savedData.Race or "Human"
+			end
 
-	-- Auto-save backpack changes
-	local backpack = player:WaitForChild("Backpack")
-	backpack.ChildAdded:Connect(function()
-		savePlayerData(player)
-	end)
-	backpack.ChildRemoved:Connect(function()
-		savePlayerData(player)
+			-- Restore completed quests
+			if savedData and savedData.CompletedQuests then
+				deserializeCompletedQuests(player, savedData.CompletedQuests)
+			else
+				QuestManager.SetCompletedQuests(player, {})
+			end
+
+			-- Restore active quests
+			if savedData and savedData.Quests then
+				deserializeQuests(player, savedData.Quests)
+			end
+
+			-- Add starting quest
+			if
+				not QuestManager.HasPlayerCompletedQuest(player, "TalkToGiorno1")
+				and not QuestManager.GetQuests(player)["TalkToGiorno1"]
+			then
+				QuestManager.AddQuest(player, "TalkToGiorno1")
+			end
+
+			-- Restore stats
+			local stats = player:FindFirstChild("Stats")
+			if savedData and stats then
+				stats.XP.Value = savedData.XP or stats.XP.Value
+				stats.Level.Value = savedData.Level or stats.Level.Value
+				stats.AbilityPoints.Value = savedData.AbilityPoints or stats.AbilityPoints.Value
+				stats.MaxXP.Value = savedData.MaxXP or stats.MaxXP.Value
+				stats.Cash.Value = savedData.Cash or stats.Cash.Value
+			end
+
+			-- Restore UpgradeData
+			local upgradeFolder = player:FindFirstChild("UpgradeData")
+			if upgradeFolder and savedData and savedData.UpgradeData then
+				for upgradeName, value in pairs(savedData.UpgradeData) do
+					local upgradeValue = upgradeFolder:FindFirstChild(upgradeName)
+					if upgradeValue and upgradeValue:IsA("IntValue") then
+						upgradeValue.Value = value
+					else
+						local newUpgrade = Instance.new("IntValue")
+						newUpgrade.Name = upgradeName
+						newUpgrade.Value = value
+						newUpgrade.Parent = upgradeFolder
+					end
+				end
+			end
+
+			-- Connect character setup
+			player.CharacterAdded:Connect(function(character)
+				setupCharacter(player, character)
+				-- Restore inventory
+				local latestData = loadPlayerData(player)
+				if latestData and latestData.Inventory then
+					task.defer(function()
+						deserializeInventory(player, latestData.Inventory)
+					end)
+				end
+			end)
+
+			-- Auto-save backpack changes
+			local backpack = player:WaitForChild("Backpack")
+			backpack.ChildAdded:Connect(function()
+				savePlayerData(player)
+			end)
+			backpack.ChildRemoved:Connect(function()
+				savePlayerData(player)
+			end)
+		end)
+		if not success then
+			warn("❌ PlayerAdded crashed for", player.Name, err)
+		end
 	end)
 
 	-- Periodic autosave

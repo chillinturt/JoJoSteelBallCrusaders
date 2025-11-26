@@ -277,7 +277,7 @@ function StarPurple.onMachOraRequested(character)
 		return
 	else
 		local standName = standModel:FindFirstChild("StandTag").Value
-		if standName ~= "Star Purple" then
+		if standName ~= "StarPurple" then
 			return
 		end
 	end
@@ -411,7 +411,7 @@ function StarPurple.onMachOra2Requested(character)
 		Name = "BasicPunchHitbox",
 
 		OnHit = function(projectile, hitResult, horizontalDirection)
-		-- Destroy MachOraVelocity if it exists
+			-- Destroy MachOraVelocity if it exists
 			local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 			if humanoidRootPart then
 				local machOraVelocity = humanoidRootPart:FindFirstChild("MachOraVelocity")

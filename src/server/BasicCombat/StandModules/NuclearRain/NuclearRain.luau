@@ -57,14 +57,17 @@ end
 function NuclearRain.initRainForPlayer(player)
 	-- When the character spawns, ensure it has a HamonMeter
 	player.CharacterAdded:Connect(function(character)
-		character:WaitForChild("Humanoid") -- wait until the character is fully loaded
-		local powersFolder = player:WaitForChild("Powers", 5)
+		local humanoid = character:WaitForChild("Humanoid") -- wait until the character is fully loaded
+
+		-- ✅ Safe access to Powers folder
+		local powersFolder = player:WaitForChild("Powers")
 		if not powersFolder then
 			warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
 			return
 		end
 
-		local heroValue = powersFolder:WaitForChild("Hero")
+		-- ✅ Safe access to Hero value
+		local heroValue = powersFolder:FindFirstChild("Hero")
 		if heroValue and heroValue.Value == "NuclearRain" then
 			NuclearRain.getRainValue(character)
 			NuclearRain.StartRainRegen(character)

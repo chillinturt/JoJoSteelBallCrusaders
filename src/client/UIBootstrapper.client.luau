@@ -3,7 +3,9 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
-local powersFolder = player:WaitForChild("Powers", 5)
+player.CharacterAdded:Wait() -- force replication to catch up
+
+local powersFolder = player:WaitForChild("Powers")
 if not powersFolder then
 	warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
 	return
