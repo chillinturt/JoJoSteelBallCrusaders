@@ -1,62 +1,102 @@
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
-local barrageRemote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandBarrageToggle")
+local BarrageEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandBarrageToggle")
 
-local isBarrageActive = false
+-- ===== CONFIG =====
+local BUFFER_DURATION = 30 -- How long to hold a buffered F input (reduce from 100s!)
+local BUFFER_CHECK_RATE = 0.05 -- How often to retry (in seconds)
 
--- Start Barrage
-local function startBarrage()
-	if not isBarrageActive then
-		local ok, result = pcall(function()
-			return barrageRemote:InvokeServer(true)
-		end)
+-- ===== STATE =====
+local isBarraging = false
+local isTryingToBarrage = false
+local bufferStartTime = 0
+local bufferConnection = nil
 
-		if not ok then
-			warn("Error while trying to start barrage:", result) -- <-- this will print the actual server error
-			return
-		end
-
-		if result then
-			isBarrageActive = true
-			print("isBarrageActive set to true")
-		else
-			print("Barrage not available right now.")
-		end
-	else
-		print("Barrage is active or on cooldown.")
+-- === Core Functions ===
+local function tryStartBarrage()
+	if isBarraging then
+		return true
 	end
+
+	if not isBarraging then
+		isBarraging = true
+		BarrageEvent:FireServer(true)
+		print("✅ Barraging started")
+		return true
+	end
+
+	return false
 end
 
--- Stop Barrage
-local function stopBarrage()
-	if isBarrageActive then
-		isBarrageActive = false
-		barrageRemote:InvokeServer(false)
-		print("stop barrage client")
-	end
-end
-
-UserInputService.InputBegan:Connect(function(input, processed)
-	if processed then
+local function startBarragingBuffered()
+	if isBarraging or isTryingToBarrage then
 		return
 	end
 
-	if input.KeyCode == Enum.KeyCode.E then
-		--[[
-		local canBlock = CanBlockFunction:InvokeServer()
-		if not canBlock then
-			warn("Blocking denied by server")
+	isTryingToBarrage = true
+	bufferStartTime = os.clock()
+
+	-- Immediate attempt
+	if tryStartBarrage() then
+		isTryingToBarrage = false
+		return
+	end
+
+	-- Start buffering
+	bufferConnection = RunService.Heartbeat:Connect(function()
+		local now = os.clock()
+		if now - bufferStartTime > BUFFER_DURATION then
+			-- Expired
+			if bufferConnection then
+				bufferConnection:Disconnect()
+				bufferConnection = nil
+			end
+			isTryingToBarrage = false
+			print("⏳ Barrage buffer expired")
 			return
 		end
-		]]
 
-		startBarrage()
+		if tryStartBarrage() then
+			-- Success while buffered
+			if bufferConnection then
+				bufferConnection:Disconnect()
+				bufferConnection = nil
+			end
+			isTryingToBarrage = false
+		end
+	end)
+end
+
+local function stopBarraging()
+	-- Stop buffer safely
+	if bufferConnection then
+		bufferConnection:Disconnect()
+		bufferConnection = nil
+	end
+
+	isTryingToBarrage = false
+
+	if isBarraging then
+		isBarraging = false
+		BarrageEvent:FireServer(false)
+		print("🛑 Barraging ended")
+	end
+end
+
+-- === Input Hooks ===
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+	if gameProcessed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.E then
+		startBarragingBuffered()
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.E then
-		stopBarrage()
+		stopBarraging()
 	end
 end)

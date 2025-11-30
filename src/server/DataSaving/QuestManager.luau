@@ -240,9 +240,9 @@ function QuestManager.InteractWithNPC(player, npcName)
 				return def.Dialog.InProgress or { "Thanks." }, "InProgress", questId
 			end
 
-			if obj.Type == "Specialty" and not obj.Completed then
+			if obj.Type == "CheckPowers" and not obj.Completed then
 				-- Replace this with your actual player specialty check
-				if player:FindFirstChild("Powers") and player.Powers:FindFirstChild(obj.Target) then
+				if player:FindFirstChild("Powers") and player.Powers:FindFirstChild(obj.Target).Value == obj.Value then
 					obj.Completed = true
 					QuestManager.CheckCompletion(player, questId)
 					return def.Dialog.InProgress or { "You have proven your power." }, "InProgress", questId

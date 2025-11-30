@@ -3,7 +3,18 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
-local AbilityFunction = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityFunction")
+local AbilityFunction = Instance.new("RemoteFunction")
+AbilityFunction.Name = "StandAbilityFunction"
+AbilityFunction.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
+
+local StandAbilityEvent = Instance.new("RemoteEvent")
+StandAbilityEvent.Name = "StandAbilityEvent"
+StandAbilityEvent.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
+
+local AbilityTypes = Instance.new("RemoteEvent")
+AbilityTypes.Name = "StandAbilityTypes"
+AbilityTypes.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
+
 local AbilityHandler = require(ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("AbilityHandler"))
 
 -- Client calls: AbilityFunction:InvokeServer(abilityId, state)

@@ -1,7 +1,7 @@
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local StandSlideToggle = Instance.new("RemoteFunction")
+local StandSlideToggle = Instance.new("RemoteEvent")
 StandSlideToggle.Name = "SlideToggle"
 StandSlideToggle.Parent = replicatedStorage.Shared.BasicCombat
 
@@ -15,63 +15,38 @@ local lastSlideEndTime = {} -- player -> tick() timestamp
 local activeSlides = {} -- player -> true if currently barraging
 local autoStopTasks = {} -- player -> task for auto-stop
 
-StandSlideToggle.OnServerInvoke = function(player, isStarting)
-	local character = player.Character
-	if not character then
-		return false
-	end
-
-	if isStarting then
-		-- Prevent double start
+StandSlideToggle.OnServerEvent:Connect(function(player, action)
+	if action == "Begin" then
 		if activeSlides[player] then
-			return false
+			return
 		end
 
-		-- Cooldown check
 		local lastEnd = lastSlideEndTime[player]
 		if lastEnd and tick() - lastEnd < COOLDOWN_TIME then
-			print("Slide on cooldown")
-			return false
+			return -- simply deny silently
 		end
 
 		local success = CombatUtils.StartSlide(player)
 		if success then
 			activeSlides[player] = true
+			lastSlideEndTime[player] = tick()
 
-			-- Start optional auto-stop timer
+			-- auto-stop logic...
 			if autoStopTasks[player] then
 				task.cancel(autoStopTasks[player])
 			end
-
 			autoStopTasks[player] = task.delay(MAX_Slide_DURATION, function()
 				if activeSlides[player] then
-					CombatUtils.StopSlide({
-						player,
-					})
-					lastSlideEndTime[player] = tick()
+					CombatUtils.StopSlide(player)
 					activeSlides[player] = nil
 				end
-				autoStopTasks[player] = nil
 			end)
 		end
-		return success
-	else
-		-- Ignore Stop requests if Slide already ended (auto or manually)
-		if not activeSlides[player] then
-			return false
+	elseif action == "End" then
+		if activeSlides[player] then
+			CombatUtils.StopSlide(player)
+			activeSlides[player] = nil
+			lastSlideEndTime[player] = tick()
 		end
-
-		-- Stop manually
-		CombatUtils.StopSlide(player)
-		lastSlideEndTime[player] = tick()
-		activeSlides[player] = nil
-
-		-- Cancel auto-stop if running
-		if autoStopTasks[player] then
-			task.cancel(autoStopTasks[player])
-			autoStopTasks[player] = nil
-		end
-
-		return true
 	end
-end
+end)

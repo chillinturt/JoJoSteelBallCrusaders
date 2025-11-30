@@ -1,26 +1,18 @@
 local replicatedStorage = game:GetService("ReplicatedStorage")
 
-local standPunch = Instance.new("RemoteFunction")
-standPunch.Name = "StandPunch"
-standPunch.Parent = replicatedStorage.Shared:WaitForChild("BasicCombat")
-
-local standOffPunch = Instance.new("RemoteFunction")
-standOffPunch.Name = "StandOffPunch"
-standOffPunch.Parent = replicatedStorage.Shared:WaitForChild("BasicCombat")
+local PunchEvent = Instance.new("RemoteEvent")
+PunchEvent.Name = "PunchEvent"
+PunchEvent.Parent = replicatedStorage.Shared:WaitForChild("BasicCombat")
 
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local BasicStandAttacks = require(game.ServerScriptService.BasicCombat:WaitForChild("BasicStandAttacks"))
 local GeneralCombat = require(game.ServerScriptService.BasicCombat.GeneralCombat)
 
-standPunch.OnServerInvoke = function(player)
+PunchEvent.OnServerEvent:Connect(function(player)
+	print("punch on server")
 	local character = player.Character
 	if not character then
-		return false
-	end
-
-	local standModel = StandUtils.getStandModel(character)
-	if not standModel then
 		return false
 	end
 
@@ -34,9 +26,18 @@ standPunch.OnServerInvoke = function(player)
 		return
 	end
 
-	BasicStandAttacks.BasicPunch(standModel)
-end
+	local standModel = StandUtils.getStandModel(character)
 
+	if standModel then
+		BasicStandAttacks.BasicPunch(standModel)
+	else
+		GeneralCombat.StandOffPunch(character)
+	end
+
+	return true
+end)
+
+--[[
 standOffPunch.OnServerInvoke = function(player)
 	local character = player.Character
 	if not character then
@@ -53,5 +54,6 @@ standOffPunch.OnServerInvoke = function(player)
 		return
 	end
 
-	GeneralCombat.StandOffPunch(character)
+	--GeneralCombat.StandOffPunch(character)
 end
+]]

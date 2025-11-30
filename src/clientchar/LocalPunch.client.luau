@@ -1,6 +1,6 @@
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local userInputService = game:GetService("UserInputService")
-local punchEvent = replicatedStorage.Shared.BasicCombat:FindFirstChild("StandPunch")
+local punchEvent = replicatedStorage.Shared.BasicCombat:FindFirstChild("PunchEvent")
 
 -- Detect M1 (Left Mouse Button) press and send request to server
 userInputService.InputBegan:Connect(function(input, gameProcessed)
@@ -9,6 +9,7 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
 	end
 
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
-		punchEvent:InvokeServer() -- Request summon from the server
+		punchEvent:FireServer() -- Request summon from the server
+		print("punch fired on client")
 	end
 end)

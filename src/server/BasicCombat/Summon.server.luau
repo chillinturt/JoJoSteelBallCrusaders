@@ -28,7 +28,7 @@ local function onSummonRequested(player)
 		return
 	end
 
-	local powersFolder = character:WaitForChild("Powers")
+	local powersFolder = player:WaitForChild("Powers")
 
 	local heroValue = powersFolder:FindFirstChild("Hero")
 	if not heroValue or heroValue.Value == "" then

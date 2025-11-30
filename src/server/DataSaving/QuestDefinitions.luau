@@ -335,8 +335,9 @@ QuestDefinitions.CheckVampirismSpecialty = {
 
 	Objectives = {
 		{
-			Type = "Specialty",
-			Target = "Vampirism", -- Required specialty name
+			Type = "CheckPowers",
+			Target = "Specialty", -- Required specialty name
+			Value = "Vampirism",
 			Completed = false,
 		},
 	},
@@ -346,7 +347,7 @@ QuestDefinitions.CheckVampirismSpecialty = {
 
 	TurnInNPC = "DioPB",
 
-	--NextQuest = { "SomeOtherQuest" },
+	NextQuest = { "DefeatPlayers1" },
 
 	Dialog = {
 		Offer = {
@@ -368,6 +369,42 @@ QuestDefinitions.CheckVampirismSpecialty = {
 	},
 }
 
+QuestDefinitions.DefeatPlayers1 = {
+	Name = "Hunt for players",
+	Description = "Defeat 3 players to prove your strength to DioPB.",
+
+	Giver = "DioPB",
+
+	Objectives = {
+		{ Type = "Defeat", Target = "Player", Required = 3, Progress = 0, Completed = false },
+	},
+
+	RewardXP = 500,
+	RewardCash = 500,
+	NextQuest = "CheckVampirismSpecialty",
+
+	TurnInNpc = "DioPB",
+
+	Dialog = {
+		Offer = {
+			"Now you're ready to battle anyone! Use your new powers to slay other players!",
+			"Talk to the Vampire Lady when you're done.",
+		},
+
+		InProgress = {
+			"Do not falter. Show me you are worthy.",
+		},
+
+		TurnIn = {
+			"You survived… and triumphed.",
+		},
+
+		Completed = {
+			"You’ve already proven yourself… for now.",
+		},
+	},
+}
+
 ---------------------------------------------------------------------
 -- 10. TALK TO BARON ZEPELLI (Quest 10)
 ---------------------------------------------------------------------
@@ -375,7 +412,7 @@ QuestDefinitions.TalkToBaronZepelli1 = {
 	Name = "Talk to Baron Zepelli",
 	Description = "Find Baron Zepelli and speak with him.",
 
-	Giver = "BaronZepelli",
+	Giver = "BaronZeppeli",
 
 	Objectives = {
 		{ Type = "Talk", Target = "BaronZepelli", Completed = false },
@@ -438,6 +475,76 @@ QuestDefinitions.DefeatThugsRepeatable = {
 
 		Completed = {
 			"Ready for more work? These thugs always come back!",
+		},
+	},
+}
+
+QuestDefinitions.DefeatCriminalsStandUsersRepeatable = {
+	Name = "Criminal Stand Users",
+	Description = "Defeat 3 Criminal Stand Users at the treehouse.",
+
+	Repeatable = true, -- 🔹 NEW
+
+	Giver = "Kakyoin",
+	RewardCash = 200,
+	RewardXP = 200,
+
+	Objectives = {
+		{ Type = "Defeat", Target = "Criminal Stand User", Required = 3, Progress = 0, Completed = false },
+	},
+
+	TurnInNpc = "Kakyoin",
+
+	Dialog = {
+		Offer = {
+			"Careful, these crimnals have a powerful STAND ability! Take them out!",
+		},
+
+		InProgress = {
+			"Careful, these crimnals have a powerful STAND ability! Take them out!",
+		},
+
+		TurnIn = {
+			"You got them! Well done indeed!",
+		},
+
+		Completed = {
+			"Ready for more work? These criminals always come back!",
+		},
+	},
+}
+
+QuestDefinitions.DefeatVampiresRepeatable = {
+	Name = "Slay Vampires",
+	Description = "Defeat 3 Vampires",
+
+	Repeatable = true, -- 🔹 NEW
+
+	Giver = "Caesar",
+	RewardCash = 300,
+	RewardXP = 300,
+
+	Objectives = {
+		{ Type = "Defeat", Target = "Vampire", Required = 3, Progress = 0, Completed = false },
+	},
+
+	TurnInNpc = "Caesar",
+
+	Dialog = {
+		Offer = {
+			"We have to destroy these vampires! Help me get 3 of them.",
+		},
+
+		InProgress = {
+			"We have to destroy these vampires! Help me get 3 of them.",
+		},
+
+		TurnIn = {
+			"You got them! Well done indeed!",
+		},
+
+		Completed = {
+			"Ready for more work? These vampires always come back!",
 		},
 	},
 }

@@ -213,60 +213,15 @@ local function setupCharacter(player, character)
 	end)
 end
 
-local function ensurePowersFolder(player)
-	-- Try to find existing folder
-	local powers = player:FindFirstChild("Powers")
-	if not powers then
-		powers = Instance.new("Folder")
-		powers.Name = "Powers"
-		powers.Parent = player
-	end
-
-	-- Ensure each StringValue exists
-	for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
-		local value = powers:FindFirstChild(statName)
-		if not value then
-			value = Instance.new("StringValue")
-			value.Name = statName
-			value.Value = "" -- default, will be overwritten if loading data
-			value.Parent = powers
-		end
-	end
-
-	return powers
-end
-
 ---------------------------------------------------------------------
 -- PLAYER CONNECTIONS
 ---------------------------------------------------------------------
 Players.PlayerAdded:Connect(function(player)
-	-- ✅ Immediately ensure Powers exists
-	local powersFolder = player:FindFirstChild("Powers")
-	if not powersFolder then
-		powersFolder = Instance.new("Folder")
-		powersFolder.Name = "Powers"
-		powersFolder.Parent = player
-
-		for _, statName in ipairs({ "Hero", "Specialty", "Race" }) do
-			if not powersFolder:FindFirstChild(statName) then
-				local val = Instance.new("StringValue")
-				val.Name = statName
-				val.Value = "" -- default
-				val.Parent = powersFolder
-			end
-		end
-	end
-
 	-- ✅ Now spawn async code safely
 	task.spawn(function()
 		local success, err = pcall(function()
 			-- Load saved data
 			local savedData = loadPlayerData(player)
-			if savedData then
-				powersFolder.Hero.Value = savedData.Hero or ""
-				powersFolder.Specialty.Value = savedData.Specialty or ""
-				powersFolder.Race.Value = savedData.Race or "Human"
-			end
 
 			-- Restore completed quests
 			if savedData and savedData.CompletedQuests then
@@ -286,6 +241,13 @@ Players.PlayerAdded:Connect(function(player)
 				and not QuestManager.GetQuests(player)["TalkToGiorno1"]
 			then
 				QuestManager.AddQuest(player, "TalkToGiorno1")
+			end
+
+			local powersFolder = player:FindFirstChild("Powers")
+			if savedData and powersFolder then
+				powersFolder.Hero.Value = savedData.Hero or ""
+				powersFolder.Specialty.Value = savedData.Specialty or ""
+				powersFolder.Race.Value = savedData.Race or "Human"
 			end
 
 			-- Restore stats
@@ -316,7 +278,6 @@ Players.PlayerAdded:Connect(function(player)
 
 			-- Connect character setup
 			player.CharacterAdded:Connect(function(character)
-				setupCharacter(player, character)
 				-- Restore inventory
 				local latestData = loadPlayerData(player)
 				if latestData and latestData.Inventory then
