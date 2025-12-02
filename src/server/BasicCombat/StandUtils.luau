@@ -3,7 +3,6 @@ local StandUtils = {}
 
 -- Track active stands for each entity
 local activeStands = {}
-local standCache = {}
 
 -- ServerScriptService.BasicCombat.StandUtils
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -214,7 +213,6 @@ end
 
 -- Summon a stand for an NPC or Player
 function StandUtils.SummonStand(entity: Model, standTag: string)
-	print("Summon stand in module!!!11")
 	-- Check if a stand already exists
 	if activeStands[entity] then
 		warn(entity.Name .. " already has a stand!")

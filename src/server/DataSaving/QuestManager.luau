@@ -356,10 +356,10 @@ function QuestManager.GetNpcDialog(player, npcName)
 end
 
 -- Cleanup on player leave
-Players.PlayerRemoving:Connect(function(player)
+function QuestManager.Cleanup(player)
 	playerQuests[player] = nil
 	playerCompletedQuests[player] = nil
-end)
+end
 
 -- RemoteFunction handler for clients
 QuestDataEvent.OnServerInvoke = function(player)
