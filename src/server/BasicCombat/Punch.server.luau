@@ -10,7 +10,6 @@ local BasicStandAttacks = require(game.ServerScriptService.BasicCombat:WaitForCh
 local GeneralCombat = require(game.ServerScriptService.BasicCombat.GeneralCombat)
 
 PunchEvent.OnServerEvent:Connect(function(player)
-	print("punch on server")
 	local character = player.Character
 	if not character then
 		return false

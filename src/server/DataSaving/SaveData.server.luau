@@ -4,13 +4,12 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local DataStoreManager = require(script.Parent.DataStoreManager)
 local PlayerProfile = require(script.Parent.PlayerProfile)
-local InventorySerializer = require(script.Parent.InventorySerializer)
+local InventoryManager = require(script.Parent.InventoryManager)
 local QuestSerializer = require(script.Parent.QuestSerializer)
-
 local QuestManager = require(script.Parent.QuestManager)
 
 ---------------------------------------------------------------------
--- ITEM FOLDERS (TOOLS THAT WILL BE CLONED ON DESERIALIZE)
+-- ITEM FOLDERS (TOOLS THAT WILL BE CLONED WHEN BACKPACK IS REPLICATED)
 ---------------------------------------------------------------------
 local StandItemsFolder = ReplicatedStorage.Items.StandItems.InventoryTools
 local RaceItemsFolder = ReplicatedStorage.Items.RaceItems.InventoryTools
@@ -21,8 +20,7 @@ local itemFolders = {
 }
 
 ---------------------------------------------------------------------
--- 🧠 MEMORY DATA
--- Everything is stored here and saved from here (never Backpack)
+-- 🧠 MEMORY DATA (never store Instances)
 ---------------------------------------------------------------------
 local MemoryData = {} -- [player] = profile table
 
@@ -54,19 +52,100 @@ local function SaveProfile(player)
 	end
 
 	----------------------------------------------------
-	-- SERIALIZE STATS + QUESTS FROM CURRENT INSTANCES
+	-- DEEP COPY (prevents accidental mutation)
+	----------------------------------------------------
+	local function deepCopy(tbl)
+		local copy = {}
+		for k, v in pairs(tbl) do
+			if typeof(v) == "table" then
+				copy[k] = deepCopy(v)
+			else
+				copy[k] = v
+			end
+		end
+		return copy
+	end
+
+	----------------------------------------------------
+	-- 🔥 POWERS
+	----------------------------------------------------
+	local powers = player:FindFirstChild("Powers")
+	if powers then
+		profile.Race = powers.Race.Value
+		profile.Hero = powers.Hero.Value
+		profile.Specialty = powers.Specialty.Value
+	else
+		warn("[SaveData] Powers folder missing for", player.Name)
+	end
+
+	----------------------------------------------------
+	-- 🔥 STATS
+	----------------------------------------------------
+	local stats = player:FindFirstChild("Stats")
+	if stats then
+		profile.XP = stats.XP.Value
+		profile.Level = stats.Level.Value
+		profile.AbilityPoints = stats.AbilityPoints.Value
+		profile.MaxXP = stats.MaxXP.Value
+		profile.Cash = stats.Cash.Value
+	else
+		warn("[SaveData] Stats folder missing for", player.Name)
+	end
+
+	----------------------------------------------------
+	-- 🔥 UPGRADES
+	----------------------------------------------------
+	local upgradeFolder = player:FindFirstChild("UpgradeData")
+	if upgradeFolder then
+		profile.UpgradeData = {}
+		for _, obj in ipairs(upgradeFolder:GetChildren()) do
+			if obj:IsA("IntValue") then
+				profile.UpgradeData[obj.Name] = obj.Value
+			end
+		end
+	end
+
+	----------------------------------------------------
+	-- 🔥 QUESTS
 	----------------------------------------------------
 	profile.Quests = QuestSerializer.SerializeActive(QuestManager, player)
 	profile.CompletedQuests = QuestSerializer.SerializeCompleted(QuestManager, player)
 
 	----------------------------------------------------
-	-- 🔥 INVENTORY SAVED FROM MEMORY ONLY
-	-- NEVER read from Backpack here
+	-- 🔥 INVENTORY (FROM MEMORY ONLY!)
 	----------------------------------------------------
-	-- (profile.Inventory is already stored IN MEMORY)
-	-- Nothing with Backpack involved anymore
+	local invTable = InventoryManager.GetInventory(player)
+	profile.Inventory = deepCopy(invTable)
 
-	DataStoreManager:Set(tostring(player.UserId), profile)
+	----------------------------------------------------
+	-- FINAL PROFILE COPY SAFE FOR DATASTORE
+	----------------------------------------------------
+	local safeProfile = deepCopy(profile)
+
+	----------------------------------------------------
+	-- 💾 SAVE WITH RETRY
+	----------------------------------------------------
+	local key = tostring(player.UserId)
+	local maxRetries = 3
+	local success, err
+
+	for attempt = 1, maxRetries do
+		success, err = pcall(function()
+			DataStoreManager:Set(key, safeProfile)
+		end)
+
+		if success then
+			print("[SaveData] Saved profile for", player.Name, "(attempt", attempt, ")")
+			break
+		else
+			warn("[SaveData] Save failed for", player.Name, "attempt", attempt, "/", maxRetries, ":", err)
+			task.wait(0.5)
+		end
+	end
+
+	if not success then
+		warn("[SaveData] ⚠️ FAILED to save profile after retries for", player.Name)
+	end
 end
 
 ---------------------------------------------------------------------
@@ -107,16 +186,24 @@ end
 Players.PlayerAdded:Connect(function(player)
 	local profile = LoadProfile(player)
 
-	-- Apply permanent data into stats
+	----------------------------------------------------
+	-- Initialize inventory memory
+	----------------------------------------------------
+	InventoryManager.InitPlayer(player)
+	InventoryManager.SetInventory(player, profile.Inventory)
+
+	----------------------------------------------------
+	-- Stats / Powers / Upgrades
+	----------------------------------------------------
 	ApplyProfile(player, profile)
 
-	-- Load quest data
+	----------------------------------------------------
+	-- Quests
+	----------------------------------------------------
 	QuestSerializer.DeserializeCompleted(QuestManager, player, profile.CompletedQuests)
 	QuestSerializer.DeserializeActive(QuestManager, player, profile.Quests)
 
-	---------------------------------------------------------
-	-- Starting Quest Rule
-	---------------------------------------------------------
+	-- First quest
 	local hasActive = next(QuestManager.GetQuests(player)) ~= nil
 	local hasCompleted = next(QuestManager.GetCompletedQuests(player)) ~= nil
 
@@ -124,18 +211,17 @@ Players.PlayerAdded:Connect(function(player)
 		QuestManager.AddQuest(player, "TalkToGiorno1")
 	end
 
-	---------------------------------------------------------
-	-- CHARACTER SPAWN → DESERIALIZE INVENTORY
-	---------------------------------------------------------
+	----------------------------------------------------
+	-- Backpack replication
+	----------------------------------------------------
 	player.CharacterAdded:Connect(function()
-		local memoryProfile = MemoryData[player]
 		task.wait(0.25)
-		InventorySerializer.Deserialize(player, memoryProfile.Inventory, itemFolders)
+		--InventoryManager.ReplicateToBackpack(player, itemFolders)
 	end)
 
-	---------------------------------------------------------
-	-- AUTO SAVE LOOP (EVERY 60 SECONDS)
-	---------------------------------------------------------
+	----------------------------------------------------
+	-- AUTO SAVE
+	----------------------------------------------------
 	task.spawn(function()
 		while player.Parent do
 			task.wait(60)
@@ -150,5 +236,7 @@ end)
 Players.PlayerRemoving:Connect(function(player)
 	SaveProfile(player)
 	QuestManager.Cleanup(player)
-	MemoryData[player] = nil -- prevent memory leaks
+
+	InventoryManager.RemovePlayer(player)
+	MemoryData[player] = nil
 end)

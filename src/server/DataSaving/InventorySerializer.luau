@@ -1,40 +1,48 @@
--- InventorySerializer.lua
 local InventorySerializer = {}
 
-function InventorySerializer.Serialize(backpack)
+---------------------------------------------------------
+-- SERIALIZE: READ ONLY MEMORY, NEVER BACKPACK
+---------------------------------------------------------
+function InventorySerializer.Serialize(memoryInventory)
+	-- deep copy to avoid mutation
 	local data = {}
-	for _, tool in ipairs(backpack:GetChildren()) do
-		if tool:IsA("Tool") then
-			table.insert(data, {
-				Name = tool.Name,
-				Amount = tool:GetAttribute("amount") or 1,
-			})
-		end
+	for _, entry in ipairs(memoryInventory) do
+		table.insert(data, {
+			Name = entry.Name,
+			Amount = entry.Amount or 1,
+		})
 	end
 	return data
 end
 
-function InventorySerializer.Deserialize(player, savedList, itemFolders)
-	if not savedList then
+---------------------------------------------------------
+-- DESERIALIZE: APPLY MEMORY TO BACKPACK
+---------------------------------------------------------
+function InventorySerializer.Deserialize(player, memoryInventory, itemFolders)
+	if not memoryInventory then
 		return
 	end
+
 	local backpack = player:WaitForChild("Backpack")
 
+	-- Clear backpack
 	for _, tool in ipairs(backpack:GetChildren()) do
 		if tool:IsA("Tool") then
 			tool:Destroy()
 		end
 	end
 
-	for _, entry in ipairs(savedList) do
-		local template = itemFolders.Stand:FindFirstChild(entry.Name) or itemFolders.Race:FindFirstChild(entry.Name)
+	-- Rebuild inventory from memory table
+	for _, entry in ipairs(memoryInventory) do
+		local template = (itemFolders.Stand and itemFolders.Stand:FindFirstChild(entry.Name))
+			or (itemFolders.Race and itemFolders.Race:FindFirstChild(entry.Name))
 
 		if template then
 			local clone = template:Clone()
 			clone:SetAttribute("amount", entry.Amount or 1)
 			clone.Parent = backpack
 		else
-			warn("Missing tool:", entry.Name)
+			warn("Inventory item missing template:", entry.Name)
 		end
 	end
 end

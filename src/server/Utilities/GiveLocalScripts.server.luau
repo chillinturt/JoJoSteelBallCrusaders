@@ -54,7 +54,7 @@ local function giveStandScripts(player, character)
 
 	local standFolder = StandScripts:FindFirstChild(standName)
 	if not standFolder then
-		print("No stand folder found")
+		--print("No stand folder found")
 		return
 	end
 
@@ -83,7 +83,7 @@ local function giveSpecScripts(player, character)
 
 	local specFolder = SpecScripts:FindFirstChild(specName)
 	if not specFolder then
-		print("No spec folder found")
+		--print("No spec folder found")
 		return
 	end
 

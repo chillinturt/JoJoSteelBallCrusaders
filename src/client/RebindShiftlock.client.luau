@@ -28,7 +28,7 @@ task.spawn(function()
 
 	if success and boundKeys and boundKeys:IsA("StringValue") then
 		boundKeys.Value = DESIRED_KEY
-		print("[ForceShiftLockKey] BoundKeys set to", DESIRED_KEY)
+		--print("[ForceShiftLockKey] BoundKeys set to", DESIRED_KEY)
 
 		-- Optional: ensure it never resets to something else
 		boundKeys:GetPropertyChangedSignal("Value"):Connect(function()

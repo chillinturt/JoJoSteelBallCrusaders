@@ -10,6 +10,5 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	if input.UserInputType == Enum.UserInputType.MouseButton1 then
 		punchEvent:FireServer() -- Request summon from the server
-		print("punch fired on client")
 	end
 end)
