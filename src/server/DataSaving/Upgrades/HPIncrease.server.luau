@@ -1,13 +1,17 @@
 -- ExtraHealthServer.lua
 -- Applies health upgrades from CharacterUpgrades + live health updates
+-- Compatible with in-memory CharacterUpgrades
 
 local Players = game:GetService("Players")
+local CharacterUpgrades = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("CharacterUpdgrades"))
+local XPSystem = require(game.ServerScriptService.DataSaving.XPSystem)
 
 -- === CONFIG ===
 local BASE_HEALTH = 100 -- Default humanoid HP
 local HEALTH_PER_UPGRADE = 2 -- HP added per upgrade point
 
 -- === FUNCTIONS ===
+
 local function applyUpgradeHealth(player, character)
 	if not player or not character then
 		return
@@ -18,36 +22,35 @@ local function applyUpgradeHealth(player, character)
 		return
 	end
 
-	local upgradeFolder = player:FindFirstChild("UpgradeData")
-	if not upgradeFolder then
-		return
-	end
+	local upgrades = CharacterUpgrades.GetStats(player)
+	local hpUpgrades = upgrades.Health or 0
 
-	local hpUpgrades = upgradeFolder:FindFirstChild("HealthUpgrades")
-	if not hpUpgrades then
-		return
-	end
-
-	local extraHealth = hpUpgrades.Value * HEALTH_PER_UPGRADE
-	local newMax = BASE_HEALTH + extraHealth
-
+	local newMax = BASE_HEALTH + (hpUpgrades * HEALTH_PER_UPGRADE)
 	humanoid.MaxHealth = newMax
 	humanoid.Health = newMax -- Heal to new maximum
 end
 
+--[[ Listen for upgrades being applied through CharacterUpgrades
 local function setupLiveUpgradeUpdates(player)
-	-- Wait for upgrade folder (CharacterUpgrades module creates it)
-	local upgradeFolder = player:WaitForChild("UpgradeData")
-	local hpUpgrades = upgradeFolder:WaitForChild("HealthUpgrades")
+	-- RemoteEvent fires whenever an upgrade is applied
+	local remote = CharacterUpgrades and game.ReplicatedStorage:WaitForChild("UpgradeSubmitted")
+	if not remote then
+		return
+	end
 
-	-- Update health LIVE when upgrade value changes
-	hpUpgrades:GetPropertyChangedSignal("Value"):Connect(function()
-		local character = player.Character
-		if character then
-			applyUpgradeHealth(player, character)
+	remote.OnServerEvent:Connect(function(plr, upgradeType)
+		if plr ~= player then
+			return
+		end
+		if upgradeType == "Health" then
+			local character = player.Character
+			if character then
+				applyUpgradeHealth(player, character)
+			end
 		end
 	end)
 end
+]]
 
 local function onCharacterAdded(player, character)
 	character:WaitForChild("Humanoid")
@@ -57,13 +60,15 @@ end
 
 -- Player join setup
 Players.PlayerAdded:Connect(function(player)
+	CharacterUpgrades.InitPlayer(player)
+
 	-- Listen for character spawn
 	player.CharacterAdded:Connect(function(character)
 		onCharacterAdded(player, character)
 	end)
 
 	-- Set up live upgrade connection
-	setupLiveUpgradeUpdates(player)
+	--setupLiveUpgradeUpdates(player)
 
 	-- Studio immediate spawn
 	if player.Character then

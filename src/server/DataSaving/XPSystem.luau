@@ -1,86 +1,231 @@
--- XPSystem Module
-local XPSystem = {}
+---------------------------------------------------------------------
+-- XPSystem.lua
+--
+-- Fully rewritten using HeroManager design patterns:
+--  ✓ In-memory data
+--  ✓ RemoteEvent for UI sync
+--  ✓ Compatible with ProfileStore saving
+---------------------------------------------------------------------
 
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
--- Max level cap
+---------------------------------------------------------------------
+-- Remote for client UI sync
+---------------------------------------------------------------------
+local remoteFolder = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
+local XPUpdatedEvent = remoteFolder:FindFirstChild("XPUpdated")
+
+if not XPUpdatedEvent then
+	XPUpdatedEvent = Instance.new("RemoteEvent")
+	XPUpdatedEvent.Name = "XPUpdated"
+	XPUpdatedEvent.Parent = remoteFolder
+end
+
+local SkillTreeUpdateEvent = remoteFolder:FindFirstChild("SkillTreeUpdateEvent")
+
+if not SkillTreeUpdateEvent then
+	SkillTreeUpdateEvent = Instance.new("RemoteEvent")
+	SkillTreeUpdateEvent.Name = "SkillTreeUpdateEvent"
+	SkillTreeUpdateEvent.Parent = remoteFolder
+end
+
+---------------------------------------------------------------------
+-- MODULE
+---------------------------------------------------------------------
+local XPSystem = {}
+
+---------------------------------------------------------------------
+-- CONSTANTS
+---------------------------------------------------------------------
 local MAX_LEVEL = 50
 
--- Formula for XP required to level up
 local function getXPRequirement(level)
 	return 100 + 20 * ((level - 1) ^ 2)
 end
 
--- Public function to set up stats on a new player
-function XPSystem.SetupPlayer(player)
-	local stats = player:FindFirstChild("Stats")
-	if not stats then
-		stats = Instance.new("Folder")
-		stats.Name = "Stats"
-		stats.Parent = player
+---------------------------------------------------------------------
+-- IN-MEMORY STORAGE
+-- Key: player.UserId
+-- Value: table of XP stats
+--
+-- Example:
+-- {
+--   Level = 1,
+--   XP = 0,
+--   MaxXP = 100,
+--   AbilityPoints = 0
+-- }
+---------------------------------------------------------------------
+
+local xpData = {}
+
+---------------------------------------------------------------------
+-- UTILITY
+---------------------------------------------------------------------
+local function deepCopy(tbl)
+	local result = {}
+	for k, v in pairs(tbl) do
+		result[k] = v
 	end
-
-	local level = Instance.new("IntValue")
-	level.Name = "Level"
-	level.Value = 1
-	level.Parent = stats
-
-	local abilityPoints = Instance.new("IntValue")
-	abilityPoints.Name = "AbilityPoints"
-	abilityPoints.Value = 0
-	abilityPoints.Parent = stats
-
-	local xp = Instance.new("IntValue")
-	xp.Name = "XP"
-	xp.Value = 0
-	xp.Parent = stats
-
-	local maxXP = Instance.new("IntValue")
-	maxXP.Name = "MaxXP"
-	maxXP.Value = getXPRequirement(level.Value)
-	maxXP.Parent = stats
+	return result
 end
 
--- Public function to add XP (with rollover + level cap)
+local function get(player)
+	return xpData[player.UserId]
+end
+
+---------------------------------------------------------------------
+-- PUBLIC API
+---------------------------------------------------------------------
+
+-- Initialize default stats (runs on PlayerAdded)
+function XPSystem.InitPlayer(player)
+	xpData[player.UserId] = xpData[player.UserId]
+		or {
+			Level = 1,
+			XP = 0,
+			MaxXP = getXPRequirement(1),
+			AbilityPoints = 0,
+		}
+end
+
+-- Cleanup on PlayerRemoving
+function XPSystem.RemovePlayer(player)
+	xpData[player.UserId] = nil
+end
+
+---------------------------------------------------------------------
+-- SAVING / LOADING
+---------------------------------------------------------------------
+
+-- Return deep copy for ProfileStore saving
+function XPSystem.GetStats(player)
+	local data = get(player)
+	if not data then
+		return
+	end
+	if not data then
+		return {}
+	end
+	return deepCopy(data)
+end
+
+-- Load from ProfileStore data
+function XPSystem.SetStats(player, savedData)
+	xpData[player.UserId] = {
+		Level = savedData.Level or 1,
+		XP = savedData.XP or 0,
+		MaxXP = savedData.MaxXP or getXPRequirement(savedData.Level or 1),
+		AbilityPoints = savedData.AbilityPoints or 0,
+	}
+
+	-- sync UI
+	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+end
+
+---------------------------------------------------------------------
+-- MANIPULATION (Core Logic)
+---------------------------------------------------------------------
+
 function XPSystem.AddXP(player, amount)
-	local stats = player:FindFirstChild("Stats")
-	if not stats then
+	local ABILITY_POINTS_PER_LEVEL = 2
+
+	local data = get(player)
+	if not data then
 		return
 	end
 
-	local xp = stats:FindFirstChild("XP")
-	local level = stats:FindFirstChild("Level")
-	local maxXP = stats:FindFirstChild("MaxXP")
-	local abilityPoints = stats:FindFirstChild("AbilityPoints")
-
-	if not (xp and level and maxXP) then
+	-- Cap at max level
+	if data.Level >= MAX_LEVEL then
+		data.XP = data.MaxXP
+		XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
 		return
 	end
 
-	if level.Value >= MAX_LEVEL then
-		-- Max level reached, cap XP at requirement
-		xp.Value = maxXP.Value
+	data.XP += amount
+
+	-- Level up handling
+	local gaurd = 0
+	while data.XP >= data.MaxXP and data.Level < MAX_LEVEL do
+		gaurd += 1
+		if gaurd > 100 then
+			break
+		end
+		data.XP -= data.MaxXP
+		data.Level += 1
+		data.AbilityPoints += ABILITY_POINTS_PER_LEVEL
+		data.MaxXP = getXPRequirement(data.Level)
+		SkillTreeUpdateEvent:FireClient(player, XPSystem.GetStats(player))
+	end
+
+	-- Hard cap if just hit max level
+	if data.Level >= MAX_LEVEL then
+		data.XP = data.MaxXP
+	end
+
+	-- sync UI
+	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+end
+
+---------------------------------------------------------------------
+-- GETTERS
+---------------------------------------------------------------------
+
+function XPSystem.GetField(player, field)
+	local data = get(player)
+	if not data then
+		return
+	end
+	return data[field]
+end
+
+function XPSystem.SetField(player, field, value)
+	local data = get(player)
+	if not data then
 		return
 	end
 
-	xp.Value += amount
+	data[field] = value
+	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+end
 
-	-- Handle rollover leveling
-	while xp.Value >= maxXP.Value and level.Value < MAX_LEVEL do
-		xp.Value -= maxXP.Value
-		level.Value += 1
-		abilityPoints.Value += 2
-		maxXP.Value = getXPRequirement(level.Value)
+---------------------------------------------------------------------
+-- DEBUG
+---------------------------------------------------------------------
+
+function XPSystem.DebugPrint(player)
+	local data = get(player)
+	if not data then
+		return
 	end
 
-	-- Cap XP if player just reached max level
-	if level.Value >= MAX_LEVEL then
-		xp.Value = maxXP.Value
+	print("XP data for", player.Name)
+	for k, v in pairs(data) do
+		print(" > ", k, "=", v)
 	end
 end
+
+---------------------------------------------------------------------
+-- PLAYER HOOKS
+---------------------------------------------------------------------
 
 Players.PlayerAdded:Connect(function(player)
-	XPSystem.SetupPlayer(player)
+	XPSystem.InitPlayer(player)
+
+	player.CharacterAdded:Connect(function()
+		player:WaitForChild("PlayerGui")
+
+		task.defer(function()
+			wait(2)
+			XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+		end)
+	end)
 end)
 
+Players.PlayerRemoving:Connect(function(player)
+	XPSystem.RemovePlayer(player)
+end)
+
+---------------------------------------------------------------------
 return XPSystem

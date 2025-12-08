@@ -1,15 +1,19 @@
+-- ServerScriptService.BasicCombat.SummonHandler.lua
+
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local summonEvent = Instance.new("RemoteEvent")
 summonEvent.Name = "SummonEvent"
 summonEvent.Parent = replicatedStorage.Shared.BasicCombat
 
 local pilotModule = require(game.ServerScriptService.BasicCombat:WaitForChild("PilotModule"))
-
 local physicsService = game:GetService("PhysicsService")
 
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
+local HeroManager = require(game.ServerScriptService.DataSaving:WaitForChild("HeroManager"))
 
--- Ensure "NoCollision" group exists
+---------------------------------------------------------------------
+-- Physics setup (unchanged)
+---------------------------------------------------------------------
 local success, errorMessage = pcall(function()
 	physicsService:RegisterCollisionGroup("NoCollision")
 end)
@@ -20,44 +24,49 @@ else
 	warn("Failed to register collision group 'NoCollision': " .. errorMessage)
 end
 
--- Function to toggle the summoned model on and off using the module
+---------------------------------------------------------------------
+-- Summon logic
+---------------------------------------------------------------------
 local function onSummonRequested(player)
 	print("Summon fired on server")
+
 	local character = player.Character
 	if not character then
 		return
 	end
 
-	local powersFolder = player:WaitForChild("Powers")
+	---------------------------------------------------------------
+	-- 🌟 NEW: Get hero data from HeroManager instead of Folder
+	---------------------------------------------------------------
+	local hero = HeroManager.GetField(player, "Hero")
 
-	local heroValue = powersFolder:FindFirstChild("Hero")
-	if not heroValue or heroValue.Value == "" then
-		warn("⚠️ No Hero value found for", player.Name)
+	if hero then
+		print(hero)
+	else
+		print("no hero value found1!")
+	end
+
+	if not hero or hero == "None" or hero == "" then
+		warn("⚠️ No Hero set for", player.Name)
 		return
 	end
 
-	-- ✅ Get the StandTag from Hero value (or another mapping system if needed)
-	local standTag = nil
+	-- standTag is whatever your StandUtils expects
+	local standTag = hero
 
-	if heroValue.Value then
-		standTag = heroValue.Value
-	end
+	---------------------------------------------------------------
+	-- Toggle summon / unsummon
+	---------------------------------------------------------------
+	local currentStand = StandUtils.getStandModel(character)
 
-	if not standTag then
-		warn("⚠️ No standTag found for hero:", heroValue.Value)
-		return
-	end
-
-	-- ✅ Toggle using SummonStand and RemoveStand
-	if StandUtils.getStandModel(character) then
+	if currentStand then
 		StandUtils.RemoveStand(character)
 		pilotModule.ExitPilotMode(character)
-		print("Exit Pilot Mode/ remove stand called")
+		print("Removed stand / exited pilot")
 	else
 		StandUtils.SummonStand(character, standTag)
-		print("Server fired message to module to summon stand")
+		print("Summoned stand:", standTag)
 	end
 end
 
--- Connect the summon event
 summonEvent.OnServerEvent:Connect(onSummonRequested)

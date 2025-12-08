@@ -6,6 +6,7 @@ local AbilityHandler = {}
 
 -- Modules
 local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 
 -- Where all Specialty modules live
 local SpecialtyScripts = ServerScriptService.BasicCombat.SpecailtyScripts
@@ -82,14 +83,13 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 	end
 
 	-- Validate Specialty ownership
-	local powers = player:FindFirstChild("Powers")
-	local specValue = powers and powers:FindFirstChild("Specialty")
-	if not specValue or specValue.Value == "" then
+	local specValue = HeroManager.GetField(player, "Specialty")
+	if not specValue or specValue == "None" then
 		return
 	end
 
 	-- Load registry
-	local registry = loadAbilityRegistry(specValue.Value)
+	local registry = loadAbilityRegistry(specValue)
 	if not registry then
 		return
 	end

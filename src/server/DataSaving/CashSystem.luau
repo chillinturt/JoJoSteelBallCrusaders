@@ -1,68 +1,52 @@
--- CashSystem Module
+-- CashSystem Module (Memory-based)
 local CashSystem = {}
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Max cash cap
-local MAX_CASH = 50000
+local MAX_CASH = 1000000
 
 -- RemoteEvent for cash gain
 local MusicEvents = ReplicatedStorage:WaitForChild("MusicEvents")
-local CashGainedEvent = MusicEvents:FindFirstChild("CashGainedEvent")
-if not CashGainedEvent then
-	CashGainedEvent = Instance.new("RemoteEvent")
-	CashGainedEvent.Name = "CashGainedEvent"
-	CashGainedEvent.Parent = MusicEvents
+local CashUpdateEvent = MusicEvents:FindFirstChild("CashGainedEvent")
+if not CashUpdateEvent then
+	CashUpdateEvent = Instance.new("RemoteEvent")
+	CashUpdateEvent.Name = "CashGainedEvent"
+	CashUpdateEvent.Parent = MusicEvents
 end
+
+-- Memory table to store cash for each player
+local playerCash = {}
 
 ---------------------------------------------------------------------
 -- Setup stats for a new player
 ---------------------------------------------------------------------
 function CashSystem.SetupPlayer(player)
-	local stats = player:FindFirstChild("Stats")
-	if not stats then
-		stats = Instance.new("Folder")
-		stats.Name = "Stats"
-		stats.Parent = player
-	end
-
-	local cash = stats:FindFirstChild("Cash")
-	if not cash then
-		cash = Instance.new("IntValue")
-		cash.Name = "Cash"
-		cash.Value = 0
-		cash.Parent = stats
-	end
+	playerCash[player] = 0
+	CashUpdateEvent:FireClient(player, playerCash[player])
 end
 
 ---------------------------------------------------------------------
 -- Add cash (clamped to MAX_CASH)
 ---------------------------------------------------------------------
 function CashSystem.AddCash(player, amount)
-	local stats = player:FindFirstChild("Stats")
-	if not stats then
+	if not playerCash[player] then
 		return
 	end
-
-	local cash = stats:FindFirstChild("Cash")
-	if not cash then
-		return
-	end
-
 	if amount <= 0 then
 		return
 	end
 
-	-- Clamp to max
-	local newValue = cash.Value + amount
+	local newValue = playerCash[player] + amount
 	if newValue > MAX_CASH then
 		newValue = MAX_CASH
 	end
 
-	cash.Value = newValue
+	playerCash[player] = newValue
 
-	CashGainedEvent:FireClient(player)
+	-- Fire RemoteEvent for UI update
+	CashUpdateEvent:FireClient(player, newValue)
 end
 
 ---------------------------------------------------------------------
@@ -70,35 +54,56 @@ end
 -- Returns true if success, false if player can't afford
 ---------------------------------------------------------------------
 function CashSystem.SpendCash(player, amount)
-	local stats = player:FindFirstChild("Stats")
-	if not stats then
+	if not playerCash[player] then
 		return false
 	end
-
-	local cash = stats:FindFirstChild("Cash")
-	if not cash then
-		return false
-	end
-
 	if amount <= 0 then
 		return false
 	end
 
-	-- Not enough money?
-	if cash.Value < amount then
+	if playerCash[player] < amount then
 		return false
 	end
 
-	-- Deduct the amount
-	cash.Value -= amount
+	playerCash[player] -= amount
+
+	CashUpdateEvent:FireClient(player, playerCash[player])
 	return true
 end
 
 ---------------------------------------------------------------------
--- Auto-setup on join
+-- Get current cash
+---------------------------------------------------------------------
+function CashSystem.GetCash(player)
+	return playerCash[player] or 0
+end
+
+---------------------------------------------------------------------
+-- Set current cash
+---------------------------------------------------------------------
+
+function CashSystem.SetCash(player, value)
+	playerCash[player] = value or 0
+	return playerCash[player] or 0
+end
+
+---------------------------------------------------------------------
+-- Auto-setup on join and cleanup on leave
 ---------------------------------------------------------------------
 Players.PlayerAdded:Connect(function(player)
 	CashSystem.SetupPlayer(player)
+	player.CharacterAdded:Connect(function()
+		player:WaitForChild("PlayerGui")
+
+		task.defer(function()
+			wait(2)
+			CashUpdateEvent:FireClient(player, playerCash[player])
+		end)
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	playerCash[player] = nil
 end)
 
 return CashSystem

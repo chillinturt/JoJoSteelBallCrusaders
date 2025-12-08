@@ -112,7 +112,7 @@ end)
 -----------------------------------------------------------------------
 local function hookMobileButtons()
 	local gui = player:WaitForChild("PlayerGui")
-	local screenGui = gui:WaitForChild("MobileSpecialtyAbilitiesGUI") -- no timeout
+	local screenGui = gui:FindFirstChild("MobileSpecialtyAbilitiesGUI") -- no timeout
 	if not screenGui then
 		return
 	end

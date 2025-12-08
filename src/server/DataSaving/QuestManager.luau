@@ -6,9 +6,11 @@ local playerCompletedQuests = {}
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local InventoryManager = require(script.Parent.InventoryManager)
 local QuestDefinitions = require(script.Parent:WaitForChild("QuestDefinitions"))
 local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
 local CashSystem = require(game.ServerScriptService.DataSaving:WaitForChild("CashSystem"))
+local HeroManager = require(game.ServerScriptService.DataSaving:WaitForChild("HeroManager"))
 
 -- Remote events/functions for client sync
 local QuestEventsFolder = ReplicatedStorage:WaitForChild("QuestEvents")
@@ -51,6 +53,12 @@ end
 
 function QuestManager.SetCompletedQuests(player, data)
 	playerCompletedQuests[player] = data or {}
+end
+
+function QuestManager.ResetQuestline(player)
+	playerCompletedQuests[player] = {}
+	playerQuests[player] = {}
+	QuestManager.AddQuest(player, "TalkToGiorno1")
 end
 
 -- 🔹 Add quest
@@ -116,39 +124,17 @@ function QuestManager.CompleteQuest(player, questId)
 	end
 
 	-- Give rewards
-	local stats = player:FindFirstChild("Stats")
-	if stats then
-		if quest.RewardXP then
-			local xp = stats:FindFirstChild("XP")
-			if xp then
-				XPSystem.AddXP(player, quest.RewardXP)
-			end
-		end
-		if quest.RewardCash then
-			local cash = stats:FindFirstChild("Cash")
-			if cash then
-				CashSystem.AddCash(player, quest.RewardCash)
-			end
-		end
+	if quest.RewardXP then
+		XPSystem.AddXP(player, quest.RewardXP)
+	end
+	if quest.RewardCash then
+		CashSystem.AddCash(player, quest.RewardCash)
 	end
 
 	-- Reward items
-	local backpack = player:FindFirstChild("Backpack")
-	if backpack and quest.RewardItems then
+	if quest.RewardItems then
 		for _, itemName in ipairs(quest.RewardItems) do
-			local template = ReplicatedStorage.Items.StandItems.InventoryTools:FindFirstChild(itemName)
-				or ReplicatedStorage.Items.RaceItems.InventoryTools:FindFirstChild(itemName)
-			if template then
-				local existing = backpack:FindFirstChild(itemName)
-				if existing then
-					local amount = existing:GetAttribute("amount") or 1
-					existing:SetAttribute("amount", amount + 1)
-				else
-					local clone = template:Clone()
-					clone:SetAttribute("amount", 1)
-					clone.Parent = backpack
-				end
-			end
+			InventoryManager.AddItem(player, itemName, 1)
 		end
 	end
 
@@ -242,7 +228,7 @@ function QuestManager.InteractWithNPC(player, npcName)
 
 			if obj.Type == "CheckPowers" and not obj.Completed then
 				-- Replace this with your actual player specialty check
-				if player:FindFirstChild("Powers") and player.Powers:FindFirstChild(obj.Target).Value == obj.Value then
+				if HeroManager.GetField(player, obj.Target) == obj.Value then
 					obj.Completed = true
 					QuestManager.CheckCompletion(player, questId)
 					return def.Dialog.InProgress or { "You have proven your power." }, "InProgress", questId

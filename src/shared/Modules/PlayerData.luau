@@ -22,6 +22,8 @@ PlayerData.DEFAULT_PLAYER_DATA = {
 	-- Quests
 	Quests = {}, -- active quests
 	CompletedQuests = {}, -- completed ones
+
+	CharacterUpgrades = {},
 }
 
 export type PlayerData = typeof(PlayerData.DEFAULT_PLAYER_DATA)

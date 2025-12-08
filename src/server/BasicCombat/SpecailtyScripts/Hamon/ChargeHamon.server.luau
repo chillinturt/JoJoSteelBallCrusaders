@@ -7,6 +7,7 @@ ChargeHamonToggle.Parent = replicatedStorage.Shared.BasicCombat.Hamon
 
 local CombatUtils = require(serverScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local HamonModule = require(serverScriptService.BasicCombat.SpecailtyScripts.Hamon:WaitForChild("Hamon"))
+local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 
 local COOLDOWN_TIME = 0.2
 local lastChargeEndTime = {} -- [player] = tick()
@@ -19,9 +20,8 @@ ChargeHamonToggle.OnServerInvoke = function(player, isStarting)
 		return false
 	end
 
-	local powersFolder = player:FindFirstChild("Powers")
-	local spec = powersFolder and powersFolder:FindFirstChild("Specialty")
-	if not spec or spec.Value ~= "Hamon" then
+	local spec = HeroManager.GetField(player, "Specialty")
+	if not spec or spec ~= "Hamon" then
 		return false
 	end
 

@@ -1,28 +1,15 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
+local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 
 local SpecialtyAbilityTypesRemote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("SpecialtyAbilityTypes")
 local SpecialtyScriptsFolder = ServerScriptService.BasicCombat:WaitForChild("SpecailtyScripts")
 
 -- Sends the player's ability types to their client based on their specialty
 local function SendSpecialtyAbilityTypes(player)
-	-- Ensure Powers folder exists
-	local powersFolder = player:FindFirstChild("Powers")
-	if not powersFolder then
-		warn("No Powers folder for", player.Name)
-		return
-	end
-
-	-- Ensure Specialty value exists
-	local specialtyObj = powersFolder:FindFirstChild("Specialty")
-	if not specialtyObj then
-		warn("No Specialty object for", player.Name)
-		return
-	end
-
-	local specValue = specialtyObj.Value
-	if specValue == nil or specValue == "" then
+	local specValue = HeroManager.GetField(player, "Specialty")
+	if specValue == nil or specValue == "None" then
 		warn("Specialty value missing for", player.Name)
 		return
 	end

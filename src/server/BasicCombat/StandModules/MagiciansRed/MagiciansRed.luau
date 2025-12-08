@@ -320,13 +320,14 @@ function MagiciansRed.CrossfireHurricane(character)
 	local player = Players:GetPlayerFromCharacter(character)
 
 	local remote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("RequestCameraDirection")
-	local camDirection = remote:InvokeClient(player)
+
+	--local camDirection = remote:InvokeClient(player)
 
 	if player then
 		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
 		if isClose then
 			--direction = hrp:GetPivot().LookVector
-			direction = camDirection
+			direction = hrp:GetPivot().LookVector
 		else
 			local maxDistance = 1500
 			local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)

@@ -7,6 +7,7 @@ local AbilityHandler = {}
 -- Modules
 local StandUtils = require(ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 
 -- Where all stand modules live
 local StandModules = ServerScriptService.BasicCombat.StandModules
@@ -83,9 +84,8 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 	end
 
 	-- Validate stand ownership
-	local powers = player:FindFirstChild("Powers")
-	local heroValue = powers and powers:FindFirstChild("Hero")
-	if not heroValue or heroValue.Value == "" then
+	local heroValue = HeroManager.GetField(player, "Hero")
+	if not heroValue or heroValue == "None" then
 		return
 	end
 
@@ -95,7 +95,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 	end
 
 	local standTag = standModel:FindFirstChild("StandTag")
-	if not standTag or standTag.Value ~= heroValue.Value then
+	if not standTag or standTag.Value ~= heroValue then
 		return
 	end
 

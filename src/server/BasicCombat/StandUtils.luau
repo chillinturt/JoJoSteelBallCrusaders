@@ -360,7 +360,7 @@ function StandUtils.RemoveStand(entity: Model, player)
 			exitPilotEvent:Fire(player.Character)
 		end
 	else
-		--warn(entity.Name .. " has no active stand to remove!")
+		warn(entity.Name .. " has no active stand to remove!")
 	end
 end
 

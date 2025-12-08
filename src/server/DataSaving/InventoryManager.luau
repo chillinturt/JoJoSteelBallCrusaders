@@ -1,5 +1,4 @@
 -- InventoryManager.lua
--- Memory-based inventory with stacking and backpack replication
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
@@ -148,56 +147,6 @@ function InventoryManager.RemoveItem(player, itemName, amount)
 
 	InventoryUpdatedEvent:FireClient(player, InventoryManager.GetInventory(player))
 end
-
----------------------------------------------------------------------
--- BACKPACK REPLICATION
----------------------------------------------------------------------
--- Backpack is only visual — inventory data lives in memory
----------------------------------------------------------------------
-
--- You must supply itemFolders externally
--- itemFolders = { Stand = folder, Race = folder, OtherStuff = folder }
-
---[[
-local function findTemplate(itemFolders, name)
-	for _, folder in pairs(itemFolders) do
-		local template = folder:FindFirstChild(name)
-		if template then
-			return template
-		end
-	end
-	return nil
-end
-
-function InventoryManager.ReplicateToBackpack(player, itemFolders)
-	local inv = playerInventories[player.UserId]
-	if not inv then
-		return
-	end
-
-	local backpack = player:WaitForChild("Backpack")
-
-	-- Clear current backpack tools
-	for _, tool in ipairs(backpack:GetChildren()) do
-		if tool:IsA("Tool") then
-			tool:Destroy()
-		end
-	end
-
-	-- Build from memory
-	for _, entry in ipairs(inv) do
-		local template = findTemplate(itemFolders, entry.Name)
-
-		if template then
-			local clone = template:Clone()
-			clone:SetAttribute("amount", entry.Amount)
-			clone.Parent = backpack
-		else
-			warn("Missing template in itemFolders for:", entry.Name)
-		end
-	end
-end
-]]
 
 ---------------------------------------------------------------------
 -- DEBUG PRINT

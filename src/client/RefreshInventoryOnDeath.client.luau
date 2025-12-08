@@ -20,18 +20,26 @@ local connection -- OnClientEvent connection (so we can avoid duplicates)
 ---------------------------------------------------------------------
 -- UI REFRESH FUNCTION (you fill this in later)
 ---------------------------------------------------------------------
+local buttonConnections = {}
 
 local function RefreshUI(inventory)
-	-- 🔹 Find UI container
 	local playerGui = player:WaitForChild("PlayerGui")
 	local inventoryGui = playerGui:WaitForChild("Inventory")
 	local baseFrame = inventoryGui:WaitForChild("Frame")
 	local scrollingFrame = baseFrame:WaitForChild("ScrollingFrame")
 	local template = baseFrame:WaitForChild("ItemTemplate")
 
-	InventoryState:Clear()
+	-----------------------------------------------------------------
+	-- 🔥 Disconnect previous button events
+	-----------------------------------------------------------------
+	for _, conn in ipairs(buttonConnections) do
+		conn:Disconnect()
+	end
+	table.clear(buttonConnections)
 
-	-- 🔹 Clear existing items
+	-----------------------------------------------------------------
+	-- 🔥 Clear existing UI
+	-----------------------------------------------------------------
 	for _, child in ipairs(scrollingFrame:GetChildren()) do
 		if child:IsA("Frame") and child ~= template then
 			child:Destroy()
@@ -39,7 +47,7 @@ local function RefreshUI(inventory)
 	end
 
 	-----------------------------------------------------------------
-	-- 🔥 Rebuild UI with clickable items
+	-- 🔥 Rebuild UI
 	-----------------------------------------------------------------
 	for itemId, itemData in pairs(inventory) do
 		local itemFrame = template:Clone()
@@ -47,25 +55,24 @@ local function RefreshUI(inventory)
 		itemFrame.Name = tostring(itemId)
 		itemFrame.Parent = scrollingFrame
 
-		-- update UI text
-		local itemNameLabel = itemFrame:FindFirstChild("ItemName")
-		local itemAmountLabel = itemFrame:FindFirstChild("Amount")
-
 		local itemName = itemData.name or itemData.Name or tostring(itemId)
 		local itemAmt = itemData.Amount or itemData.quantity or 1
+
+		local itemNameLabel = itemFrame:FindFirstChild("ItemName")
+		local itemAmountLabel = itemFrame:FindFirstChild("Amount")
 
 		if itemNameLabel then
 			itemNameLabel.Text = itemName
 		end
-
 		if itemAmountLabel then
 			itemAmountLabel.Text = "x " .. tostring(itemAmt)
 		end
 
 		-----------------------------------------------------------------
-		-- 👇 ADD CLICK HANDLER (required after respawn)
+		-- 🔥 CONNECT ONCE AND STORE CONNECTION
 		-----------------------------------------------------------------
-		itemFrame.MouseButton1Click:Connect(function()
+		local conn
+		conn = itemFrame.MouseButton1Click:Connect(function()
 			InventoryState.SelectedItem = {
 				Name = itemName,
 				Amount = itemAmt,
@@ -73,15 +80,18 @@ local function RefreshUI(inventory)
 
 			print("Selected:", InventoryState.SelectedItem.Name, "x" .. InventoryState.SelectedItem.Amount)
 
-			-- (Optional UI feedback)
 			local selectedLabel = baseFrame:WaitForChild("SelectedItem"):WaitForChild("TextLabel")
+
 			selectedLabel.Text = InventoryState.SelectedItem.Name
 				.. " (x"
 				.. tostring(InventoryState.SelectedItem.Amount)
 				.. ")"
 		end)
+
+		table.insert(buttonConnections, conn)
 	end
 end
+
 ---------------------------------------------------------------------
 -- BIND UI (called on join + every respawn)
 ---------------------------------------------------------------------
@@ -111,7 +121,7 @@ local function bindUI()
 		RefreshUI(inventory)
 	end)
 
-	print("[Inventory UI] Bound to remote event.")
+	--print("[Inventory UI] Bound to remote event.")
 end
 
 ---------------------------------------------------------------------

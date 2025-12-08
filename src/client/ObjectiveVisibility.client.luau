@@ -32,7 +32,7 @@ local function registerControlPoint(point)
 			warn("[Client] No BillboardGui found inside WorldModel for:", point.Name)
 		end
 	else
-		warn("[Client] No WorldModel found inside:", point.Name)
+		--warn("[Client] No WorldModel found inside:", point.Name)
 	end
 end
 

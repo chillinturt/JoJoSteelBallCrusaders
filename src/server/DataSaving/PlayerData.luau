@@ -6,8 +6,12 @@ local ServerScriptService = game:GetService("ServerScriptService")
 
 local PlayerDataTemplate = require(ReplicatedStorage.Shared.Modules.PlayerData)
 local InventoryManager = require(ServerScriptService.DataSaving.InventoryManager)
+local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 local QuestSerializer = require(ServerScriptService.DataSaving.QuestSerializer)
 local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
+local XPSystem = require(ServerScriptService.DataSaving.XPSystem)
+local CharacterUpgrades = require(ServerScriptService.DataSaving.Upgrades:WaitForChild("CharacterUpdgrades"))
+local CashSystem = require(ServerScriptService.DataSaving:WaitForChild("CashSystem"))
 
 local ProfileStore = require(ServerScriptService.DataSaving.ProfileStore)
 
@@ -20,7 +24,11 @@ local PlayerStore = ProfileStore.New(DATA_STORE_KEY, PlayerDataTemplate.DEFAULT_
 local Profiles: { [Player]: any } = {}
 
 local Local = {}
-local Shared = {}
+local PlayerData = {}
+
+---------------------------------------------------------------------
+-- STARTUP
+---------------------------------------------------------------------
 
 function Local.OnStart()
 	for _, player in Players:GetPlayers() do
@@ -29,6 +37,10 @@ function Local.OnStart()
 	Players.PlayerAdded:Connect(Local.LoadProfile)
 	Players.PlayerRemoving:Connect(Local.RemoveProfile)
 end
+
+---------------------------------------------------------------------
+-- LOAD PROFILE (NO workspace values)
+---------------------------------------------------------------------
 
 function Local.LoadProfile(player: Player)
 	local profile = PlayerStore:StartSessionAsync(tostring(player.UserId), {
@@ -52,49 +64,41 @@ function Local.LoadProfile(player: Player)
 	Profiles[player] = profile
 
 	--------------------------------------------------------
-	-- APPLY DATA TO GAME OBJECTS (Stats, Inventory, Quests)
+	-- NOTHING IS APPLIED TO WORKSPACE
+	-- WE KEEP ALL DATA IN MEMORY ONLY
 	--------------------------------------------------------
 
 	local data = profile.Data
 
-	-- 💰 Stats / Powers
-	local powers = player:WaitForChild("Powers")
-	local stats = player:WaitForChild("Stats")
-	local upgrades = player:WaitForChild("UpgradeData")
-
-	powers.Hero.Value = data.Hero
-	powers.Race.Value = data.Race
-	powers.Specialty.Value = data.Specialty
-
-	stats.Cash.Value = data.Cash
-	stats.XP.Value = data.XP
-	stats.Level.Value = data.Level
-	stats.AbilityPoints.Value = data.AbilityPoints
-	stats.MaxXP.Value = data.MaxXP
-
-	-- 🔼 Upgrades
-	for name, val in pairs(data.UpgradeData) do
-		local obj = upgrades:FindFirstChild(name) or Instance.new("IntValue")
-		obj.Name = name
-		obj.Value = val
-		obj.Parent = upgrades
-	end
-
-	-- 🧰 Inventory (uses memory manager)
+	-- 🧰 Inventory
 	InventoryManager.InitPlayer(player)
 	InventoryManager.SetInventory(player, data.Inventory)
+
+	HeroManager.InitPlayer(player)
+	HeroManager.SetField(player, "Hero", data.Hero)
+	HeroManager.SetField(player, "Specialty", data.Specialty)
+	HeroManager.SetField(player, "Race", data.Race)
 
 	-- 🧭 Quests
 	QuestSerializer.DeserializeCompleted(QuestManager, player, data.CompletedQuests)
 	QuestSerializer.DeserializeActive(QuestManager, player, data.Quests)
 
-	--[[
-	player.CharacterAdded:Connect(function()
-		task.wait(0.25)
-		InventoryManager.ReplicateToBackpack(player)
-	end)
-	]]
+	-- 🧮 XP / Leveling
+	XPSystem.SetField(player, "XP", data.XP)
+	XPSystem.SetField(player, "Level", data.Level)
+	XPSystem.SetField(player, "MaxXP", data.MaxXP)
+	XPSystem.SetField(player, "AbilityPoints", data.AbilityPoints)
+
+	CashSystem.SetCash(player, data.Cash)
+
+	CharacterUpgrades.SetStats(player, data.CharacterUpgrades)
+
+	return true
 end
+
+---------------------------------------------------------------------
+-- REMOVE PROFILE (NO workspace reads)
+---------------------------------------------------------------------
 
 function Local.RemoveProfile(player: Player)
 	local profile = Profiles[player]
@@ -104,68 +108,66 @@ function Local.RemoveProfile(player: Player)
 
 	local data = profile.Data
 
-	-------------------------------
-	-- COPY LIVE GAME DATA INTO DATASTORE
-	-------------------------------
+	--------------------------------------------------------
+	-- COPY DATA IN MEMORY ONLY
+	-- (Inventory and Quests still need serialization)
+	--------------------------------------------------------
 
-	-- Stats
-	local stats = player:FindFirstChild("Stats")
-	if stats then
-		data.Cash = stats.Cash.Value
-		data.XP = stats.XP.Value
-		data.Level = stats.Level.Value
-		data.AbilityPoints = stats.AbilityPoints.Value
-		data.MaxXP = stats.MaxXP.Value
-	end
-
-	-- Powers
-	local powers = player:FindFirstChild("Powers")
-	if powers then
-		data.Hero = powers.Hero.Value
-		data.Race = powers.Race.Value
-		data.Specialty = powers.Specialty.Value
-	end
-
-	-- Upgrades
-	local upgradeFolder = player:FindFirstChild("UpgradeData")
-	data.UpgradeData = {}
-	if upgradeFolder then
-		for _, obj in ipairs(upgradeFolder:GetChildren()) do
-			if obj:IsA("IntValue") then
-				data.UpgradeData[obj.Name] = obj.Value
-			end
-		end
-	end
-
-	-- Inventory
 	data.Inventory = InventoryManager.GetInventory(player)
 
-	-- Quests
+	data.Hero = HeroManager.GetField(player, "Hero")
+	data.Specialty = HeroManager.GetField(player, "Specialty")
+	data.Race = HeroManager.GetField(player, "Race")
+
 	data.Quests = QuestSerializer.SerializeActive(QuestManager, player)
 	data.CompletedQuests = QuestSerializer.SerializeCompleted(QuestManager, player)
 
-	----------------------------------
-	-- END THE PROFILE SESSION
-	----------------------------------
-	profile:EndSession()
+	data.XP = XPSystem.GetField(player, "XP")
+	data.Level = XPSystem.GetField(player, "Level")
+	data.MaxXP = XPSystem.GetField(player, "MaxXP")
+	data.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
 
+	data.Cash = CashSystem.GetCash(player)
+
+	data.CharacterUpgrades = CharacterUpgrades.GetStats(player)
+
+	profile:EndSession()
 	Profiles[player] = nil
 end
 
-function Shared.GetData(player: Player)
+---------------------------------------------------------------------
+-- API FUNCTIONS
+---------------------------------------------------------------------
+
+function PlayerData.GetData(player: Player)
 	local profile = Profiles[player]
 	return profile and profile.Data or nil
 end
 
--- Example: upgrade one stat
-function Shared.AddCash(player: Player, amount: number)
-	local data = Shared.GetData(player)
+-- 💰 Example: upgrade one stat
+function PlayerData.AddCash(player: Player, amount: number)
+	local data = PlayerData.GetData(player)
 	if not data then
 		return
 	end
 	data.Cash += amount
 end
 
-Local.OnStart()
+---------------------------------------------------------------------
+-- 🦸‍♂️ NEW: Set hero power (NO workspace references)
+---------------------------------------------------------------------
 
-return Shared
+function PlayerData.SetHero(player: Player, newHero: string)
+	local data = PlayerData.GetData(player)
+	if not data then
+		return false, "No player data found"
+	end
+
+	data.Hero = newHero
+	return true
+end
+
+---------------------------------------------------------------------
+
+Local.OnStart()
+return PlayerData

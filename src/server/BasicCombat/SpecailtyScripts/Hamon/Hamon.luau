@@ -3,6 +3,8 @@ local HamonModule = {}
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
+local ServerScriptService = game:GetService("ServerScriptService")
+local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 
 local HitboxSpawner = require(game.ServerScriptService.BasicCombat.HitboxSpawner)
@@ -410,7 +412,11 @@ function HamonModule.initHamonForPlayer(player)
 	-- When the character spawns, ensure it has a HamonMeter
 	player.CharacterAdded:Connect(function(character)
 		character:WaitForChild("Humanoid") -- wait until the character is fully loaded
-		HamonModule.getHamonValue(character)
+		local specValue = HeroManager.GetField(player, "Specialty")
+		if specValue == "Hamon" then
+			HamonModule.getHamonValue(character)
+			HamonModule.StartCharge(character)
+		end
 	end)
 end
 

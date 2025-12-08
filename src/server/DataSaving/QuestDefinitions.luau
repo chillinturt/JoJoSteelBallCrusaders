@@ -298,7 +298,7 @@ QuestDefinitions.DefeatVampires1 = {
 	NextQuest = "CheckVampirismSpecialty",
 
 	TurnInNpc = "DioPB",
-	RewardItems = { "Stone Mask" },
+	RewardItems = { "StoneMask" },
 
 	Dialog = {
 		Offer = {

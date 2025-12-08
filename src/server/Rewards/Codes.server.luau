@@ -1,5 +1,6 @@
 local ChangeHistoryService = game:GetService("ChangeHistoryService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local Players = game:GetService("Players")
 
 -- RemoteEvent for code submission
@@ -42,23 +43,22 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 
 	typedCode = trim(typedCode)
 
-	local powersFolder = player:FindFirstChild("Powers")
-	local heroValue = powersFolder:FindFirstChild("Hero")
+	local heroValue = HeroManager.GetField(player, "Hero")
 	if not heroValue then
 		return
 	end
-	local specialtyValue = powersFolder:FindFirstChild("Specialty")
+	local specialtyValue = HeroManager.GetField(player, "Specialty")
 	if not specialtyValue then
 		return
 	end
-	local raceValue = powersFolder:FindFirstChild("Race")
+	local raceValue = HeroManager.GetField(player, "Race")
 	if not raceValue then
 		return
 	end
 
 	-- Validate the code
 	if VALID_STAND_CODES[typedCode] then
-		heroValue.Value = typedCode
+		HeroManager.SetField(player, "Hero", typedCode)
 		print(player.Name .. " successfully redeemed stand code:", typedCode)
 
 		codeEvent:FireClient(player, true, typedCode) -- success reply
@@ -68,12 +68,12 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 	end
 
 	if VALID_SPECIALTY_CODES[typedCode] then
-		specialtyValue.Value = typedCode
+		HeroManager.SetField(player, "Specialty", typedCode)
 		if typedCode == "Hamon" then
-			raceValue.Value = "Human"
+			HeroManager.SetField(player, "Race", "Human")
 		end
 		if typedCode == "Vampirism" then
-			raceValue.Value = "Vampire"
+			HeroManager.SetField(player, "Race", "Vampire")
 		end
 		print(player.Name .. " successfully redeemed specialty code:", typedCode)
 

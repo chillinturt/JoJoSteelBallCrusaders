@@ -1,27 +1,28 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UIManager = require(ReplicatedStorage.Shared:WaitForChild("Modules"):WaitForChild("UIManager"))
+local GetHeroData = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("GetHeroData")
+
+local PowerChangedEvent = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents"):WaitForChild("HeroUpdated")
 
 local player = Players.LocalPlayer
 player.CharacterAdded:Wait() -- force replication to catch up
 
-local powersFolder = player:WaitForChild("Powers")
-if not powersFolder then
-	warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
-	return
-end
 local playerGui = player:WaitForChild("PlayerGui")
-local specialtyValue = powersFolder:WaitForChild("Specialty")
-local raceValue = powersFolder:WaitForChild("Race")
+
+local heroData = GetHeroData:InvokeServer()
+local specialtyValue = heroData.Specialty
+local raceValue = heroData.Race
 
 -- Initial load (defaults + specialty)
 UIManager.LoadUI(playerGui, specialtyValue.Value, raceValue.Value)
 
 -- Reload when specialty changes
-specialtyValue.Changed:Connect(function(newSpecialty)
-	UIManager.LoadUI(playerGui, newSpecialty, raceValue.Value)
-end)
+PowerChangedEvent.OnClientEvent:Connect(function(fieldName, newValue)
+	local heroData = GetHeroData:InvokeServer()
+	local specialtyValue = heroData.Specialty
+	local raceValue = heroData.Race
 
-raceValue.Changed:Connect(function(newRace)
-	UIManager.LoadUI(playerGui, specialtyValue.Value, newRace)
+	print("Power updated:", fieldName, "=", newValue)
+	UIManager.LoadUI(playerGui, specialtyValue.Value, raceValue.Value)
 end)
