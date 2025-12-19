@@ -322,6 +322,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		["TuskAct4"] = "5024213083",
 		["Tusk"] = "5024213083",
 		["MagiciansRed"] = "4732804275",
+		["TheWorld"] = "4580055091",
 	}
 	local vol = 1
 

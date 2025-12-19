@@ -18,7 +18,7 @@ function StandArrow.Use(player)
 	end
 
 	local heroValue = HeroManager.GetField(player, "Hero")
-	if heroValue ~= "None" then
+	if heroValue ~= "None" and heroValue ~= "" then
 		print("Player already has a stand!")
 		return
 	end

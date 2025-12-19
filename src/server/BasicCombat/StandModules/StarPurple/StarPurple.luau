@@ -48,8 +48,9 @@ local BLOCK_SOUND_ID = 132615624053575
 
 -- CONFIG
 local STOP_DURATION = 3 -- seconds
-local IMMOBILE_ANCHOR_NAME = "TimeStopAnchor"
+local IMMOBILE_ANCHOR_NAME = "StarPurpleTimeStopAnchor"
 local TIME_STOP_DAMAGE_MULT = 1.25
+local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
@@ -540,6 +541,8 @@ function StarPurple.TimeStop(caster)
 		return
 	end
 
+	local standModel = StandUtils.getStandModel(caster)
+
 	print(caster.Name .. " has stopped time!")
 
 	SoundModule.PlaySound({
@@ -552,31 +555,54 @@ function StarPurple.TimeStop(caster)
 		range = 160,
 	})
 
+	HitboxSpawner.spawnStationaryHitbox({
+		Position = caster.PrimaryPart.CFrame,
+		Stand = standModel,
+		Character = caster,
+		Damage = 0,
+		Size = Vector3.new(100, 100, 100),
+		Offset = Vector3.new(0, 0, 0),
+		Color = BrickColor.new("White"),
+		Duration = 1,
+		StunDuration = 0,
+		Transparency = 0.8,
+		Name = "TimeStopRangeHitbox",
+	})
+
+	local casterRoot = caster:FindFirstChild("HumanoidRootPart")
+	if not casterRoot then
+		return
+	end
+
 	-- Freeze all players except caster
 	for _, player in ipairs(Players:GetPlayers()) do
 		local char = player.Character
 		if char and char ~= caster and char:FindFirstChild("HumanoidRootPart") then
-			CombatUtils.applyStun(char, STOP_DURATION)
+			local root = char.HumanoidRootPart
+			local distance = (root.Position - casterRoot.Position).Magnitude
 
-			BlockModule.StopBlocking(char)
-			CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
+			if distance <= TIME_STOP_RANGE then
+				CombatUtils.applyStun(char, STOP_DURATION)
 
-			local humanoid = char:FindFirstChildOfClass("Humanoid")
-			if humanoid then
-				humanoid.WalkSpeed = 0
-				humanoid.JumpPower = 0
+				BlockModule.StopBlocking(char)
+				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
 
-				local animator = humanoid:FindFirstChildOfClass("Animator")
-				if animator then
-					for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-						track:AdjustSpeed(0)
+				local humanoid = char:FindFirstChildOfClass("Humanoid")
+				if humanoid then
+					humanoid.WalkSpeed = 0
+					humanoid.JumpPower = 0
+
+					local animator = humanoid:FindFirstChildOfClass("Animator")
+					if animator then
+						for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+							track:AdjustSpeed(0)
+						end
 					end
-				end
 
-				local root = char:FindFirstChild("HumanoidRootPart")
-				if root then
-					root.Anchored = true
-					root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
+					if root then
+						root.Anchored = true
+						root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
+					end
 				end
 			end
 		end
@@ -585,24 +611,28 @@ function StarPurple.TimeStop(caster)
 	-- Freeze all enemy NPCs
 	for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
 		if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
-			local humanoid = npc:FindFirstChildOfClass("Humanoid")
-			local animator = humanoid:FindFirstChildOfClass("Animator")
 			local root = npc:FindFirstChild("HumanoidRootPart")
+			local distance = (root.Position - casterRoot.Position).Magnitude
 
-			-- Stop animations and movement
-			humanoid.WalkSpeed = 0
-			humanoid.JumpPower = 0
-			if animator then
-				for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-					track:AdjustSpeed(0)
+			if distance <= TIME_STOP_RANGE then
+				local humanoid = npc:FindFirstChildOfClass("Humanoid")
+				local animator = humanoid:FindFirstChildOfClass("Animator")
+
+				-- Stop animations and movement
+				humanoid.WalkSpeed = 0
+				humanoid.JumpPower = 0
+				if animator then
+					for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+						track:AdjustSpeed(0)
+					end
 				end
+				root.Anchored = true
+				root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
+
+				CombatUtils.applyStun(npc, STOP_DURATION)
+
+				CombatUtils.ApplyDamageMult(npc, 2, STOP_DURATION)
 			end
-			root.Anchored = true
-			root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
-
-			CombatUtils.applyStun(npc, STOP_DURATION)
-
-			CombatUtils.ApplyDamageMult(npc, 2, STOP_DURATION)
 		end
 	end
 
@@ -616,6 +646,10 @@ function StarPurple.TimeStop(caster)
 			if char and char:FindFirstChild("HumanoidRootPart") then
 				local humanoid = char:FindFirstChildOfClass("Humanoid")
 				local root = char:FindFirstChild("HumanoidRootPart")
+
+				if not root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
+					continue
+				end
 
 				if humanoid and player ~= Players:GetPlayerFromCharacter(caster) then
 					local moveSpeed = char:FindFirstChild("MoveSpeed")
@@ -649,6 +683,10 @@ function StarPurple.TimeStop(caster)
 				local humanoid = npc:FindFirstChildOfClass("Humanoid")
 				local animator = humanoid:FindFirstChildOfClass("Animator")
 				local root = npc:FindFirstChild("HumanoidRootPart")
+
+				if not root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
+					continue
+				end
 
 				if humanoid then
 					local moveSpeed = npc:FindFirstChild("MoveSpeed")

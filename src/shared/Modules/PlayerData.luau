@@ -8,9 +8,9 @@ PlayerData.DEFAULT_PLAYER_DATA = {
 	MaxXP = 100,
 
 	-- Powers
-	Hero = "",
+	Hero = "None",
 	Race = "Human",
-	Specialty = "",
+	Specialty = "None",
 
 	-- Upgrades
 	UpgradeData = {},

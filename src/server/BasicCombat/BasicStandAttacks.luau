@@ -35,14 +35,15 @@ local PUNCH_DAMAGE = {
 	["HierophantGrand"] = 4,
 	["CrazedDiamond"] = 5,
 	["KingCarmine"] = 4.5,
-	["GoldExperiment"] = 4,
-	["KaiserQueen"] = 4,
+	["GoldExperiment"] = 4.5,
+	["KaiserQueen"] = 4.5,
 	["NuclearRain"] = 4,
 	["ThatHand"] = 4.5,
 	["HeavyDoor"] = 4.5,
 	["WhiteSake"] = 4.5,
 	["TuskAct4"] = 5,
 	["MagiciansRed"] = 4.5,
+	["TheWorld"] = 5,
 }
 
 function BasicStandAttacks.BasicPunch(standModel)
@@ -204,20 +205,19 @@ function BasicStandAttacks.StartBarrage(character)
 	print("checks passed")
 
 	local player = Players:GetPlayerFromCharacter(character)
-	local powersFolder
 	local heroValue
+	local powersFolder
 	if player then
 		heroValue = HeroManager.GetField(player, "Hero")
-		powersFolder = player:FindFirstChild("Powers")
 	else
 		powersFolder = character:FindFirstChild("Powers")
 		heroValue = powersFolder:FindFirstChild("Hero").Value
 	end
 
-	if heroValue.Value == "TuskAct1" or heroValue.Value == "TuskAct2" or heroValue.Value == "TuskAct3" then
+	if heroValue == "TuskAct1" or heroValue == "TuskAct2" or heroValue == "TuskAct3" then
 		if player then
 			if heroValue then
-				heroValue = "TuskAct4"
+				HeroManager.SetField(player, "Hero", "TuskAct4")
 				print(player.Name .. " is now Tusk Act 4!")
 			end
 
@@ -247,7 +247,7 @@ function BasicStandAttacks.StartBarrage(character)
 		-- Keep original orientation, only shift relative position
 		--PilotModule.SetPoseOffset(character, CFrame.new(1.5, 0, 0))
 	else
-		if heroValue.Value == "NuclearRain" then
+		if heroValue == "NuclearRain" then
 			motor.C0 = originalC0s[standModel] * CFrame.new(0, 0, 0)
 		else
 			motor.C0 = originalC0s[standModel] * CFrame.new(2, 0, 0)
@@ -259,7 +259,7 @@ function BasicStandAttacks.StartBarrage(character)
 	-- Stop idle and play barrage animation
 	AnimationModule.StopAllAnimations(standModel)
 	local rotation = CFrame.Angles(0, 0, 0)
-	if heroValue.Value == "NuclearRain" then
+	if heroValue == "NuclearRain" then
 		STAND_BARRAGE_ANIMID = 127837357946102 -- pilot mode / character barrage
 		AnimationModule.PlayAnimation(character, STAND_BARRAGE_ANIMID, false, Enum.AnimationPriority.Action, AnimSpeed)
 		rotation = CFrame.Angles(0, math.rad(90), 0)
@@ -289,14 +289,12 @@ function BasicStandAttacks.StartBarrage(character)
 		range = 160,
 	})
 
-	print("all good")
-
 	-- Start spawning hitboxes
 	task.spawn(function()
 		while barragingFlags[character] do
 			hitboxSpawner.spawnHitbox({
 				Character = character,
-				Damage = PUNCH_DAMAGE[heroValue] / 4.5 or 0.1,
+				Damage = PUNCH_DAMAGE[heroValue] / 4.5,
 				Size = HITBOX_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),

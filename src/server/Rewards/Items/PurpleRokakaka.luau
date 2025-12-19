@@ -1,12 +1,12 @@
--- ServerScriptService.DataSaving.ItemUse.Rokakaka.lua
+-- ServerScriptService.DataSaving.ItemUse.PurpleRokakaka.lua
 local InventoryManager = require(game.ServerScriptService.DataSaving.InventoryManager)
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local StandUtils = require(game.ServerScriptService.BasicCombat.StandUtils)
 
-local Rokakaka = {}
-Rokakaka.Cooldown = 3
+local PurpleRokakaka = {}
+PurpleRokakaka.Cooldown = 3
 
-function Rokakaka.Use(player)
+function PurpleRokakaka.Use(player)
 	local inventory = InventoryManager.GetInventory(player)
 	if not inventory then
 		return false, "No profile data"
@@ -19,34 +19,33 @@ function Rokakaka.Use(player)
 
 	local heroValue = HeroManager.GetField(player, "Hero")
 	if heroValue == "None" then
-		print("Player already has no stand!")
+		print("Player already has no stand! didn't use purpleroka")
 		return
 	end
 
-	-- find Stand Rokakaka
+	-- find Stand PurpleRokakaka
 	local found = nil
 	for _, entry in ipairs(inventory) do
-		if entry.Name == "Rokakaka" then
+		if entry.Name == "PurpleRokakaka" then
 			found = entry
 			break
 		end
 	end
 
 	if not found or found.Amount <= 0 then
-		return false, "No Rokakakas!"
+		return false, "No PurpleRokakakas!"
 	end
 
-	-- Remove ONE Rokakaka
-	InventoryManager.RemoveItem(player, "Rokakaka", 1)
+	-- Remove ONE PurpleRokakaka
+	InventoryManager.RemoveItem(player, "PurpleRokakaka", 1)
 
 	HeroManager.SetField(player, "Hero", "None")
-	HeroManager.SetField(player, "Specialty", "None")
-	HeroManager.SetField(player, "Race", "Human")
 
 	StandUtils.RemoveStand(char, player)
-	print("Rokakaka used, hero values reset")
+
+	print("PurpleRokakaka used, reset stand")
 
 	return true
 end
 
-return Rokakaka
+return PurpleRokakaka

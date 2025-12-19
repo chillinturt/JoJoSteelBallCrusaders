@@ -29,6 +29,17 @@ local function InitPlayerData(player)
 	playerCompletedQuests[player] = playerCompletedQuests[player] or {}
 end
 
+local function deepCopy(value)
+	if type(value) == "table" then
+		local copy = {}
+		for k, v in pairs(value) do
+			copy[k] = deepCopy(v)
+		end
+		return copy
+	end
+	return value
+end
+
 -- 🔹 Utility functions
 function QuestManager.HasQuest(player, questId)
 	return playerQuests[player] and playerQuests[player][questId] ~= nil
@@ -65,45 +76,31 @@ end
 function QuestManager.AddQuest(player, questId)
 	InitPlayerData(player)
 
-	local isRepeatable = QuestDefinitions[questId].Repeatable
+	local def = QuestDefinitions[questId]
+	if not def then
+		warn("Quest ID not found:", questId)
+		return
+	end
 
 	if QuestManager.HasQuest(player, questId) then
 		return
 	end
 
-	if not isRepeatable and QuestManager.HasPlayerCompletedQuest(player, questId) then
+	if not def.Repeatable and QuestManager.HasPlayerCompletedQuest(player, questId) then
 		return
 	end
 
-	local questTemplate = QuestDefinitions[questId]
-	if not questTemplate then
-		warn("Quest ID not found:", questId)
-		return
-	end
+	playerQuests[player][questId] = deepCopy(def)
 
-	-- Deep copy template
-	local function deepCopy(value)
-		if type(value) == "table" then
-			local copy = {}
-			for k, v in pairs(value) do
-				copy[k] = deepCopy(v)
-			end
-			return copy
-		else
-			return value
-		end
-	end
-
-	playerQuests[player][questId] = deepCopy(questTemplate)
-	QuestUpdatedEvent:FireClient(player)
+	QuestManager.Sync(player)
 end
 
 -- 🔹 Remove quest
 function QuestManager.RemoveQuest(player, questId)
 	if playerQuests[player] then
 		playerQuests[player][questId] = nil
-		QuestUpdatedEvent:FireClient(player)
 	end
+	QuestManager.Sync(player)
 end
 
 -- 🔹 Complete a quest
@@ -115,33 +112,31 @@ function QuestManager.CompleteQuest(player, questId)
 
 	local quest = quests[questId]
 
-	-- Mark completed
 	quest.Completed = true
 
-	-- Only mark permanent completion if NOT repeatable
 	if not quest.Repeatable then
 		QuestManager.MarkQuestCompleted(player, questId)
 	end
 
-	-- Give rewards
+	-- Rewards
 	if quest.RewardXP then
 		XPSystem.AddXP(player, quest.RewardXP)
 	end
+
 	if quest.RewardCash then
 		CashSystem.AddCash(player, quest.RewardCash)
 	end
 
-	-- Reward items
 	if quest.RewardItems then
 		for _, itemName in ipairs(quest.RewardItems) do
 			InventoryManager.AddItem(player, itemName, 1)
 		end
 	end
 
-	-- Remove quest from active list
+	-- Remove quest AFTER rewards
 	QuestManager.RemoveQuest(player, questId)
 
-	-- Add next quests if any
+	-- Queue next quests
 	if quest.NextQuest then
 		if typeof(quest.NextQuest) == "table" then
 			for _, nextId in ipairs(quest.NextQuest) do
@@ -151,6 +146,8 @@ function QuestManager.CompleteQuest(player, questId)
 			QuestManager.AddQuest(player, quest.NextQuest)
 		end
 	end
+
+	QuestManager.Sync(player)
 end
 
 -- 🔹 Check if a quest is complete
@@ -295,21 +292,29 @@ function QuestManager.DefeatedEnemy(player, enemyName)
 		return
 	end
 
+	local questChanged = false
+
 	for questId, quest in pairs(quests) do
 		if not quest.Completed then
 			for _, obj in ipairs(quest.Objectives or {}) do
 				if obj.Type == "Defeat" and obj.Target == enemyName and not obj.Completed then
 					obj.Progress = (obj.Progress or 0) + 1
+					questChanged = true
+
 					if obj.Progress >= (obj.Required or 1) then
 						obj.Completed = true
 					end
+
+					-- 🔥 THIS WAS MISSING
+					QuestManager.CheckCompletion(player, questId)
 				end
 			end
-			QuestManager.CheckCompletion(player, questId)
 		end
 	end
 
-	QuestUpdatedEvent:FireClient(player)
+	if questChanged then
+		QuestManager.Sync(player)
+	end
 end
 
 -- 🔹 NPC dialog state
@@ -339,6 +344,12 @@ function QuestManager.GetNpcDialog(player, npcName)
 
 	-- 4️⃣ NPC not related to a quest
 	return "repeat", nil
+end
+
+function QuestManager.Sync(player)
+	print("sync and update event fired")
+	QuestUpdatedEvent:FireClient(player, QuestManager.GetQuests(player))
+	print("sync fully working")
 end
 
 -- Cleanup on player leave

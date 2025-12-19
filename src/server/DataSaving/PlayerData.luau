@@ -79,9 +79,15 @@ function Local.LoadProfile(player: Player)
 	HeroManager.SetField(player, "Specialty", data.Specialty)
 	HeroManager.SetField(player, "Race", data.Race)
 
-	-- 🧭 Quests
 	QuestSerializer.DeserializeCompleted(QuestManager, player, data.CompletedQuests)
 	QuestSerializer.DeserializeActive(QuestManager, player, data.Quests)
+
+	-- 🧭 Quests
+	local quests = QuestManager.GetQuests(player)
+
+	if next(quests) == nil then
+		QuestManager.ResetQuestline(player)
+	end
 
 	-- 🧮 XP / Leveling
 	XPSystem.SetField(player, "XP", data.XP)

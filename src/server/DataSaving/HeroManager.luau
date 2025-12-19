@@ -34,13 +34,14 @@ local heroData = {}
 
 -- Higher number = more common, lower number = rarer
 local standRarities = {
-	MagiciansRed = 25, -- Common
-	HierophantGrand = 23, -- Uncommon
-	ThatHand = 20, -- Rare
-	NuclearRain = 10, -- Very Rare
-	GoldExperiment = 5, -- Epic
-	KingCarmine = 3, -- Legendary
-	StarPurple = 1, -- Mythic
+	MagiciansRed = 50, -- Common
+	HierophantGrand = 46, -- Uncommon
+	ThatHand = 40, -- Rare
+	NuclearRain = 20, -- Very Rare
+	GoldExperiment = 10, -- Epic
+	KingCarmine = 6, -- Legendary
+	StarPurple = 2, -- Mythic
+	TheWorld = 1,
 }
 
 function HeroManager.GetRandomStand()
