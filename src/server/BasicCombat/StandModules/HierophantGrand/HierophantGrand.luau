@@ -13,7 +13,7 @@ local splashingFlags = {}
 
 local MAX_SPLASH_DURATION = 3 -- seconds
 local SPLASH_INTERVAL = 0.1
-local EMERALD_HITBOX_SIZE = Vector3.new(2, 2, 2)
+local EMERALD_HITBOX_SIZE = Vector3.new(3, 3, 3)
 local EMERALD_DAMAGE = 0.8
 local EMERALD_DURATION = 3
 local EMERALD_SPLASH_SPEED = 300
@@ -44,6 +44,21 @@ local IDLE_ANIM_ID = 89452205434139
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+
+local SpawnClientVfx = Instance.new("RemoteEvent")
+SpawnClientVfx.Name = "SpawnVfx"
+SpawnClientVfx.Parent = ReplicatedStorage.Shared.Events
+
+local function FireEmerald(player, origin, direction)
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "Emerald",
+		origin = origin,
+		direction = direction,
+		speed = EMERALD_SPLASH_SPEED,
+		lifetime = EMERALD_DURATION,
+	})
+end
 
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
@@ -179,12 +194,13 @@ function HierophantModule.StartSplash(character)
 				Color = BrickColor.new("Bright red"),
 				Duration = EMERALD_DURATION,
 				StunDuration = EMERALD_SPLASH_STUN,
-				Transparency = 0.3,
+				Transparency = 1,
 				Name = "BarragePunchHitbox",
 				Speed = EMERALD_SPLASH_SPEED,
 				Direction = direction,
 				Origin = startPos,
 			})
+			FireEmerald(player, standModel.PrimaryPart.Position, direction)
 			task.wait(SPLASH_INTERVAL)
 		end
 	end)

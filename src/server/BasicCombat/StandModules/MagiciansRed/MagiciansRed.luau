@@ -20,6 +20,7 @@ local FLAMESHOT_GRAVITY = 0.2
 local FLAMESHOT_OFFSET = Vector3.new(0, 0, 8)
 local FLAMESHOT_SIZE = Vector3.new(7, 7, 7)
 local FLAMESHOT_DAMAGE = 5
+local FLAMESHOT_DURATION = 5
 
 local REDBIND_DAMAGE = 5
 local REDBIND_ENDLAG = 1
@@ -36,17 +37,132 @@ local CROSSFIREHURRICANE_GRAVITY = 0.05
 local CROSSFIREHURRICANE_OFFSET = Vector3.new(0, 0, 8)
 local CROSSFIREHURRICANE_SIZE = Vector3.new(13, 15, 13)
 local CROSSFIREHURRICANE_DAMAGE = 10
+local CROSSFIREHURRICANE_DURATION = 5
 
 local CROSSFIREHURRICANE_EXPLOSION_SIZE = Vector3.new(40, 40, 40)
 local CROSSFIREHURRICANE_EXPLOSION_DAMAGE = 5
 local CROSSFIREHURRICANE_EXPLOSION_STUN = 1.5
+local CROSSFIREHURRICANE_EXPLOSION_DPS = 2
+local CROSSFIREHURRICANE_EXPLOSION_DURATION = 1
 
 local HELLFIRE_DAMAGE = 10
+local HELLFIRE_DPS = 3
 local HELLFIRE_EXPLOSION_SIZE = Vector3.new(70, 70, 70)
+local HELLFIRE_EXPLOSION_DURATION = 1
 
 local HIT_SOUND_ID = 8255306220
 
 local activeBurns = {}
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
+local function ClientFlameShotVfx(player, origin, direction)
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "FlameShot",
+
+		cframe = CFrame.new(origin, origin + direction),
+
+		-- 🔧 FIX ORIENTATION OFFSET
+		initialRotation = Vector3.new(
+			math.rad(90),
+			0, -- example, adjust as needed
+			0
+		),
+
+		-- ✅ Arc motion
+		arc = true,
+		initialVelocity = direction.Unit * FLAMESHOT_SPEED,
+		gravity = Vector3.new(0, -workspace.Gravity * FLAMESHOT_GRAVITY, 0),
+
+		lifetime = FLAMESHOT_DURATION,
+	})
+end
+
+local function ClientHellfireVfx(player, origin)
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "Hellfire",
+
+		-- Position
+		cframe = CFrame.new(origin),
+
+		-- Lifetime
+		lifetime = HELLFIRE_EXPLOSION_DURATION,
+
+		-- Rotation (slow spin)
+		rotationSpeed = Vector3.new(
+			0,
+			math.rad(120), -- Y-axis spin
+			0
+		),
+
+		-- Visual style
+		transparency = 0.5,
+		scale = 0.8, -- starting size
+
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 30,
+		maxScale = 7,
+	})
+
+	print("[VFX] Hellfire end")
+end
+
+local function ClientCrossfireHurricaneVfx(player, origin, direction)
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "CrossfireHurricane",
+
+		cframe = CFrame.new(origin, origin + direction),
+
+		-- ✅ Arc motion
+		arc = true,
+		initialVelocity = direction.Unit * CROSSFIREHURRICANE_SPEED,
+		gravity = Vector3.new(0, -workspace.Gravity * CROSSFIREHURRICANE_GRAVITY, 0),
+
+		lifetime = CROSSFIREHURRICANE_DURATION,
+	})
+end
+
+local function ClientCrossfireHurricaneExplosionVfx(player, origin)
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "CrossfireHurricaneExplosion",
+
+		-- Position
+		cframe = CFrame.new(origin),
+
+		-- 🔥 FIX ORIENTATION
+		initialRotation = Vector3.new(
+			0, -- X
+			0, -- Y
+			math.rad(90) -- Z
+		),
+
+		-- Lifetime
+		lifetime = CROSSFIREHURRICANE_EXPLOSION_DURATION,
+
+		-- Rotation (fast spin)
+		rotationSpeed = Vector3.new(
+			math.rad(450),
+			0, -- Y-axis spin
+			0
+		),
+
+		-- Visual style
+		transparency = 0.5,
+		scale = 0.8, -- starting size
+
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 20,
+		maxScale = 4,
+	})
+
+	print("[VFX] Hellfire end")
+end
 
 local function MapDamageToSound(damage: number)
 	-- Clamp damage to a reasonable range (so extreme values don’t explode)
@@ -188,7 +304,6 @@ function MagiciansRed.ClearAllBurns(humanoid)
 end
 
 function MagiciansRed.FlameShot(character)
-	print("flame shot on module")
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return false
@@ -236,7 +351,7 @@ function MagiciansRed.FlameShot(character)
 		Character = character,
 		Size = FLAMESHOT_SIZE,
 		Damage = FLAMESHOT_DAMAGE,
-		Duration = 5,
+		Duration = FLAMESHOT_DURATION,
 		Speed = FLAMESHOT_SPEED,
 		Direction = direction,
 		Origin = startPos,
@@ -245,6 +360,7 @@ function MagiciansRed.FlameShot(character)
 		Gravity = Vector3.new(0, -workspace.Gravity * FLAMESHOT_GRAVITY, 0), -- optional tweak
 		DetectSurface = true,
 		CanBlock = false,
+		Transparency = 1,
 
 		OnHit = function(targetChar, newDamage)
 			local hitHumanoid = targetChar:FindFirstChild("Humanoid")
@@ -257,6 +373,10 @@ function MagiciansRed.FlameShot(character)
 			print("MagiciansRed Module Projectile hit surface:", hitResult.Instance.Name)
 		end,
 	})
+
+	--local vfxSpawn = startPos * CROSSFIREHURRICANE_OFFSET
+
+	ClientFlameShotVfx(player, startPos, direction)
 
 	return true
 end
@@ -345,9 +465,9 @@ function MagiciansRed.CrossfireHurricane(character)
 
 	SoundModule.PlaySound({
 		Root = hrp,
-		soundName = "FlameShotEffect",
-		soundID = "89805684001014",
-		volume = 2,
+		soundName = "CrossfireHurricaneCall",
+		soundID = "77997049374880",
+		volume = 4,
 		playbackSpeed = 1,
 		looped = false,
 		range = 160,
@@ -357,7 +477,7 @@ function MagiciansRed.CrossfireHurricane(character)
 		Character = character,
 		Size = CROSSFIREHURRICANE_SIZE,
 		Damage = CROSSFIREHURRICANE_DAMAGE,
-		Duration = 5,
+		Duration = CROSSFIREHURRICANE_DURATION,
 		Speed = CROSSFIREHURRICANE_SPEED,
 		Direction = direction,
 		Origin = startPos,
@@ -366,6 +486,7 @@ function MagiciansRed.CrossfireHurricane(character)
 		Gravity = Vector3.new(0, -workspace.Gravity * CROSSFIREHURRICANE_GRAVITY, 0), -- optional tweak
 		DetectSurface = true,
 		CanBlock = false,
+		Transparency = 1,
 
 		OnHit = function(targetChar, newDamage)
 			BlockModule.StopBlocking(targetChar)
@@ -382,16 +503,16 @@ function MagiciansRed.CrossfireHurricane(character)
 			local hitPosition = hitResult.Position
 
 			-- Spawn a stationary damage hitbox
-			HitboxSpawner.spawnStationaryHitbox({
+			local hitbox = HitboxSpawner.spawnStationaryHitbox({
 				Position = hitPosition,
 				Character = character,
 				Size = CROSSFIREHURRICANE_EXPLOSION_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
-				Duration = 1,
+				Duration = CROSSFIREHURRICANE_EXPLOSION_DURATION,
 				StunDuration = CROSSFIREHURRICANE_EXPLOSION_STUN,
-				Transparency = 0.7,
-				Name = "TreeOfLifeHitbox",
+				Transparency = 1,
+				Name = "CrossfireHurricaneExplosionHitbox",
 				Rotation = horizontalDirection, -- ensures horizontal facing of projectile
 				Damage = CROSSFIREHURRICANE_EXPLOSION_DAMAGE,
 
@@ -405,29 +526,37 @@ function MagiciansRed.CrossfireHurricane(character)
 					-- Apply a burn stack (damage over time)
 					MagiciansRed.ApplyBurnStack(
 						hitHumanoid, -- The humanoid being hit
-						REDBIND_DPS, -- Damage per tick
-						REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
-						REDBIND_DURATION, -- Duration (seconds)
-						Players:GetPlayerFromCharacter(character) -- Source player
-					)
-
-					-- Apply a burn stack (damage over time)
-					MagiciansRed.ApplyBurnStack(
-						hitHumanoid, -- The humanoid being hit
-						REDBIND_DPS, -- Damage per tick
+						CROSSFIREHURRICANE_EXPLOSION_DPS, -- Damage per tick
 						REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
 						REDBIND_DURATION, -- Duration (seconds)
 						Players:GetPlayerFromCharacter(character) -- Source player
 					)
 				end,
 			})
+
+			SoundModule.PlaySound({
+				Root = hitbox,
+				soundName = "CrossfireHurricaneExplosionEffect",
+				soundID = "126319648004597",
+				volume = 2,
+				playbackSpeed = 1,
+				looped = false,
+				range = 160,
+			})
+
+			ClientCrossfireHurricaneExplosionVfx(player, hitPosition)
 		end,
 	})
+
+	--local vfxSpawn = startPos * CROSSFIREHURRICANE_OFFSET
+
+	ClientCrossfireHurricaneVfx(player, startPos, direction)
 
 	return true
 end
 
 function MagiciansRed.Hellfire(character)
+	local player = Players:GetPlayerFromCharacter(character)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
 	SoundModule.PlaySound({
@@ -440,7 +569,7 @@ function MagiciansRed.Hellfire(character)
 		range = 300,
 	})
 
-	wait(3)
+	task.wait(3)
 
 	SoundModule.PlaySound({
 		Root = hrp,
@@ -463,42 +592,28 @@ function MagiciansRed.Hellfire(character)
 		Damage = HELLFIRE_DAMAGE,
 		Size = HELLFIRE_EXPLOSION_SIZE,
 		Color = BrickColor.new("Bright red"),
-		Duration = 1,
+		Duration = HELLFIRE_EXPLOSION_DURATION,
 		StunDuration = 1,
-		Transparency = 0.3,
+		Transparency = 0.9,
 		Name = "HellfireHitbox",
 
 		OnHit = function(targetChar, newDamage)
 			local hitHumanoid = targetChar:FindFirstChild("Humanoid")
 
-			-- Apply a burn stack (damage over time)
-			MagiciansRed.ApplyBurnStack(
-				hitHumanoid, -- The humanoid being hit
-				REDBIND_DPS, -- Damage per tick
-				REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
-				REDBIND_DURATION, -- Duration (seconds)
-				Players:GetPlayerFromCharacter(character) -- Source player
-			)
-
-			-- Apply a burn stack (damage over time)
-			MagiciansRed.ApplyBurnStack(
-				hitHumanoid, -- The humanoid being hit
-				REDBIND_DPS, -- Damage per tick
-				REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
-				REDBIND_DURATION, -- Duration (seconds)
-				Players:GetPlayerFromCharacter(character) -- Source player
-			)
-
-			-- Apply a burn stack (damage over time)
-			MagiciansRed.ApplyBurnStack(
-				hitHumanoid, -- The humanoid being hit
-				REDBIND_DPS, -- Damage per tick
-				REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
-				REDBIND_DURATION, -- Duration (seconds)
-				Players:GetPlayerFromCharacter(character) -- Source player
-			)
+			if not CombatUtils.GetIsBlocking(targetChar).Value then
+				-- Apply a burn stack (damage over time)
+				MagiciansRed.ApplyBurnStack(
+					hitHumanoid, -- The humanoid being hit
+					HELLFIRE_DPS, -- Damage per tick
+					REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
+					REDBIND_DURATION, -- Duration (seconds)
+					Players:GetPlayerFromCharacter(character) -- Source player
+				)
+			end
 		end,
 	})
+
+	ClientHellfireVfx(player, hrp.Position)
 end
 
 return MagiciansRed

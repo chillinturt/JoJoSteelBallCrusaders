@@ -43,7 +43,7 @@ AbilityRegistry[2] = {
 AbilityRegistry[3] = {
 	Name = "KickBarrage",
 	Type = "Press",
-	Cooldown = 15,
+	Cooldown = 10,
 	Execute = function(standModel, player)
 		TheWorld.KickBarrage(standModel)
 	end,

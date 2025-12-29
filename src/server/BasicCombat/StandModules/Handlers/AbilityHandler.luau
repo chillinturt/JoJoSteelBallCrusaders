@@ -193,7 +193,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 			if CombatUtils.GetStun(character) then
 				return
 			end
-			if CombatUtils.GetActionInProgress(character).Value then
+			if CombatUtils.GetActionInProgress(character).Value and not abilityData.EndlagCancel then
 				return
 			end
 
@@ -219,11 +219,13 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 			return
 		end
 	end
-	if CombatUtils.GetStun(character) then
-		return
+	if abilityData.Hyperarmor ~= true then
+		if CombatUtils.GetStun(character) then
+			return
+		end
 	end
 	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag.Value then
+	if actionFlag.Value and not abilityData.EndlagCancel then
 		return
 	end
 

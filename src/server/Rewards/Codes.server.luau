@@ -1,8 +1,13 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local ServerScriptService = game:GetService("ServerScriptService")
-local ItemUseManager = require(script.Parent.ItemUseManager)
+local Players = game:GetService("Players")
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local InventoryManager = require(game.ServerScriptService.DataSaving:WaitForChild("InventoryManager"))
+
+local TP_AREAS = {
+	["1v1Spawn1"] = game.Workspace.Arena1.Model:WaitForChild("1v1Spawn1"),
+	["1v1Spawn2"] = game.Workspace.Arena1.Model:WaitForChild("1v1Spawn2"),
+	["Arena1"] = true,
+}
 
 -- RemoteEvent for code submission
 local codeEvent = Instance.new("RemoteEvent")
@@ -24,6 +29,7 @@ local VALID_STAND_CODES = {
 	["TuskAct4"] = true,
 	["MagiciansRed"] = true,
 	["TheWorld"] = true,
+	["Metallica"] = true,
 	-- add more here
 }
 
@@ -44,6 +50,8 @@ local MODERATOR_LIST = {
 	[4999829347] = true, -- ying (crazy d)
 	[4735500462] = true, -- zeke (zadar)
 	[412043782] = true, -- NotAndrew1234
+	[7150098622] = true, -- Vyl1t
+	--4155032061] = true, -- diego
 }
 
 local function IsModerator(player)
@@ -54,6 +62,25 @@ local function trim(str)
 	return str:match("^%s*(.-)%s*$")
 end
 
+local function GetPlayerByName(name)
+	for _, plr in ipairs(Players:GetPlayers()) do
+		if plr.Name:lower() == name:lower() then
+			return plr
+		end
+	end
+	return nil
+end
+
+local function TeleportPlayerToPart(player, part)
+	if not player.Character then
+		return
+	end
+	local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+	if hrp and part then
+		hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
+	end
+end
+
 -- When the player enters a code
 codeEvent.OnServerEvent:Connect(function(player, typedCode)
 	if typeof(typedCode) ~= "string" then
@@ -61,6 +88,63 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 	end
 
 	typedCode = trim(typedCode)
+
+	local args = string.split(typedCode, " ")
+
+	-- 🛑 ADMIN TP COMMAND
+	if args[1]:lower() == "tp" then
+		if not IsModerator(player) then
+			codeEvent:FireClient(player, false, "NoPermission")
+			return
+		end
+
+		-- tp Arena1 p1 p2
+		if args[2] == "Arena1" and #args == 4 then
+			local p1 = GetPlayerByName(args[3])
+			local p2 = GetPlayerByName(args[4])
+
+			if p1 and p2 then
+				TeleportPlayerToPart(p1, TP_AREAS["1v1Spawn1"])
+				TeleportPlayerToPart(p2, TP_AREAS["1v1Spawn2"])
+				codeEvent:FireClient(player, true, "ArenaTP")
+			else
+				codeEvent:FireClient(player, false, "InvalidPlayer")
+			end
+			return
+		end
+
+		-- tp player location
+		if #args == 3 and TP_AREAS[args[3]] then
+			local targetPlayer = GetPlayerByName(args[2])
+			if targetPlayer then
+				TeleportPlayerToPart(targetPlayer, TP_AREAS[args[3]])
+				codeEvent:FireClient(player, true, "TP")
+			else
+				codeEvent:FireClient(player, false, "InvalidPlayer")
+			end
+			return
+		end
+
+		-- tp player1 player2
+		if #args == 3 then
+			local p1 = GetPlayerByName(args[2])
+			local p2 = GetPlayerByName(args[3])
+
+			if p1 and p2 and p2.Character then
+				local hrp = p2.Character:FindFirstChild("HumanoidRootPart")
+				if hrp then
+					TeleportPlayerToPart(p1, hrp)
+					codeEvent:FireClient(player, true, "TP")
+				end
+			else
+				codeEvent:FireClient(player, false, "InvalidPlayer")
+			end
+			return
+		end
+
+		codeEvent:FireClient(player, false, "InvalidTPCommand")
+		return
+	end
 
 	local heroValue = HeroManager.GetField(player, "Hero")
 	if not heroValue then

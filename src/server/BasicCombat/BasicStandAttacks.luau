@@ -44,6 +44,7 @@ local PUNCH_DAMAGE = {
 	["TuskAct4"] = 5,
 	["MagiciansRed"] = 4.5,
 	["TheWorld"] = 5,
+	["Metallica"] = 4,
 }
 
 function BasicStandAttacks.BasicPunch(standModel)

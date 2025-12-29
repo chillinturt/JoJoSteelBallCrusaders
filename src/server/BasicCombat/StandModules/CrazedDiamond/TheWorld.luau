@@ -21,7 +21,6 @@ local THROWKNIVES_DURATION = 3
 local THROWKNIVES_OFFSET = Vector3.new(0, 0, 8)
 local THROWKNIVES_ENDLAG = 0.8
 local THROWKNIVES_STUN = 1.5
-local THROWKNIVES_SPEED = 200
 
 local BLAZINGSTRIKE_DAMAGE = 15
 local BLAZINGSTRIKE_SIZE = Vector3.new(5, 7, 18)
@@ -44,23 +43,6 @@ local TIME_STOP_DAMAGE_MULT = 1.25
 local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
-
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
-
-local function ClientKnives(player, origin, direction)
-	print("local function client knives start")
-	SpawnClientVfx:FireAllClients({
-		type = "Projectile",
-		effectName = "ThrowKnives",
-		origin = origin,
-		direction = direction,
-		speed = THROWKNIVES_SPEED,
-		lifetime = THROWKNIVES_DURATION,
-	})
-	print("local function client knives end")
-end
 
 function TheWorld.ThrowKnives(standModel)
 	local character = standModel.Parent
@@ -122,15 +104,12 @@ function TheWorld.ThrowKnives(standModel)
 		Color = BrickColor.new("Bright red"),
 		Duration = THROWKNIVES_DURATION,
 		StunDuration = THROWKNIVES_STUN,
-		Transparency = 1,
+		Transparency = 0.3,
 		Name = "BarragePunchHitbox",
-		Speed = THROWKNIVES_SPEED,
+		Speed = 200,
 		Direction = direction,
 		Origin = startPos,
 	})
-	print("Before clientKnives")
-	ClientKnives(player, hrp.Position, direction)
-	print("after client knives")
 	return true
 end
 
@@ -266,20 +245,20 @@ function TheWorld.TimeStop(caster)
 		Root = caster:FindFirstChild("HumanoidRootPart"),
 		soundName = "TimeStopEffects",
 		soundID = "119688469417636",
-		volume = 1.5,
+		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
+		range = 160,
 	})
 
 	SoundModule.PlaySound({
 		Root = caster:FindFirstChild("HumanoidRootPart"),
 		soundName = "TimeStopCall",
 		soundID = "4523066727",
-		volume = 1.5,
+		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
+		range = 160,
 	})
 
 	HitboxSpawner.spawnStationaryHitbox({

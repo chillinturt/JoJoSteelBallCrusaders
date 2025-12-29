@@ -1,4 +1,4 @@
-local KingCarmine = require(script.Parent:WaitForChild("KingCarmine"))
+local Metallica = require(script.Parent:WaitForChild("Metallica"))
 
 local AbilityRegistry = {}
 
@@ -7,63 +7,66 @@ local AbilityRegistry = {}
 -- Types: "Press", "Hold", "Toggle"
 --------------------------------------------------------------------
 AbilityRegistry.AbilityTypes = {
-	[1] = "Press",
+	[1] = "Toggle",
 	[2] = "Press",
-	[3] = "Press",
-	[4] = "Press",
+	[3] = nil, -- unfinished
+	[4] = nil, -- unfinished
 }
 
 --------------------------------------------------------------------
--- Ability 1 - Chop (Press)
+-- Ability 1 - MagneticAura (Toggle)
 --------------------------------------------------------------------
 AbilityRegistry[1] = {
-	Name = "Chop",
-	Type = "Press",
-	Cooldown = 10,
-	Execute = function(standModel, player)
-		KingCarmine.Chop(standModel)
+	Name = "MagneticAura",
+	Type = "Toggle",
+	Cooldown = 1,
+	ExecuteStart = function(standModel, player)
+		Metallica.StartMagneticAura(standModel)
+	end,
+	ExecuteStop = function(standModel, player)
+		Metallica.StopMagneticAura(standModel)
 	end,
 }
 
 --------------------------------------------------------------------
--- Ability 2 - Splatter (Press)
+-- Ability 2 - ScalpelDaggers (Press)
 --------------------------------------------------------------------
 AbilityRegistry[2] = {
-	Name = "Splatter",
+	Name = "ScalpelDaggers",
 	Type = "Press",
-	Cooldown = 12,
-	Execute = function(standModel, player)
-		KingCarmine.Splatter(standModel)
-	end,
-}
-
---------------------------------------------------------------------
--- Ability 3 - Teleport (Press)
---------------------------------------------------------------------
-AbilityRegistry[3] = {
-	Name = "Teleport",
-	Type = "Press",
-	EndlagCancel = true,
-	Cooldown = 12,
+	Cooldown = 8,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then
-			KingCarmine.Teleport(character)
+			Metallica.ScalpelDaggers(character)
 		end
 	end,
 }
 
 --------------------------------------------------------------------
--- Ability 4 - TimeErase (Press)
+-- Ability 3 & 4 - Unfinished
 --------------------------------------------------------------------
-AbilityRegistry[4] = {
-	Name = "TimeErase",
+--[[
+AbilityRegistry[3] = {
+	Name = "ScalpelDaggers",
 	Type = "Press",
-	Hyperarmor = true,
-	Cooldown = 45,
+	Cooldown = 8,
 	Execute = function(standModel, player)
-		KingCarmine.TimeErase(standModel)
+		local character = standModel.Parent
+		if character then
+			-- Metallica.ScalpelDaggers(standModel)
+		end
 	end,
 }
+
+AbilityRegistry[4] = {
+	Name = "Hellfire",
+	Type = "Press",
+	Cooldown = 20,
+	Execute = function(standModel, player)
+		-- Metallica.Hellfire(standModel)
+	end,
+}
+]]
 
 return AbilityRegistry

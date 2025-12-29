@@ -13,12 +13,54 @@ local specialtyFolder = uiFolder:WaitForChild("SpecialtyUIs")
 local raceFolder = uiFolder:WaitForChild("RaceUIs")
 local heroFolder = uiFolder:WaitForChild("HeroUIs")
 local mobileFolder = uiFolder:WaitForChild("MobileUIs")
+local PCFolder = uiFolder:WaitForChild("PCUIs")
+local mainMenu = uiFolder:WaitForChild("MainMenu")
 
 -- Roblox protected UIs that should never be deleted
 local ROBLOX_PROTECTED_UIS = {
 	["TouchGui"] = true,
 	["Chat"] = true,
 }
+
+----------------------------------------------------------
+-- Disable all ScreenGuis except MainMenu + Roblox protected
+----------------------------------------------------------
+local function disableAllGameplayUIs(playerGui)
+	for _, ui in ipairs(playerGui:GetChildren()) do
+		if ui:IsA("ScreenGui") then
+			if ui.Name ~= "MainMenu" and not ROBLOX_PROTECTED_UIS[ui.Name] then
+				ui.Enabled = false
+			end
+		end
+	end
+end
+
+----------------------------------------------------------
+-- Enable all gameplay UIs (except MainMenu)
+----------------------------------------------------------
+local function enableAllGameplayUIs(playerGui)
+	for _, ui in ipairs(playerGui:GetChildren()) do
+		if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" then
+			ui.Enabled = true
+		end
+	end
+end
+
+----------------------------------------------------------
+-- Clone Main Menu
+----------------------------------------------------------
+local function loadMainMenu(playerGui)
+	if playerGui:FindFirstChild("MainMenu") then
+		return
+	end
+
+	local menuGui = mainMenu:FindFirstChild("MainMenu")
+	if menuGui then
+		local clone = menuGui:Clone()
+		clone.Parent = playerGui
+		clone.Enabled = true
+	end
+end
 
 ----------------------------------------------------------
 -- Utility: Clone all ScreenGuis in a folder into PlayerGui
@@ -120,6 +162,21 @@ local function loadMobileUI(playerGui)
 	end
 end
 
+local function loadPCUI(playerGui)
+	local isMobile = FORCE_MOBILE_IN_STUDIO or UserInputService.TouchEnabled
+
+	if isMobile then
+		return
+	end
+
+	print("[UIManager] Loading PC UIs...")
+	for _, ui in ipairs(PCFolder:GetChildren()) do
+		if ui:IsA("ScreenGui") and not playerGui:FindFirstChild(ui.Name) then
+			ui:Clone().Parent = playerGui
+		end
+	end
+end
+
 ----------------------------------------------------------
 -- Public Function: Load All UI
 ----------------------------------------------------------
@@ -134,11 +191,19 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 				ROBLOX_PROTECTED_UIS[ui.Name] = true
 			end
 		end
+	else
+		for _, ui in ipairs(PCFolder:GetChildren()) do
+			if ui:IsA("ScreenGui") then
+				ROBLOX_PROTECTED_UIS[ui.Name] = true
+			end
+		end
 	end
 
 	-- 3) Load mobile UIs early (so they exist in PlayerGui before any cleanup)
 	if isMobile then
 		loadMobileUI(playerGui)
+	else
+		loadPCUI(playerGui)
 	end
 
 	-- 4) Load default UIs
@@ -156,6 +221,10 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	if isMobile and not playerGui:FindFirstChild("TouchGui") then
 		warn("⚠ TouchGui missing. Roblox should auto-regenerate it soon.")
 	end
+
+	-- 8) Show main menu and hide all other UIs
+	loadMainMenu(playerGui)
+	disableAllGameplayUIs(playerGui)
 end
 
 return UIManager

@@ -3,6 +3,9 @@ local PlayerProfile = {}
 
 function PlayerProfile.New()
 	return {
+		Slots = {},
+		CurrentSlot = "Slot1",
+
 		Inventory = {},
 		Hero = "None",
 		Specialty = "None",

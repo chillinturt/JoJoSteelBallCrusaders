@@ -552,7 +552,7 @@ function StarPurple.TimeStop(caster)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
+		range = 240,
 	})
 
 	HitboxSpawner.spawnStationaryHitbox({

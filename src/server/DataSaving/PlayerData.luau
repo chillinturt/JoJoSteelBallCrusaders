@@ -2,6 +2,7 @@ local EncodingService = game:GetService("EncodingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SerializationService = game:GetService("SerializationService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local PlayerDataTemplate = require(ReplicatedStorage.Shared.Modules.PlayerData)
@@ -12,6 +13,7 @@ local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
 local XPSystem = require(ServerScriptService.DataSaving.XPSystem)
 local CharacterUpgrades = require(ServerScriptService.DataSaving.Upgrades:WaitForChild("CharacterUpdgrades"))
 local CashSystem = require(ServerScriptService.DataSaving:WaitForChild("CashSystem"))
+local SlotManager = require(ServerScriptService.DataSaving:WaitForChild("SlotManager"))
 
 local ProfileStore = require(ServerScriptService.DataSaving.ProfileStore)
 
@@ -64,40 +66,44 @@ function Local.LoadProfile(player: Player)
 	Profiles[player] = profile
 
 	--------------------------------------------------------
-	-- NOTHING IS APPLIED TO WORKSPACE
-	-- WE KEEP ALL DATA IN MEMORY ONLY
+	-- NOW WE HANDLE SLOT MIGRATION
 	--------------------------------------------------------
-
 	local data = profile.Data
 
-	-- 🧰 Inventory
+	-- Initialize slot system, migrate old data if needed
+	SlotManager.InitPlayer(player, data)
+
+	-- Get active slot data
+	local activeData = SlotManager.GetActiveSlotData(player)
+	assert(activeData, "Active slot data missing after InitPlayer")
+
+	--------------------------------------------------------
+	-- INITIALIZE MANAGERS WITH ACTIVE SLOT DATA
+	--------------------------------------------------------
 	InventoryManager.InitPlayer(player)
-	InventoryManager.SetInventory(player, data.Inventory)
+	InventoryManager.SetInventory(player, activeData.Inventory)
 
 	HeroManager.InitPlayer(player)
-	HeroManager.SetField(player, "Hero", data.Hero)
-	HeroManager.SetField(player, "Specialty", data.Specialty)
-	HeroManager.SetField(player, "Race", data.Race)
+	HeroManager.SetField(player, "Hero", activeData.Hero)
+	HeroManager.SetField(player, "Specialty", activeData.Specialty)
+	HeroManager.SetField(player, "Race", activeData.Race)
 
-	QuestSerializer.DeserializeCompleted(QuestManager, player, data.CompletedQuests)
-	QuestSerializer.DeserializeActive(QuestManager, player, data.Quests)
+	QuestSerializer.DeserializeCompleted(QuestManager, player, activeData.CompletedQuests)
+	QuestSerializer.DeserializeActive(QuestManager, player, activeData.Quests)
 
-	-- 🧭 Quests
 	local quests = QuestManager.GetQuests(player)
-
 	if next(quests) == nil then
 		QuestManager.ResetQuestline(player)
 	end
 
-	-- 🧮 XP / Leveling
-	XPSystem.SetField(player, "XP", data.XP)
-	XPSystem.SetField(player, "Level", data.Level)
-	XPSystem.SetField(player, "MaxXP", data.MaxXP)
-	XPSystem.SetField(player, "AbilityPoints", data.AbilityPoints)
+	XPSystem.SetField(player, "XP", activeData.XP)
+	XPSystem.SetField(player, "Level", activeData.Level)
+	XPSystem.SetField(player, "MaxXP", activeData.MaxXP)
+	XPSystem.SetField(player, "AbilityPoints", activeData.AbilityPoints)
 
-	CashSystem.SetCash(player, data.Cash)
+	CashSystem.SetCash(player, activeData.Cash)
 
-	CharacterUpgrades.SetStats(player, data.CharacterUpgrades)
+	CharacterUpgrades.SetStats(player, activeData.CharacterUpgrades)
 
 	return true
 end
@@ -112,33 +118,112 @@ function Local.RemoveProfile(player: Player)
 		return
 	end
 
-	local data = profile.Data
+	local profileData = profile.Data
+	local activeSlot = SlotManager.GetActiveSlotName(player)
+	local slots = SlotManager.GetAllSlots(player)
 
-	--------------------------------------------------------
-	-- COPY DATA IN MEMORY ONLY
-	-- (Inventory and Quests still need serialization)
-	--------------------------------------------------------
+	------------------------------------------------------------------
+	-- SAVE CURRENT SLOT INTO SLOTS TABLE
+	------------------------------------------------------------------
+	local slotData = slots[activeSlot]
 
-	data.Inventory = InventoryManager.GetInventory(player)
+	slotData.Inventory = InventoryManager.GetInventory(player)
+	slotData.Hero = HeroManager.GetField(player, "Hero")
+	slotData.Specialty = HeroManager.GetField(player, "Specialty")
+	slotData.Race = HeroManager.GetField(player, "Race")
+	slotData.Quests = QuestSerializer.SerializeActive(QuestManager, player)
+	slotData.CompletedQuests = QuestSerializer.SerializeCompleted(QuestManager, player)
+	slotData.XP = XPSystem.GetField(player, "XP")
+	slotData.Level = XPSystem.GetField(player, "Level")
+	slotData.MaxXP = XPSystem.GetField(player, "MaxXP")
+	slotData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
+	slotData.Cash = CashSystem.GetCash(player)
+	slotData.CharacterUpgrades = CharacterUpgrades.GetStats(player)
 
-	data.Hero = HeroManager.GetField(player, "Hero")
-	data.Specialty = HeroManager.GetField(player, "Specialty")
-	data.Race = HeroManager.GetField(player, "Race")
-
-	data.Quests = QuestSerializer.SerializeActive(QuestManager, player)
-	data.CompletedQuests = QuestSerializer.SerializeCompleted(QuestManager, player)
-
-	data.XP = XPSystem.GetField(player, "XP")
-	data.Level = XPSystem.GetField(player, "Level")
-	data.MaxXP = XPSystem.GetField(player, "MaxXP")
-	data.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
-
-	data.Cash = CashSystem.GetCash(player)
-
-	data.CharacterUpgrades = CharacterUpgrades.GetStats(player)
+	------------------------------------------------------------------
+	-- WRITE SLOT STATE BACK TO PROFILESTORE
+	------------------------------------------------------------------
+	profileData.Slots = slots
+	profileData.CurrentSlot = activeSlot
 
 	profile:EndSession()
 	Profiles[player] = nil
+	SlotManager.RemovePlayer(player)
+end
+
+function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
+	-- Step 0: validation
+	if type(slotName) ~= "string" or slotName == "" then
+		return false, "Invalid slot name"
+	end
+
+	local currentData = SlotManager.GetActiveSlotData(player)
+	if not currentData then
+		return false, "No active slot data"
+	end
+
+	-- STEP 0.5: ACCESS CHECK
+	if not SlotManager.PlayerHasAccess(player, slotName) then
+		return false, "Slot locked"
+	end
+
+	------------------------------------------------------------------
+	-- STEP 1: SAVE CURRENT SLOT FROM MANAGERS
+	------------------------------------------------------------------
+	currentData.Inventory = InventoryManager.GetInventory(player)
+	currentData.Hero = HeroManager.GetField(player, "Hero")
+	currentData.Specialty = HeroManager.GetField(player, "Specialty")
+	currentData.Race = HeroManager.GetField(player, "Race")
+	currentData.Quests = QuestSerializer.SerializeActive(QuestManager, player)
+	currentData.CompletedQuests = QuestSerializer.SerializeCompleted(QuestManager, player)
+	currentData.XP = XPSystem.GetField(player, "XP")
+	currentData.Level = XPSystem.GetField(player, "Level")
+	currentData.MaxXP = XPSystem.GetField(player, "MaxXP")
+	currentData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
+	currentData.Cash = CashSystem.GetCash(player)
+	currentData.CharacterUpgrades = CharacterUpgrades.GetStats(player)
+
+	------------------------------------------------------------------
+	-- STEP 2: SWITCH SLOT (creates if missing)
+	------------------------------------------------------------------
+	local success, newSlotData = SlotManager.SwitchSlot(player, slotName)
+	if not success then
+		return false, newSlotData
+	end
+
+	------------------------------------------------------------------
+	-- STEP 3: LOAD NEW SLOT INTO MANAGERS
+	------------------------------------------------------------------
+	InventoryManager.SetInventory(player, newSlotData.Inventory)
+
+	HeroManager.SetField(player, "Hero", newSlotData.Hero)
+	HeroManager.SetField(player, "Specialty", newSlotData.Specialty)
+	HeroManager.SetField(player, "Race", newSlotData.Race)
+
+	QuestManager.Clear(player)
+	QuestSerializer.DeserializeCompleted(QuestManager, player, newSlotData.CompletedQuests)
+	QuestSerializer.DeserializeActive(QuestManager, player, newSlotData.Quests)
+
+	if next(QuestManager.GetQuests(player)) == nil then
+		QuestManager.AddQuest(player, "TalkToGiorno1")
+	end
+
+	XPSystem.SetField(player, "XP", newSlotData.XP)
+	XPSystem.SetField(player, "Level", newSlotData.Level)
+	XPSystem.SetField(player, "MaxXP", newSlotData.MaxXP)
+	XPSystem.SetField(player, "AbilityPoints", newSlotData.AbilityPoints)
+
+	CashSystem.SetCash(player, newSlotData.Cash)
+	CharacterUpgrades.SetStats(player, newSlotData.CharacterUpgrades)
+
+	local char = player.Character
+	local hum = char:FindFirstChild("Humanoid")
+
+	if hum then
+		hum.Health = 0
+	end
+
+	return true
 end
 
 ---------------------------------------------------------------------

@@ -72,6 +72,11 @@ function QuestManager.ResetQuestline(player)
 	QuestManager.AddQuest(player, "TalkToGiorno1")
 end
 
+function QuestManager.Clear(player)
+	playerCompletedQuests[player] = {}
+	playerQuests[player] = {}
+end
+
 -- 🔹 Add quest
 function QuestManager.AddQuest(player, questId)
 	InitPlayerData(player)

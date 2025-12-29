@@ -163,7 +163,7 @@ QuestDefinitions.DefeatCriminalStandUsers = {
 	--Giver = "CrimeBoss",
 
 	Objectives = {
-		{ Type = "Defeat", Target = "CriminalStandUser", Required = 3, Progress = 0, Completed = false },
+		{ Type = "Defeat", Target = "Criminal Stand User", Required = 3, Progress = 0, Completed = false },
 	},
 
 	NextQuest = { "TalkToDioPB1" },

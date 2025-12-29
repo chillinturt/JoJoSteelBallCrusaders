@@ -152,8 +152,6 @@ local function attachArrow(character)
 		local offset = Vector3.new(0, 0, 0)
 		local arrowPosition = hrp.Position + offset
 
-		print(arrow.PrimaryPart.CFrame.LookVector)
-
 		if currentTarget then
 			-- Follow player AND point to target
 			arrow:SetPrimaryPartCFrame(CFrame.lookAt(arrowPosition, currentTarget.Position))
@@ -168,7 +166,6 @@ end
 -- Quest updates
 ------------------------------------------------
 QuestUpdatedEvent.OnClientEvent:Connect(function(quests)
-	print("Quest update on arrow")
 	if not player.Character then
 		return
 	end

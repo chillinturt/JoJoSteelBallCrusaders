@@ -13,7 +13,7 @@ Players.PlayerAdded:Connect(function(player)
 	local char = player.Character or player.CharacterAdded:Wait()
 
 	-- Optional: wait a short moment to ensure client scripts ran
-	task.wait(3)
+	task.wait(5)
 
 	QuestManager.Sync(player)
 end)

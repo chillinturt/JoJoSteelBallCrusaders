@@ -11,8 +11,9 @@ local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChil
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
+local BlockModule = require(ServerScriptService.BasicCombat.BlockModule)
 
-local RAIN_REGEN = 1
+local RAIN_REGEN = 2
 local REGEN_INTERVAL = 1
 
 local TORRENTIALDOWNPOUR_DAMAGE = 5
@@ -31,7 +32,7 @@ local HEAVYRAINDROP_STUN = 1.4
 local RAINBARRIER_CONSTANT = 3 --damage taken / RAINBARRIER_CONSTANT amount of barrier
 local RAINBARRIER_DECAY_RATE = 0.1
 local RAINBARRIER_DECAY_DELAY = 12
-local RAINBARRIER_MAX = 50
+local RAINBARRIER_MAX = 100
 
 local ERASE_ANIM_ID = 90498591949232
 
@@ -72,6 +73,7 @@ function NuclearRain.initRainForPlayer(player)
 			NuclearRain.getRainValue(character)
 			NuclearRain.StartRainRegen(character)
 		end
+		NuclearRain.StartRainRegen(character)
 	end)
 end
 
@@ -252,6 +254,7 @@ function NuclearRain.HeavyRaindrop(character)
 				"RainBarrier",
 				RAINBARRIER_MAX
 			)
+			BlockModule.StopBlocking(target)
 		end,
 	})
 

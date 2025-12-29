@@ -9,8 +9,8 @@ local AbilityRegistry = {}
 AbilityRegistry.AbilityTypes = {
 	[1] = "Toggle",
 	[2] = "Press",
-	[3] = nil, -- unfinished
-	[4] = nil, -- unfinished
+	[3] = "Press", -- unfinished
+	[4] = "Press", -- unfinished
 }
 
 --------------------------------------------------------------------
@@ -19,6 +19,7 @@ AbilityRegistry.AbilityTypes = {
 AbilityRegistry[1] = {
 	Name = "TorrentialDownpour",
 	Type = "Toggle",
+	EndlagCancel = true,
 	Cooldown = 1,
 	ExecuteStart = function(standModel, player)
 		NuclearRain.StartTorrentialDownpour(standModel)
@@ -34,6 +35,7 @@ AbilityRegistry[1] = {
 AbilityRegistry[2] = {
 	Name = "HeavyRaindrop",
 	Type = "Press",
+	EndlagCancel = true,
 	Cooldown = 8,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
@@ -46,9 +48,9 @@ AbilityRegistry[2] = {
 --------------------------------------------------------------------
 -- Ability 3 & 4 - Unfinished
 --------------------------------------------------------------------
---[[
+
 AbilityRegistry[3] = {
-	Name = "HeavyRaindrop",
+	Name = "ExpelBarrier",
 	Type = "Press",
 	Cooldown = 8,
 	Execute = function(standModel, player)
@@ -60,13 +62,12 @@ AbilityRegistry[3] = {
 }
 
 AbilityRegistry[4] = {
-	Name = "Hellfire",
+	Name = "RainCage",
 	Type = "Press",
 	Cooldown = 20,
 	Execute = function(standModel, player)
 		-- NuclearRain.Hellfire(standModel)
 	end,
 }
-]]
 
 return AbilityRegistry

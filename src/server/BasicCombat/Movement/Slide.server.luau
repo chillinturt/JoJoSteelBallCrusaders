@@ -1,9 +1,9 @@
 local replicatedStorage = game:GetService("ReplicatedStorage")
 local serverScriptService = game:GetService("ServerScriptService")
 
-local StandSlideToggle = Instance.new("RemoteEvent")
-StandSlideToggle.Name = "SlideToggle"
-StandSlideToggle.Parent = replicatedStorage.Shared.BasicCombat
+local SlideToggle = Instance.new("RemoteEvent")
+SlideToggle.Name = "SlideToggle"
+SlideToggle.Parent = replicatedStorage.Shared.BasicCombat
 
 local StandUtils = require(serverScriptService:WaitForChild("BasicCombat"):WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
@@ -15,7 +15,7 @@ local lastSlideEndTime = {} -- player -> tick() timestamp
 local activeSlides = {} -- player -> true if currently barraging
 local autoStopTasks = {} -- player -> task for auto-stop
 
-StandSlideToggle.OnServerEvent:Connect(function(player, action)
+SlideToggle.OnServerEvent:Connect(function(player, action)
 	if action == "Begin" then
 		if activeSlides[player] then
 			return

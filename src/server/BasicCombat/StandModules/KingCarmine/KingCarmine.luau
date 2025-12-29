@@ -33,7 +33,7 @@ local SPLATTER_DAMAGE = 20
 local SPLATTER_DURATION = 3
 local SPLATTER_OFFSET = Vector3.new(0, 0, 8)
 local SPLATTER_ENDLAG = 0.8
-local SPLATTER_STUN = 1.5
+local SPLATTER_STUN = 1.1
 
 function KingCarmine.Teleport(character)
 	print("Teleport called on module")

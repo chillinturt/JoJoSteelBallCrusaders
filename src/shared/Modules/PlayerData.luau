@@ -1,6 +1,9 @@
 local PlayerData = {}
 
 PlayerData.DEFAULT_PLAYER_DATA = {
+	Slots = {},
+	CurrentSlot = "Slot1",
+
 	Cash = 0,
 	XP = 0,
 	Level = 1,

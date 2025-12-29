@@ -1,0 +1,342 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local SpawnVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+local StandEffectsFolder = ReplicatedStorage:WaitForChild("Effects"):WaitForChild("StandEffects")
+
+local function WeldModel(model)
+	if not model:IsA("Model") then
+		return
+	end
+
+	local primary = model.PrimaryPart
+	if not primary then
+		warn("[VFX] Model has no PrimaryPart:", model.Name)
+		return
+	end
+
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") and part ~= primary then
+			local weld = Instance.new("WeldConstraint")
+			weld.Part0 = primary
+			weld.Part1 = part
+			weld.Parent = primary
+		end
+	end
+end
+
+local function CacheOffsets(model)
+	local primary = model.PrimaryPart
+	local offsets = {}
+
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			offsets[part] = primary.CFrame:ToObjectSpace(part.CFrame)
+		end
+	end
+
+	return offsets
+end
+
+local function CacheModelScaleData(model)
+	local primary = model.PrimaryPart
+	local data = {}
+
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			data[part] = {
+				size = part.Size,
+				offset = primary.CFrame:ToObjectSpace(part.CFrame),
+			}
+		end
+	end
+
+	return data
+end
+
+local function ApplyModelScale(model, scaleData, scale)
+	print("applying model scale")
+	local primary = model.PrimaryPart
+
+	for part, info in pairs(scaleData) do
+		part.Size = info.size * scale
+
+		part.CFrame = primary.CFrame
+			* CFrame.new(info.offset.Position * scale)
+			* CFrame.fromOrientation(info.offset:ToEulerAnglesXYZ())
+	end
+end
+
+-- Makes any effect visual-only
+local function MakeVisualOnly(instance)
+	for _, obj in ipairs(instance:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			obj.Anchored = true
+			obj.Massless = true
+			obj.CanCollide = false
+			obj.CanTouch = false
+			obj.CanQuery = false
+			obj.AssemblyLinearVelocity = Vector3.zero
+			obj.AssemblyAngularVelocity = Vector3.zero
+			obj.LocalTransparencyModifier = 0
+		elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") then
+			obj.Enabled = true
+		end
+	end
+end
+
+-- Finds an effect model by name across all stands
+local function FindEffect(effectName)
+	for _, standFolder in ipairs(StandEffectsFolder:GetChildren()) do
+		print("[VFX] Checking stand folder:", standFolder.Name)
+		local effect = standFolder:FindFirstChild(effectName)
+		if effect then
+			return effect
+		end
+	end
+	return nil
+end
+
+local function SpawnProjectileVFX(template, data)
+	local projectile = template:Clone()
+	projectile.Parent = workspace
+
+	MakeVisualOnly(projectile)
+
+	local lifetime = data.lifetime or 5
+	local startTime = os.clock()
+
+	-- === MOTION DATA ===
+	local velocity
+	local gravity = data.gravity or Vector3.zero
+	local arc = data.arc == true
+
+	if arc then
+		-- ✅ Arc projectile uses initialVelocity
+		velocity = data.initialVelocity
+		assert(velocity, "[VFX] Arc projectile requires initialVelocity")
+	else
+		-- ✅ Straight projectile (legacy)
+		local direction = data.direction.Unit
+		velocity = direction * data.speed
+	end
+
+	-- === INITIAL CFRAME ===
+	local baseCFrame = data.cframe or CFrame.new(data.origin, data.origin + velocity)
+
+	-- ✅ Apply one-time rotation fix
+	if data.initialRotation then
+		baseCFrame *= CFrame.fromOrientation(data.initialRotation.X, data.initialRotation.Y, data.initialRotation.Z)
+	end
+
+	-- =========================
+	-- === BASEPART PROJECTILE
+	-- =========================
+	if projectile:IsA("BasePart") then
+		projectile.CFrame = baseCFrame
+
+		local conn
+		conn = RunService.RenderStepped:Connect(function(dt)
+			-- Motion
+			velocity += gravity * dt
+			baseCFrame += velocity * dt
+			projectile.CFrame = baseCFrame
+
+			-- Lifetime
+			if os.clock() - startTime >= lifetime then
+				conn:Disconnect()
+				projectile:Destroy()
+			end
+		end)
+
+		return
+	end
+
+	-- =========================
+	-- === MODEL PROJECTILE ===
+	-- =========================
+	if not projectile.PrimaryPart then
+		projectile.PrimaryPart = projectile:FindFirstChildWhichIsA("BasePart")
+		if not projectile.PrimaryPart then
+			warn("[VFX] Projectile model has no BasePart:", projectile.Name)
+			projectile:Destroy()
+			return
+		end
+	end
+
+	projectile:SetPrimaryPartCFrame(baseCFrame)
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		-- Motion
+		velocity += gravity * dt
+		baseCFrame += velocity * dt
+		projectile:SetPrimaryPartCFrame(baseCFrame)
+
+		-- Lifetime
+		if os.clock() - startTime >= lifetime then
+			conn:Disconnect()
+			projectile:Destroy()
+		end
+	end)
+end
+
+local function SetTransparency(instance, value)
+	for _, obj in ipairs(instance:GetDescendants()) do
+		if obj:IsA("BasePart") then
+			obj.Transparency = value
+		end
+	end
+end
+
+local function ScaleModel(model, scale)
+	local primary = model.PrimaryPart
+	if not primary then
+		return
+	end
+
+	for _, part in ipairs(model:GetDescendants()) do
+		if part:IsA("BasePart") then
+			local offset = primary.CFrame:ToObjectSpace(part.CFrame)
+			part.Size *= scale
+			part.CFrame = primary.CFrame
+				* CFrame.new(offset.Position * scale)
+				* CFrame.fromOrientation(offset:ToEulerAnglesXYZ())
+		end
+	end
+end
+
+-- 🌟 STATIONARY EFFECT SPAWNER
+local function SpawnStationaryEffect(params)
+	local effect = params.template:Clone()
+	effect.Parent = workspace
+
+	MakeVisualOnly(effect)
+
+	local lifetime = params.lifetime or math.huge
+	local rotationSpeed = params.rotationSpeed or Vector3.zero
+	local transparency = params.transparency
+	local scale = params.scale
+	local maxScale = params.maxScale
+	local onUpdate = params.onUpdate
+
+	local startTime = os.clock()
+
+	local expand = params.expand
+	local expandRate = params.expandRate or 0
+	local initialRotation = params.initialRotation or Vector3.zero
+	local baseCFrame = params.cframe * CFrame.fromOrientation(initialRotation.X, initialRotation.Y, initialRotation.Z)
+
+	local currentScale = scale or 1
+	local scaleData
+	-- Handle BasePart vs Model
+	if effect:IsA("BasePart") then
+		effect.CFrame = baseCFrame
+	else
+		if not effect.PrimaryPart then
+			effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
+		end
+
+		-- 🔥 IMPORTANT: place model FIRST
+		effect:SetPrimaryPartCFrame(baseCFrame)
+
+		-- 🔥 THEN cache offsets / sizes
+		scaleData = CacheModelScaleData(effect)
+	end
+
+	-- Handle BasePart vs Model
+	if effect:IsA("BasePart") then
+		effect.CFrame = baseCFrame
+		if transparency then
+			effect.Transparency = transparency
+		end
+		if scale then
+			effect.Size *= scale
+		end
+	else
+		if not effect.PrimaryPart then
+			effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
+		end
+
+		if transparency then
+			SetTransparency(effect, transparency)
+		end
+		if scale then
+			ScaleModel(effect, scale)
+		end
+	end
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		local elapsed = os.clock() - startTime
+
+		-- Rotate
+		if rotationSpeed.Magnitude > 0 then
+			baseCFrame *= CFrame.fromOrientation(rotationSpeed.X * dt, rotationSpeed.Y * dt, rotationSpeed.Z * dt)
+
+			if effect:IsA("BasePart") then
+				effect.CFrame = baseCFrame
+			else
+				effect:SetPrimaryPartCFrame(baseCFrame)
+			end
+		end
+
+		-- Expansion (MODEL-SAFE + CLAMPED)
+		if expand and expandRate > 0 then
+			local nextScale = currentScale + expandRate * dt
+
+			if maxScale then
+				currentScale = math.min(nextScale, maxScale)
+			else
+				currentScale = nextScale
+			end
+
+			if effect:IsA("BasePart") then
+				effect.Size = effect.Size.Unit * currentScale
+			else
+				ApplyModelScale(effect, scaleData, currentScale)
+			end
+		end
+
+		-- User update hook
+		if onUpdate then
+			onUpdate(effect, dt, elapsed)
+		end
+
+		if elapsed >= lifetime then
+			conn:Disconnect()
+			effect:Destroy()
+		end
+	end)
+
+	return effect
+end
+
+SpawnVfx.OnClientEvent:Connect(function(data)
+	if not data or not data.type or not data.effectName then
+		return
+	end
+
+	local template = FindEffect(data.effectName)
+	if not template then
+		warn("[VFX] Missing effect template:", data.effectName)
+		return
+	end
+
+	if data.type == "Projectile" then
+		SpawnProjectileVFX(template, data)
+	elseif data.type == "Stationary" then
+		SpawnStationaryEffect({
+			template = template,
+			cframe = data.cframe,
+			lifetime = data.lifetime,
+			rotationSpeed = data.rotationSpeed,
+			transparency = data.transparency,
+			scale = data.scale,
+			maxScale = data.maxScale,
+			expand = data.expand,
+			expandRate = data.expandRate,
+			initialRotation = data.initialRotation,
+		})
+	end
+end)

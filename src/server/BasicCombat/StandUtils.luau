@@ -80,136 +80,14 @@ local function CreateStandHurtbox(standModel)
 
 	-- Weld hitbox to stand root
 	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = standModel:FindFirstChild("LowerTorso")
+	weld.Part0 = standModel:FindFirstChild("LowerTorso") or standModel.PrimaryPart
 	weld.Part1 = hurtbox
 	weld.Parent = hurtbox
 end
 
---[[ Summon a stand for an NPC or Player
-function StandUtils.SummonStand(entity: Model, standTag: string)
-	-- Check if a stand already exists
-	if activeStands[entity] then
-		warn(entity.Name .. " already has a stand!")
-		return activeStands[entity]
-	end
-
-	local standTemplate = StandModels:FindFirstChild(standTag .. "Model")
-	if not standTemplate then
-		warn("⚠️ No stand model found for tag:", standTag)
-		return nil
-	end
-
-	local humanoidRootPart = entity:WaitForChild("HumanoidRootPart") -- Replace if NPC uses a different part
-	if not humanoidRootPart then
-		warn("⚠️ No HumanoidRootPart found for entity:", entity.Name)
-		return nil
-	end
-
-	-- Clone stand model
-	local standModel = standTemplate:Clone()
-	standModel.Parent = entity
-	standModel.Name = standTag .. "Stand"
-
-	standModel:SetPrimaryPartCFrame(humanoidRootPart.CFrame * CFrame.new(-2, 1, 3))
-
-	-- Set StandTag StringValue
-	local tag = Instance.new("StringValue")
-	tag.Name = "StandTag"
-	tag.Value = standTag
-	tag.Parent = standModel
-
-	-- Configure physics
-	for _, part in pairs(standModel:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.CanCollide = false
-			part.Massless = true
-			part.Anchored = false
-			part.CollisionGroup = "NoCollision"
-		end
-	end
-
-	local rotation = CFrame.Angles(0, 0, 0)
-	local offset = CFrame.new(-2, 1, 3)
-	if tag.Value == "Nuclear Rain" then
-		offset = CFrame.new(0, 1, 0)
-		rotation = CFrame.Angles(0, math.rad(90), 0)
-	end
-
-	offset = offset * rotation -- multiply offset by rotation
-
-	-- Weld to HumanoidRootPart
-	local humanoidRoot = entity:FindFirstChild("HumanoidRootPart")
-	if humanoidRoot and standModel.PrimaryPart then
-		local weld = Instance.new("Motor6D")
-		weld.Part0 = humanoidRoot
-		weld.Part1 = standModel.PrimaryPart
-		weld.Parent = standModel.PrimaryPart
-		weld.Name = "StandMotor"
-		weld.C0 = offset
-	end
-
-	activeStands[entity] = standModel
-
-	CreateStandHurtbox(standModel)
-
-	local StandSummonSounds = {
-		["Star Purple"] = "5371606324",
-		["Hierophant Grand"] = "6191514689",
-		["King Carmine"] = "6995205240",
-		["Gold Experiment"] = "4959222677",
-		["Kaiser Queen"] = "2652080817",
-		["Crazed Diamond"] = "6678129999",
-		["That Hand"] = "98271580708859",
-		["Nuclear Rain"] = "5978825194",
-		["Heavy Door"] = "7280545782",
-		["White Sake"] = "72453705794819",
-		["Tusk Act 1"] = "5024213083",
-		["Tusk Act 2"] = "5024213083",
-		["Tusk Act 3"] = "5024213083",
-		["Tusk Act 4"] = "5024213083",
-	}
-	local vol = 1
-
-	if standTag == "King Carmine" then
-		vol = 3
-	elseif standTag == "Kaiser Queen" then
-		print("has kaiser queen")
-		vol = 3
-	elseif standTag == "Hierophant Grand" then
-		vol = 0.75
-	end
-
-	SoundUtils.PlaySound({
-		Root = standModel.PrimaryPart,
-		soundName = "Summon Sound",
-		soundID = StandSummonSounds[standTag],
-		volume = vol,
-		playbackSpeed = 1,
-		looped = false,
-		range = 100,
-	})
-
-	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action)
-
-	return standModel
-end
-
--- Remove a stand
-function StandUtils.RemoveStand(entity: Model, player)
-	local existingStand = activeStands[entity]
-	if existingStand then
-		existingStand:Destroy()
-		activeStands[entity] = nil
-
-		if player then
-			CameraEvent:FireClient(player, "reset")
-			exitPilotEvent:Fire(player.Character)
-		end
-	else
-		--warn(entity.Name .. " has no active stand to remove!")
-	end
-end
-]]
+local standAurasEvent = Instance.new("RemoteEvent")
+standAurasEvent.Name = "StandAurasEvent"
+standAurasEvent.Parent = ReplicatedStorage.Shared.Events
 
 -- Summon a stand for an NPC or Player
 function StandUtils.SummonStand(entity: Model, standTag: string)
@@ -287,6 +165,9 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		offset = CFrame.new(0, 1, 0)
 		rotation = CFrame.Angles(0, math.rad(90), 0)
 	end
+	if tag.Value == "Metallica" then
+		offset = CFrame.new(0, 0, 0)
+	end
 
 	offset = offset * rotation -- multiply offset by rotation
 
@@ -323,6 +204,7 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		["Tusk"] = "5024213083",
 		["MagiciansRed"] = "4732804275",
 		["TheWorld"] = "4580055091",
+		["Metallica"] = "101898166770177",
 	}
 	local vol = 1
 
@@ -346,13 +228,20 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 
 	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action)
 
+	--add aura
+	standAurasEvent:FireAllClients(entity, standTag, true)
+
 	return standModel
 end
 
 -- Remove a stand
 function StandUtils.RemoveStand(entity: Model, player)
 	local existingStand = activeStands[entity]
+	local standTag
 	if existingStand then
+		standTag = existingStand:FindFirstChild("StandTag").Value
+		standAurasEvent:FireAllClients(entity, standTag, false)
+
 		existingStand:Destroy()
 		activeStands[entity] = nil
 

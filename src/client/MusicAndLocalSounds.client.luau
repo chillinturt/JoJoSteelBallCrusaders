@@ -45,7 +45,7 @@ local toggleButton = scrollingFrame:WaitForChild("MuteMusicButton")
 -- === Config ===
 local MUSIC_FADE_TIME = 2
 local CHECK_INTERVAL = 0.5
-local REGION_RANGE = 250
+local REGION_RANGE = 350
 local DEFAULT_VOLUME = 0.7
 
 -- === State ===
