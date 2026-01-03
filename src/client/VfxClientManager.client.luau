@@ -1,5 +1,9 @@
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local HttpService = game:GetService("HttpService")
+
+local activeProjectiles = {} -- map: id -> { projectile, conn }
 
 local SpawnVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 local StandEffectsFolder = ReplicatedStorage:WaitForChild("Effects"):WaitForChild("StandEffects")
@@ -97,88 +101,87 @@ local function FindEffect(effectName)
 	return nil
 end
 
+local function DeleteProjectileVFX(id)
+	print("Delete projectile called on client")
+	local data = activeProjectiles[id]
+	if data then
+		if data.conn then
+			data.conn:Disconnect()
+		end
+		if data.projectile then
+			data.projectile:Destroy()
+		end
+		activeProjectiles[id] = nil
+	else
+		warn("no data found on deletion vfx!")
+	end
+end
+
 local function SpawnProjectileVFX(template, data)
 	local projectile = template:Clone()
 	projectile.Parent = workspace
 
 	MakeVisualOnly(projectile)
 
+	-- Assign unique ID
+	local id = data.id or HttpService:GenerateGUID(false)
+	projectile:SetAttribute("VFX_ID", id)
+
 	local lifetime = data.lifetime or 5
 	local startTime = os.clock()
 
-	-- === MOTION DATA ===
 	local velocity
 	local gravity = data.gravity or Vector3.zero
 	local arc = data.arc == true
 
 	if arc then
-		-- ✅ Arc projectile uses initialVelocity
 		velocity = data.initialVelocity
 		assert(velocity, "[VFX] Arc projectile requires initialVelocity")
 	else
-		-- ✅ Straight projectile (legacy)
 		local direction = data.direction.Unit
 		velocity = direction * data.speed
 	end
 
-	-- === INITIAL CFRAME ===
 	local baseCFrame = data.cframe or CFrame.new(data.origin, data.origin + velocity)
 
-	-- ✅ Apply one-time rotation fix
 	if data.initialRotation then
 		baseCFrame *= CFrame.fromOrientation(data.initialRotation.X, data.initialRotation.Y, data.initialRotation.Z)
 	end
 
-	-- =========================
-	-- === BASEPART PROJECTILE
-	-- =========================
+	local conn
 	if projectile:IsA("BasePart") then
 		projectile.CFrame = baseCFrame
-
-		local conn
 		conn = RunService.RenderStepped:Connect(function(dt)
-			-- Motion
 			velocity += gravity * dt
 			baseCFrame += velocity * dt
 			projectile.CFrame = baseCFrame
 
-			-- Lifetime
 			if os.clock() - startTime >= lifetime then
 				conn:Disconnect()
 				projectile:Destroy()
+				activeProjectiles[id] = nil
 			end
 		end)
-
-		return
-	end
-
-	-- =========================
-	-- === MODEL PROJECTILE ===
-	-- =========================
-	if not projectile.PrimaryPart then
-		projectile.PrimaryPart = projectile:FindFirstChildWhichIsA("BasePart")
+	else
 		if not projectile.PrimaryPart then
-			warn("[VFX] Projectile model has no BasePart:", projectile.Name)
-			projectile:Destroy()
-			return
+			projectile.PrimaryPart = projectile:FindFirstChildWhichIsA("BasePart")
 		end
+		projectile:SetPrimaryPartCFrame(baseCFrame)
+		conn = RunService.RenderStepped:Connect(function(dt)
+			velocity += gravity * dt
+			baseCFrame += velocity * dt
+			projectile:SetPrimaryPartCFrame(baseCFrame)
+
+			if os.clock() - startTime >= lifetime then
+				conn:Disconnect()
+				projectile:Destroy()
+				activeProjectiles[id] = nil
+			end
+		end)
 	end
 
-	projectile:SetPrimaryPartCFrame(baseCFrame)
-
-	local conn
-	conn = RunService.RenderStepped:Connect(function(dt)
-		-- Motion
-		velocity += gravity * dt
-		baseCFrame += velocity * dt
-		projectile:SetPrimaryPartCFrame(baseCFrame)
-
-		-- Lifetime
-		if os.clock() - startTime >= lifetime then
-			conn:Disconnect()
-			projectile:Destroy()
-		end
-	end)
+	activeProjectiles[id] = { projectile = projectile, conn = conn }
+	return projectile, id
 end
 
 local function SetTransparency(instance, value)
@@ -312,7 +315,147 @@ local function SpawnStationaryEffect(params)
 	return effect
 end
 
+local function FindHitboxById(id, character)
+	for _, obj in ipairs(character:GetDescendants()) do
+		if obj:IsA("BasePart") and obj:GetAttribute("VFX_ID") == id then
+			return obj
+		end
+	end
+	return nil
+end
+
+-- 🌟 ATTACHED EFFECT SPAWNER
+local function SpawnAttachedVFX(template, data)
+	if not template or not data then
+		print("no template or data or attachto found")
+		return
+	end
+
+	local attachTo = data.attachTo
+
+	-- If attachTo is missing, try resolving by attachId
+	if not attachTo and data.attachId then
+		local startTime = os.clock()
+		local timeout = 2
+		repeat
+			local player = Players.LocalPlayer
+			local character = player.Character
+			attachTo = FindHitboxById(data.attachId, character)
+			task.wait()
+		until attachTo or os.clock() - startTime > timeout
+	end
+
+	if not attachTo or not attachTo:IsA("BasePart") then
+		warn("[VFX] attachTo missing or invalid")
+		return
+	end
+
+	-- Clone effect
+	local effect = template:Clone()
+	effect.Parent = workspace
+
+	MakeVisualOnly(effect)
+
+	local lifetime = data.lifetime or math.huge
+	local rotationSpeed = data.rotationSpeed or Vector3.zero
+	local transparency = data.transparency
+	local scale = data.scale
+	local initialRotation = data.initialRotation or Vector3.zero
+	local onUpdate = data.onUpdate
+
+	local startTime = os.clock()
+
+	-- Initial offset from attachment part
+	local offset = data.offset or CFrame.identity
+	offset *= CFrame.fromOrientation(initialRotation.X, initialRotation.Y, initialRotation.Z)
+
+	-- Handle BasePart vs Model
+	local scaleData
+	if effect:IsA("BasePart") then
+		effect.CFrame = attachTo.CFrame * offset
+	else
+		if not effect.PrimaryPart then
+			effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
+		end
+
+		effect:SetPrimaryPartCFrame(attachTo.CFrame * offset)
+		scaleData = CacheModelScaleData(effect)
+	end
+
+	-- Apply visual modifiers
+	if transparency then
+		if effect:IsA("BasePart") then
+			effect.Transparency = transparency
+		else
+			SetTransparency(effect, transparency)
+		end
+	end
+
+	if scale then
+		if effect:IsA("BasePart") then
+			effect.Size *= scale
+		else
+			ScaleModel(effect, scale)
+		end
+	end
+
+	local conn
+	conn = RunService.RenderStepped:Connect(function(dt)
+		-- Attachment destroyed → cleanup
+		if not attachTo.Parent then
+			conn:Disconnect()
+			effect:Destroy()
+			return
+		end
+
+		local elapsed = os.clock() - startTime
+		if elapsed >= lifetime then
+			conn:Disconnect()
+			effect:Destroy()
+			return
+		end
+
+		-- Follow attached part
+		local cf = attachTo.CFrame * offset
+
+		-- Optional rotation
+		if rotationSpeed.Magnitude > 0 then
+			offset *= CFrame.fromOrientation(rotationSpeed.X * dt, rotationSpeed.Y * dt, rotationSpeed.Z * dt)
+			cf = attachTo.CFrame * offset
+		end
+
+		if effect:IsA("BasePart") then
+			effect.CFrame = cf
+		else
+			effect:SetPrimaryPartCFrame(cf)
+		end
+
+		-- User hook
+		if onUpdate then
+			onUpdate(effect, dt, elapsed)
+		end
+	end)
+
+	-- Safety: destroy effect if attached part is explicitly destroyed
+	attachTo.Destroying:Once(function()
+		if conn then
+			conn:Disconnect()
+		end
+		if effect then
+			effect:Destroy()
+		end
+	end)
+
+	return effect
+end
+
 SpawnVfx.OnClientEvent:Connect(function(data)
+	if data.type == "Projectile" and data.deleteId then
+		DeleteProjectileVFX(data.deleteId)
+		print("Projectile vfx called for deletion!")
+		return
+	end
+
 	if not data or not data.type or not data.effectName then
 		return
 	end
@@ -338,5 +481,7 @@ SpawnVfx.OnClientEvent:Connect(function(data)
 			expandRate = data.expandRate,
 			initialRotation = data.initialRotation,
 		})
+	elseif data.type == "Attached" then
+		SpawnAttachedVFX(template, data)
 	end
 end)

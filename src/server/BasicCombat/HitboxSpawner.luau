@@ -167,21 +167,21 @@ function HitboxSpawner.spawnHitbox(params)
 
 					-- Team check & healing logic
 					if TeamsModule.AreTeammates(targetChar, character) then
-						if heal and not hitPlayers[targetChar.Name] then
+						if heal and not hitPlayers[targetChar] then
 							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
 							humanoid.Health = newHealth
-							hitPlayers[targetChar.Name] = true
+							hitPlayers[targetChar] = true
 						end
 						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar.Name] then
+					if humanoid and not hitPlayers[targetChar] then
 						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 						if sourcePlayer then
 							tagHumanoid(humanoid, sourcePlayer)
 						end
 
-						hitPlayers[targetChar.Name] = true
+						hitPlayers[targetChar] = true
 						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
 						if params.OnHit then
@@ -200,6 +200,8 @@ function HitboxSpawner.spawnHitbox(params)
 							print("DOT Applied!")
 						end
 
+						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+
 						if not CombatUtils.GetIsBlocking(targetChar).Value then
 							if stunDuration then
 								CombatUtils.applyStun(targetChar, stunDuration)
@@ -209,7 +211,7 @@ function HitboxSpawner.spawnHitbox(params)
 							local volume, pitch = MapDamageToSound(damage)
 
 							SoundUtils.PlaySound({
-								Root = targetChar,
+								Root = targetHRP,
 								soundName = "HitSound",
 								soundID = HIT_SOUND_ID,
 								volume = volume,
@@ -220,7 +222,7 @@ function HitboxSpawner.spawnHitbox(params)
 							})
 						else
 							SoundUtils.PlaySound({
-								Root = targetChar,
+								Root = targetHRP,
 								soundName = "BlockHitSound",
 								soundID = BLOCK_SOUND_ID,
 								volume = 1,
@@ -314,27 +316,29 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 
 					-- Team check & healing logic
 					if TeamsModule.AreTeammates(targetChar, character) then
-						if heal and not hitPlayers[targetChar.Name] then
+						if heal and not hitPlayers[targetChar] then
 							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
 							humanoid.Health = newHealth
-							hitPlayers[targetChar.Name] = true
+							hitPlayers[targetChar] = true
 						end
 						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar.Name] then
+					if humanoid and not hitPlayers[targetChar] then
 						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 						if sourcePlayer then
 							tagHumanoid(humanoid, sourcePlayer)
 						end
 
-						hitPlayers[targetChar.Name] = true
+						hitPlayers[targetChar] = true
 						hitConfirmed = true
 
 						-- Apply damage with canBlock support
 						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
 						VampireModule.addBlood(character, newDamage / VAMP_BLOOD_GAIN_RATE)
+
+						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
 						-- Play correct sound and apply stun
 						local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
@@ -347,7 +351,7 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 
 							local volume, pitch = MapDamageToSound(damage)
 							SoundUtils.PlaySound({
-								Root = targetChar,
+								Root = targetHRP,
 								soundName = "HitSound",
 								soundID = HIT_SOUND_ID,
 								volume = volume,
@@ -358,7 +362,7 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 							})
 						else
 							SoundUtils.PlaySound({
-								Root = targetChar,
+								Root = targetHRP,
 								soundName = "BlockHitSound",
 								soundID = BLOCK_SOUND_ID,
 								volume = 1,
@@ -381,127 +385,6 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	Debris:AddItem(hitbox, duration)
 	return hitConfirmed
 end
-
---[[
-function HitboxSpawner.spawnProjectile(params)
-	-- Validate required parameters
-	assert(params.Stand, "Origin (a Model with PrimaryPart) is required")
-	assert(params.Size, "Size (Vector3) is required")
-	assert(params.Duration, "Duration (number) is required")
-
-	local stand = params.Stand
-	local character = params.Character
-	local damage = params.Damage or 0
-	local stunDuration = params.StunDuration
-	local size = params.Size
-	local offset = params.Offset or Vector3.new()
-	local color = params.Color or BrickColor.new("Really red")
-	local duration = params.Duration
-	local transparency = params.Transparency or 0
-	local name = params.Name or "Hitbox"
-	local speed = params.Speed or 50
-
-	-- Create the hitbox part (invisible placeholder, or you can make it visible for debugging)
-	local hitbox = Instance.new("Part")
-	hitbox.Name = name
-	hitbox.Size = size
-	hitbox.Anchored = true
-	hitbox.CanCollide = false
-	hitbox.CanQuery = false
-	hitbox.CanTouch = false -- no longer using .Touched
-	hitbox.Transparency = transparency
-	hitbox.BrickColor = color
-	hitbox.CFrame = stand:GetPivot() * CFrame.new(offset)
-	hitbox.Parent = workspace
-
-	-- Movement parameters
-	local direction = stand:GetPivot().LookVector
-
-	-- Setup overlap params (ignore the attacker and hitbox itself)
-	local paramsFilter = OverlapParams.new()
-	paramsFilter.FilterType = Enum.RaycastFilterType.Exclude
-	paramsFilter.FilterDescendantsInstances = { character, hitbox }
-
-	-- Track who was hit already
-	local hitPlayers = {}
-
-	-- Time tracking
-	local startTime = tick()
-	local conn
-	conn = RunService.Heartbeat:Connect(function(dt)
-		local elapsed = tick() - startTime
-		if elapsed > duration then
-			conn:Disconnect()
-			hitbox:Destroy()
-			return
-		end
-
-		-- Move smoothly
-		local step = direction * speed * dt
-		hitbox.CFrame = hitbox.CFrame + step
-
-		-- Query overlaps
-		local parts = workspace:GetPartBoundsInBox(hitbox.CFrame, hitbox.Size, paramsFilter)
-		for _, other in ipairs(parts) do
-			if other.Name == "Hurtbox" then
-				local targetChar = other.Parent
-				if targetChar and targetChar ~= character then
-					local humanoid = targetChar:FindFirstChildOfClass("Humanoid")
-
-					if not humanoid then
-						local owner = targetChar.Parent
-						if owner and owner:IsA("Model") then
-							humanoid = owner:FindFirstChildOfClass("Humanoid")
-							targetChar = owner
-						end
-					end
-
-					if humanoid and not hitPlayers[targetChar.Name] then
-						local player = Players:GetPlayerFromCharacter(character)
-						if player then
-							tagHumanoid(humanoid, player)
-						end
-
-						hitPlayers[targetChar.Name] = true
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage)
-						humanoid:TakeDamage(newDamage)
-
-						if not CombatUtils.GetIsBlocking(targetChar).Value then
-							CombatUtils.applyStun(targetChar, stunDuration)
-							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
-
-							local volume, pitch = MapDamageToSound(damage)
-
-							SoundUtils.PlaySound({
-								Root = targetChar,
-								soundName = "HitSound",
-								soundID = HIT_SOUND_ID,
-								volume = volume,
-								playbackSpeed = 1,
-								looped = false,
-								range = 160,
-								pitch = pitch,
-							})
-						else
-							SoundUtils.PlaySound({
-								Root = targetChar,
-								soundName = "BlockHitSound",
-								soundID = BLOCK_SOUND_ID,
-								volume = 1,
-								playbackSpeed = 1,
-								looped = false,
-								range = 160,
-							})
-						end
-					end
-				end
-			end
-		end
-	end)
-
-	return hitbox
-end
-]]
 
 function HitboxSpawner.spawnProjectile(params)
 	assert(params.Size, "Size (Vector3) is required")
@@ -593,10 +476,13 @@ function HitboxSpawner.spawnProjectile(params)
 			if not targetChar or not targetChar.Parent then
 				return
 			end
+
+			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+
 			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
 			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
-					Root = targetChar,
+					Root = targetHRP,
 					soundName = "BlockHitSound",
 					soundID = BLOCK_SOUND_ID,
 					volume = 1,
@@ -607,7 +493,7 @@ function HitboxSpawner.spawnProjectile(params)
 			else
 				local volume, pitch = MapDamageToSound(dmg)
 				SoundUtils.PlaySound({
-					Root = targetChar,
+					Root = targetHRP,
 					soundName = "HitSound",
 					soundID = HIT_SOUND_ID,
 					volume = volume,
@@ -721,10 +607,13 @@ function HitboxSpawner.spawnArcProjectile(params)
 			if not targetChar or not targetChar.Parent then
 				return
 			end
+
+			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+
 			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
 			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
-					Root = targetChar,
+					Root = targetHRP,
 					soundName = "BlockHitSound",
 					soundID = BLOCK_SOUND_ID,
 					volume = 1,
@@ -735,7 +624,7 @@ function HitboxSpawner.spawnArcProjectile(params)
 			else
 				local volume, pitch = MapDamageToSound(dmg)
 				SoundUtils.PlaySound({
-					Root = targetChar,
+					Root = targetHRP,
 					soundName = "HitSound",
 					soundID = HIT_SOUND_ID,
 					volume = volume,
@@ -841,10 +730,11 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 			if not targetChar or not targetChar.Parent then
 				return
 			end
+			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
 			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
-					Root = targetChar,
+					Root = targetHRP,
 					soundName = "BlockHitSound",
 					soundID = BLOCK_SOUND_ID,
 					volume = 1,
@@ -855,7 +745,7 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 			else
 				local volume, pitch = MapDamageToSound(dmg)
 				SoundUtils.PlaySound({
-					Root = targetChar,
+					Root = targetHRP,
 					soundName = "HitSound",
 					soundID = HIT_SOUND_ID,
 					volume = volume,
@@ -988,27 +878,29 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 
 					-- Team check & healing logic
 					if (targetChar == character and canSelfHit) or TeamsModule.AreTeammates(targetChar, character) then
-						if heal and not hitPlayers[targetChar.Name] then
+						if heal and not hitPlayers[targetChar] then
 							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
 							humanoid.Health = newHealth
-							hitPlayers[targetChar.Name] = true
+							hitPlayers[targetChar] = true
 						end
 						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar.Name] and damage then
+					if humanoid and not hitPlayers[targetChar] and damage then
 						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 						if sourcePlayer then
 							tagHumanoid(humanoid, sourcePlayer)
 						end
 
-						hitPlayers[targetChar.Name] = true
+						hitPlayers[targetChar] = true
 						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
 						humanoid:TakeDamage(newDamage)
 
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
+
+						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
 						if not CombatUtils.GetIsBlocking(targetChar).Value then
 							CombatUtils.applyStun(targetChar, stunDuration)
@@ -1017,7 +909,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 							local volume, pitch = MapDamageToSound(damage)
 
 							SoundUtils.PlaySound({
-								Root = targetChar,
+								Root = targetHRP,
 								soundName = "HitSound",
 								soundID = HIT_SOUND_ID,
 								volume = volume,
@@ -1028,7 +920,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 							})
 						else
 							SoundUtils.PlaySound({
-								Root = targetChar,
+								Root = targetHRP,
 								soundName = "BlockHitSound",
 								soundID = BLOCK_SOUND_ID,
 								volume = 1,

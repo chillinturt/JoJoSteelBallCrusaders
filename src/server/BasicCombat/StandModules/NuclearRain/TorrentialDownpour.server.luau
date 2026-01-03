@@ -19,7 +19,7 @@ local NuclearRainModule = require(ServerScriptService.BasicCombat.StandModules.N
 
 -- Config
 local COOLDOWN_TIME = 1
-local MAX_DOWNPOUR_DURATION = 10 -- failsafe (ends if it somehow keeps going indefinitely)
+local MAX_DOWNPOUR_DURATION = 100 -- failsafe (ends if it somehow keeps going indefinitely)
 
 -- State tracking
 local lastDownpourEndTime = {} -- player -> tick()

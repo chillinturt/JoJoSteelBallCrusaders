@@ -34,6 +34,9 @@ local SPLATTER_DURATION = 3
 local SPLATTER_OFFSET = Vector3.new(0, 0, 8)
 local SPLATTER_ENDLAG = 0.8
 local SPLATTER_STUN = 1.1
+local SPLATTER_SPEED = 200
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
 function KingCarmine.Teleport(character)
 	print("Teleport called on module")
@@ -246,11 +249,26 @@ function KingCarmine.Splatter(standModel)
 		Color = BrickColor.new("Bright red"),
 		Duration = SPLATTER_DURATION,
 		StunDuration = SPLATTER_STUN,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "BarragePunchHitbox",
-		Speed = 200,
+		Speed = SPLATTER_SPEED,
 		Direction = direction,
 		Origin = startPos,
+	})
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "BloodSplatter",
+
+		initialRotation = Vector3.new(
+			0,
+			math.rad(90), -- example, adjust as needed
+			0
+		),
+
+		origin = startPos,
+		direction = direction,
+		speed = SPLATTER_SPEED,
+		lifetime = SPLATTER_DURATION,
 	})
 	return true
 end

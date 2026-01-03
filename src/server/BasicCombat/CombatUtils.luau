@@ -162,7 +162,11 @@ function CombatUtils.applyStun(character, duration)
 	if not character then
 		return
 	end
+	local player = Players:GetPlayerFromCharacter(character)
 	CombatManager.RegisterStun(character, duration)
+	if player then
+		CombatUtils.StopSlide(player)
+	end
 end
 
 function CombatUtils.GetStun(character)
@@ -828,6 +832,9 @@ function CombatUtils.StartSlide(player)
 		return false
 	end
 	if CombatUtils.GetIsDashing(character) then
+		return false
+	end
+	if CombatUtils.GetStun(character) then
 		return false
 	end
 

@@ -7,6 +7,7 @@ local AbilityHandler = {}
 -- Modules
 local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
+local HamonModule = require(game.ServerScriptService.BasicCombat.SpecailtyScripts.Hamon:WaitForChild("Hamon"))
 
 -- Where all Specialty modules live
 local SpecialtyScripts = ServerScriptService.BasicCombat.SpecailtyScripts
@@ -16,6 +17,19 @@ local cooldowns = {}
 
 -- Track active hold abilities: activeHolds[player][abilityId] = true/false
 local activeHolds = {}
+
+local function hasEnoughHamon(character, cost)
+	if not cost or cost <= 0 then
+		return true
+	end
+
+	local hamonValue = HamonModule.getHamonValue(character)
+	if not hamonValue then
+		return false
+	end
+
+	return hamonValue.Value >= cost
+end
 
 ---------------------------------------------------------------------
 -- Load a Specialty's AbilityRegistry
@@ -151,6 +165,9 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 			if actionFlag.Value then
 				return
 			end
+			if not hasEnoughHamon(character, abilityData.HamonCost) then
+				return
+			end
 
 			-- Execute Start
 			if abilityData.ExecuteStart then
@@ -213,6 +230,9 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 	end
 	local actionFlag = CombatUtils.GetActionInProgress(character)
 	if actionFlag.Value then
+		return
+	end
+	if not hasEnoughHamon(character, abilityData.HamonCost) then
 		return
 	end
 

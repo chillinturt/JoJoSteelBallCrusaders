@@ -27,6 +27,11 @@ PlayerData.DEFAULT_PLAYER_DATA = {
 	CompletedQuests = {}, -- completed ones
 
 	CharacterUpgrades = {},
+
+	DailyCodes = {
+		LastReset = "",
+		Redeemed = {},
+	},
 }
 
 export type PlayerData = typeof(PlayerData.DEFAULT_PLAYER_DATA)

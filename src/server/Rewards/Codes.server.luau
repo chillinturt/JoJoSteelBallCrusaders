@@ -2,6 +2,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local InventoryManager = require(game.ServerScriptService.DataSaving:WaitForChild("InventoryManager"))
+local PlayerData = require(game.ServerScriptService.DataSaving:WaitForChild("PlayerData"))
 
 local TP_AREAS = {
 	["1v1Spawn1"] = game.Workspace.Arena1.Model:WaitForChild("1v1Spawn1"),
@@ -30,6 +31,8 @@ local VALID_STAND_CODES = {
 	["MagiciansRed"] = true,
 	["TheWorld"] = true,
 	["Metallica"] = true,
+	["Cream"] = true,
+	["StoneFree"] = true,
 	-- add more here
 }
 
@@ -40,7 +43,18 @@ local VALID_SPECIALTY_CODES = {
 }
 
 local ITEM_CODES = {
-	["rokapls"] = true,
+	["rokapls"] = "MOD_ONLY",
+}
+
+local DAILY_CODES = {
+	["dailyarrows"] = {
+		Item = "StandArrow",
+		Amount = 5,
+	},
+	["dailyrokas"] = {
+		Item = "Rokakaka",
+		Amount = 5,
+	},
 }
 
 local MODERATOR_LIST = {
@@ -60,6 +74,62 @@ end
 
 local function trim(str)
 	return str:match("^%s*(.-)%s*$")
+end
+
+local function GetTodayKey()
+	return os.date("!%Y-%m-%d") -- UTC day
+end
+
+local function GetSecondsUntilReset()
+	local now = os.time()
+	local utc = os.date("!*t", now)
+
+	utc.hour = 24
+	utc.min = 0
+	utc.sec = 0
+
+	return os.time(utc) - now
+end
+
+local function GetDailyData(player)
+	local data = PlayerData.GetData(player)
+	if not data then
+		return nil
+	end
+
+	data.DailyCodes = data.DailyCodes or {
+		LastReset = "",
+		Redeemed = {},
+	}
+
+	-- 🔄 Auto reset on new day
+	local today = GetTodayKey()
+	if data.DailyCodes.LastReset ~= today then
+		data.DailyCodes.LastReset = today
+		data.DailyCodes.Redeemed = {}
+	end
+
+	return data.DailyCodes
+end
+
+local function HasRedeemedDaily(player, code)
+	local daily = GetDailyData(player)
+	return daily and daily.Redeemed[code] == true
+end
+
+local function MarkRedeemedDaily(player, code)
+	local daily = GetDailyData(player)
+	if daily then
+		daily.Redeemed[code] = true
+	end
+end
+
+local function FormatTime(seconds)
+	local hrs = math.floor(seconds / 3600)
+	local mins = math.floor((seconds % 3600) / 60)
+	local secs = seconds % 60
+
+	return string.format("%02dh %02dm %02ds", hrs, mins, secs)
 end
 
 local function GetPlayerByName(name)
@@ -159,18 +229,41 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 		return
 	end
 
+	-- ✅ DAILY CODES (Once per day, per account)
+	if DAILY_CODES[typedCode] then
+		if HasRedeemedDaily(player, typedCode) then
+			local remaining = GetSecondsUntilReset()
+			warn("SERVER remaining seconds:", remaining, typeof(remaining))
+			codeEvent:FireClient(player, false, "DailyAlreadyRedeemed", remaining)
+			return
+		end
+
+		local info = DAILY_CODES[typedCode]
+		InventoryManager.AddItem(player, info.Item, info.Amount)
+		MarkRedeemedDaily(player, typedCode)
+
+		codeEvent:FireClient(player, true, "DailyRedeemed")
+		return
+	end
+
 	-- 🔒 BLOCK NON-MODS FIRST
 	if (VALID_STAND_CODES[typedCode] or VALID_SPECIALTY_CODES[typedCode]) and not IsModerator(player) then
 		codeEvent:FireClient(player, false, "NoPermission")
 		return
 	end
 
-	-- ✅ ITEM CODES (Everyone)
+	-- ✅ ITEM CODES
 	if ITEM_CODES[typedCode] then
+		if typedCode == "rokapls" and not IsModerator(player) then
+			codeEvent:FireClient(player, false, "NoPermission")
+			return
+		end
+
 		if typedCode == "rokapls" then
 			InventoryManager.AddItem(player, "Rokakaka", 5)
 			InventoryManager.AddItem(player, "StandArrow", 5)
 		end
+
 		codeEvent:FireClient(player, true, typedCode)
 		return
 	end
@@ -199,5 +292,5 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 	end
 
 	-- ❌ Invalid Code
-	codeEvent:FireClient(player, false)
+	codeEvent:FireClient(player, false, "InvalidCode")
 end)

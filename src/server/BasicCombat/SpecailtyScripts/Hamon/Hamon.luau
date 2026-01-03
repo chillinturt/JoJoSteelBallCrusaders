@@ -5,8 +5,9 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
-local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
+local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local HitboxSpawner = require(game.ServerScriptService.BasicCombat.HitboxSpawner)
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
@@ -15,7 +16,7 @@ local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild(
 
 -- CONFIGURATION
 local MAX_HAMON = 100
-local CHARGE_RATE = 15 -- units per second
+local CHARGE_RATE = 5 -- units per second
 local DRAIN_RATE = 2.5 -- units per second
 local UPDATE_INTERVAL = 0.1 -- seconds
 
@@ -28,7 +29,7 @@ local ZOOM_PUNCH_ENDLAG = 0.8
 local ZOOM_PUNCH_DAMAGE = 15
 local ZOOM_PUNCH_SIZE = Vector3.new(7, 16, 10)
 local ZOOM_PUNCH_OFFSET = Vector3.new(0, 4, -2)
-local ZOOM_PUNCH_COST = 10
+local ZOOM_PUNCH_COST = 20
 local ZOOM_PUNCH_STUN = 1.4
 local ZOOM_PUNCH_DURATION = 1
 
@@ -38,26 +39,30 @@ local SUNLIGHT_YELLOW_DAMAGE = 0.7
 local SUNLIGHT_YELLOW_SIZE = Vector3.new(7, 8, 14)
 local SUNLIGHT_YELLOW_INTERVAL = 0.15
 local SUNLIGHT_YELLOW_ANIM_ID = 127837357946102
-local SUNLIGHT_YELLOW_COST = 1
+local SUNLIGHT_YELLOW_COST = 2
 
 local BUBBLECUTTER_ENDLAG = 1
 local BUBBLECUTTER_DAMAGE = 6
 local BUBBLECUTTER_SIZE = Vector3.new(12, 6, 10)
 local BUBBLECUTTER_OFFSET = Vector3.new(0, 4, -2)
-local BUBBLECUTTER_COST = 10
+local BUBBLECUTTER_COST = 20
 local BUBBLECUTTER_STUN = 0
 local BUBBLECUTTER_SHOT_COUNT = 3
 local BUBBLECUTTER_DELAY = 0.15 -- seconds between each shot
+local BUBBLECUTTER_SPEED = 250
+local BUBBLECUTTER_DURATION = 1.5
 
 local LIFEFORCEAURA_ENDLAG = 1
 local LIFEFORCEAURA_SIZE = Vector3.new(12, 10, 12)
 local LIFEFORCEAURA_OFFSET = Vector3.new(0, 0, 0)
-local LIFEFORCEAURA_COST = 20
+local LIFEFORCEAURA_COST = 35
 local LIFEFORCEAURA_STUN = 1
 local LIFEFORCEAURA_ANIMID = 136847469830162
 local LIFEFORCEAURA_DAMAGE = 10
 local LIFEFORCEAURA_DURATION = 1
 local LIFEFORCEAURA_HEAL = 40
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
 -- Utility: get or create HamonMeter NumberValue
 function HamonModule.getHamonValue(character)
@@ -216,7 +221,7 @@ function HamonModule.StartSunlightYellow(character)
 
 	-- Stop idle and play SunlightYellow animation
 	AnimationModule.StopAllAnimations(character)
-	AnimationModule.PlayAnimation(character, SUNLIGHT_YELLOW_ANIM_ID, false, Enum.AnimationPriority.Action, AnimSpeed)
+	AnimationModule.PlayAnimation(character, SUNLIGHT_YELLOW_ANIM_ID, true, Enum.AnimationPriority.Action, AnimSpeed)
 
 	-- Set SunlightYellow flag
 	sunlightYellowFlags[character] = true
@@ -263,8 +268,8 @@ function HamonModule.StartSunlightYellow(character)
 				Size = SUNLIGHT_YELLOW_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
-				Duration = 0.1,
-				StunDuration = 0.2,
+				Duration = 0.4,
+				StunDuration = 0.4,
 				Transparency = 1,
 				Name = "SunlightYellowPunchHitbox",
 				CanBlock = false,
@@ -347,13 +352,22 @@ function HamonModule.BubbleCutter(character)
 				Size = BUBBLECUTTER_SIZE,
 				Offset = BUBBLECUTTER_OFFSET,
 				Color = BrickColor.new("Bright red"),
-				Duration = 1.5,
+				Duration = BUBBLECUTTER_DURATION,
 				StunDuration = BUBBLECUTTER_STUN,
 				Transparency = 0.3,
 				Name = "Bubble Cutter Hitbox",
-				Speed = 250,
+				Speed = BUBBLECUTTER_SPEED,
 				Direction = direction,
 				Origin = startPos,
+			})
+
+			SpawnClientVfx:FireAllClients({
+				type = "Projectile",
+				effectName = "EagleStrike",
+				origin = startPos,
+				direction = direction,
+				speed = BUBBLECUTTER_SPEED,
+				lifetime = BUBBLECUTTER_DURATION,
 			})
 			if i < BUBBLECUTTER_SHOT_COUNT then
 				task.wait(BUBBLECUTTER_DELAY)

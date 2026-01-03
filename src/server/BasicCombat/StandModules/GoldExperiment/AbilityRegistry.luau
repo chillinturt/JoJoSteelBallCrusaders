@@ -85,7 +85,6 @@ AbilityRegistry[3] = {
 			if success then
 				-- redirect consumed
 				eagleFollowup[player] = nil
-				lastEagleUse[player] = now
 			end
 			return
 		end
@@ -116,7 +115,7 @@ AbilityRegistry[3] = {
 		CooldownUpdateEvent:FireClient(player, 3, COOLDOWN_TIME)
 
 		-- allow redirect for 2 seconds (same as your old implementation)
-		eagleFollowup[player] = now + 2
+		eagleFollowup[player] = now + 9.5
 	end,
 }
 
@@ -124,11 +123,14 @@ AbilityRegistry[3] = {
 -- Ability 4 - TimeErase
 --------------------------------------------------------------------
 AbilityRegistry[4] = {
-	Name = "TimeErase",
+	Name = "CarnivorousTrap",
 	Type = "Press",
-	Cooldown = 45,
+	Cooldown = 36,
 	Execute = function(standModel, player)
-		-- GoldExperiment.TimeErase(standModel)
+		local char = standModel.Parent
+		if char then
+			GoldExperiment.CarnivorousTrap(char)
+		end
 	end,
 }
 

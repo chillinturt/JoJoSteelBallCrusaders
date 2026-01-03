@@ -8,7 +8,7 @@ function SoundUtils.PlaySound(params)
 	local volume = params.volume or 1
 	local playbackSpeed = params.playbackSpeed
 	local looped = params.looped
-	local range = params.range
+	local range = params.range or 160
 	local pitch = params.pitch or 1
 
 	if not root then

@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Debris = game:GetService("Debris")
+local HttpService = game:GetService("HttpService")
 
 local BlockModule = require(ServerScriptService.BasicCombat.BlockModule)
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
@@ -56,29 +57,6 @@ local activeBurns = {}
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
-local function ClientFlameShotVfx(player, origin, direction)
-	SpawnClientVfx:FireAllClients({
-		type = "Projectile",
-		effectName = "FlameShot",
-
-		cframe = CFrame.new(origin, origin + direction),
-
-		-- 🔧 FIX ORIENTATION OFFSET
-		initialRotation = Vector3.new(
-			math.rad(90),
-			0, -- example, adjust as needed
-			0
-		),
-
-		-- ✅ Arc motion
-		arc = true,
-		initialVelocity = direction.Unit * FLAMESHOT_SPEED,
-		gravity = Vector3.new(0, -workspace.Gravity * FLAMESHOT_GRAVITY, 0),
-
-		lifetime = FLAMESHOT_DURATION,
-	})
-end
-
 local function ClientHellfireVfx(player, origin)
 	SpawnClientVfx:FireAllClients({
 		type = "Stationary",
@@ -110,52 +88,29 @@ local function ClientHellfireVfx(player, origin)
 	print("[VFX] Hellfire end")
 end
 
-local function ClientCrossfireHurricaneVfx(player, origin, direction)
-	SpawnClientVfx:FireAllClients({
-		type = "Projectile",
-		effectName = "CrossfireHurricane",
-
-		cframe = CFrame.new(origin, origin + direction),
-
-		-- ✅ Arc motion
-		arc = true,
-		initialVelocity = direction.Unit * CROSSFIREHURRICANE_SPEED,
-		gravity = Vector3.new(0, -workspace.Gravity * CROSSFIREHURRICANE_GRAVITY, 0),
-
-		lifetime = CROSSFIREHURRICANE_DURATION,
-	})
-end
-
 local function ClientCrossfireHurricaneExplosionVfx(player, origin)
 	SpawnClientVfx:FireAllClients({
 		type = "Stationary",
 		effectName = "CrossfireHurricaneExplosion",
-
-		-- Position
 		cframe = CFrame.new(origin),
 
-		-- 🔥 FIX ORIENTATION
 		initialRotation = Vector3.new(
 			0, -- X
 			0, -- Y
 			math.rad(90) -- Z
 		),
 
-		-- Lifetime
 		lifetime = CROSSFIREHURRICANE_EXPLOSION_DURATION,
 
-		-- Rotation (fast spin)
 		rotationSpeed = Vector3.new(
 			math.rad(450),
 			0, -- Y-axis spin
 			0
 		),
 
-		-- Visual style
 		transparency = 0.5,
 		scale = 0.8, -- starting size
 
-		-- Optional flags for client expansion logic
 		expand = true,
 		expandRate = 20,
 		maxScale = 4,
@@ -347,6 +302,8 @@ function MagiciansRed.FlameShot(character)
 		range = 160,
 	})
 
+	local id = HttpService:GenerateGUID(false)
+
 	HitboxSpawner.spawnArcProjectile({
 		Character = character,
 		Size = FLAMESHOT_SIZE,
@@ -371,12 +328,36 @@ function MagiciansRed.FlameShot(character)
 
 		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
 			print("MagiciansRed Module Projectile hit surface:", hitResult.Instance.Name)
+			SpawnClientVfx:FireAllClients({
+				type = "Projectile",
+				deleteId = id, -- tells the client to delete
+			})
 		end,
 	})
 
 	--local vfxSpawn = startPos * CROSSFIREHURRICANE_OFFSET
 
-	ClientFlameShotVfx(player, startPos, direction)
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "FlameShot",
+		id = id,
+
+		cframe = CFrame.new(startPos, startPos + direction),
+
+		-- 🔧 FIX ORIENTATION OFFSET
+		initialRotation = Vector3.new(
+			math.rad(90),
+			0, -- example, adjust as needed
+			0
+		),
+
+		-- ✅ Arc motion
+		arc = true,
+		initialVelocity = direction.Unit * FLAMESHOT_SPEED,
+		gravity = Vector3.new(0, -workspace.Gravity * FLAMESHOT_GRAVITY, 0),
+
+		lifetime = FLAMESHOT_DURATION,
+	})
 
 	return true
 end
@@ -397,7 +378,7 @@ function MagiciansRed.RedBind(standModel)
 		range = 160,
 	})
 
-	HitboxSpawner.spawnHitbox({
+	local hitbox = HitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = REDBIND_DAMAGE or 0.1,
 		Size = REDBIND_SIZE,
@@ -405,7 +386,7 @@ function MagiciansRed.RedBind(standModel)
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.75,
 		StunDuration = REDBIND_STUN,
-		Transparency = 0.7,
+		Transparency = 1,
 		Name = "RedBindHitbox",
 
 		OnHit = function(targetChar, newDamage)
@@ -425,6 +406,17 @@ function MagiciansRed.RedBind(standModel)
 			)
 		end,
 	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "RedBind",
+		attachId = vfxId,
+		offset = CFrame.new(0, 0, -3),
+	})
+	print("Event passed")
 end
 
 function MagiciansRed.CrossfireHurricane(character)
@@ -473,6 +465,8 @@ function MagiciansRed.CrossfireHurricane(character)
 		range = 160,
 	})
 
+	local id = HttpService:GenerateGUID(false)
+
 	HitboxSpawner.spawnArcProjectile({
 		Character = character,
 		Size = CROSSFIREHURRICANE_SIZE,
@@ -493,10 +487,6 @@ function MagiciansRed.CrossfireHurricane(character)
 		end,
 
 		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
-			print("MagiciansRed Module Projectile hit surface:", hitResult.Instance.Name)
-
-			print("[GoldExperimentModule!!!] Projectile hit surface:", hitResult.Instance.Name)
-
 			local hitBoxOffset = Vector3.new(0, 0, 0)
 
 			-- Determine stationary hitbox position
@@ -545,12 +535,28 @@ function MagiciansRed.CrossfireHurricane(character)
 			})
 
 			ClientCrossfireHurricaneExplosionVfx(player, hitPosition)
+			SpawnClientVfx:FireAllClients({
+				type = "Projectile",
+				deleteId = id, -- tells the client to delete
+			})
 		end,
 	})
 
 	--local vfxSpawn = startPos * CROSSFIREHURRICANE_OFFSET
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "CrossfireHurricane",
+		id = id,
 
-	ClientCrossfireHurricaneVfx(player, startPos, direction)
+		cframe = CFrame.new(startPos, startPos + direction),
+
+		-- ✅ Arc motion
+		arc = true,
+		initialVelocity = direction.Unit * CROSSFIREHURRICANE_SPEED,
+		gravity = Vector3.new(0, -workspace.Gravity * CROSSFIREHURRICANE_GRAVITY, 0),
+
+		lifetime = CROSSFIREHURRICANE_DURATION,
+	})
 
 	return true
 end

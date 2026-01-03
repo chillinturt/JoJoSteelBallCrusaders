@@ -3,6 +3,7 @@ local NuclearRain = {}
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
@@ -28,6 +29,7 @@ local HEAVYRAINDROP_DURATION = 25
 local HEAVYRAINDROP_SIZE = Vector3.new(10, 10, 10)
 local HEAVYRAINDROP_SPEED = 100
 local HEAVYRAINDROP_STUN = 1.4
+local HEAVYRAINDROP_GRAVITY = -workspace.Gravity * 0.3
 
 local RAINBARRIER_CONSTANT = 3 --damage taken / RAINBARRIER_CONSTANT amount of barrier
 local RAINBARRIER_DECAY_RATE = 0.1
@@ -39,6 +41,8 @@ local ERASE_ANIM_ID = 90498591949232
 -- State tracking
 local activeDownpours = {} -- [character] = true while active
 local regenTasks = {} -- [character] = task reference
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
 -- Utility: get or create HamonMeter NumberValue
 function NuclearRain.getRainValue(character)
@@ -228,6 +232,8 @@ function NuclearRain.HeavyRaindrop(character)
 	-- Direction: straight down
 	local direction = Vector3.new(0, -1, 0)
 
+	local id = HttpService:GenerateGUID(false)
+
 	-- Create the projectile
 	HitboxSpawner.spawnArcProjectile({
 		Character = character,
@@ -238,11 +244,12 @@ function NuclearRain.HeavyRaindrop(character)
 		Direction = direction,
 		Origin = spawnPos,
 		Color = BrickColor.new("Bright yellow"),
-		Gravity = Vector3.new(0, -workspace.Gravity * 0.3, 0), -- full gravity
+		Gravity = Vector3.new(0, HEAVYRAINDROP_GRAVITY, 0), -- full gravity
 		CanBlock = false,
 		Shape = Enum.PartType.Ball,
 		Rotation = CFrame.Angles(0, 0, 0),
 		StunDuration = HEAVYRAINDROP_STUN,
+		Transparency = 1,
 
 		OnHit = function(target, trueDamage)
 			print("💥 NuclearRain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
@@ -256,10 +263,39 @@ function NuclearRain.HeavyRaindrop(character)
 			)
 			BlockModule.StopBlocking(target)
 		end,
+
+		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
+			print("hit surface:", hitResult.Instance.Name)
+			SpawnClientVfx:FireAllClients({
+				type = "Projectile",
+				deleteId = id, -- tells the client to delete
+			})
+		end,
 	})
 
 	-- Optional: add sound or visual effect at the spawn position
 	-- SoundModule.PlaySound({ Root = hrp, soundID = "YOUR_SOUND_ID_HERE", volume = 1, range = 120 })
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "HeavyRaindrop",
+		id = id,
+
+		cframe = CFrame.new(spawnPos, spawnPos + direction),
+
+		-- 🔧 FIX ORIENTATION OFFSET
+		initialRotation = Vector3.new(
+			math.rad(90),
+			0, -- example, adjust as needed
+			0
+		),
+
+		-- ✅ Arc motion
+		arc = true,
+		initialVelocity = direction.Unit * HEAVYRAINDROP_SPEED,
+		gravity = Vector3.new(0, HEAVYRAINDROP_GRAVITY, 0),
+
+		lifetime = HEAVYRAINDROP_DURATION,
+	})
 
 	return true
 end

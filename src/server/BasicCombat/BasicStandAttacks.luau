@@ -45,6 +45,8 @@ local PUNCH_DAMAGE = {
 	["MagiciansRed"] = 4.5,
 	["TheWorld"] = 5,
 	["Metallica"] = 4,
+	["Cream"] = 4.5,
+	["StoneFree"] = 5,
 }
 
 function BasicStandAttacks.BasicPunch(standModel)
@@ -299,8 +301,8 @@ function BasicStandAttacks.StartBarrage(character)
 				Size = HITBOX_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
-				Duration = 0.1,
-				StunDuration = 0.2,
+				Duration = 0.4,
+				StunDuration = 0.4,
 				Transparency = 1,
 				Name = "BarragePunchHitbox",
 				Rotation = rotation,

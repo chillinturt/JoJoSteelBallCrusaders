@@ -1,5 +1,10 @@
 local Hamon = require(script.Parent:WaitForChild("Hamon"))
 
+local SUNLIGHT_YELLOW_COST = 2
+local ZOOM_PUNCH_COST = 20
+local BUBBLECUTTER_COST = 20
+local LIFEFORCEAURA_COST = 35
+
 local AbilityRegistry = {}
 
 --------------------------------------------------------------------
@@ -20,8 +25,12 @@ AbilityRegistry[1] = {
 	Name = "SunlightYellow",
 	Type = "Hold", -- << Add this
 	Cooldown = 10, -- handled internally
+	HamonCost = 2,
 	ExecuteStart = function(player)
 		local character = player.Character
+		if Hamon.getHamonValue(character).Value < SUNLIGHT_YELLOW_COST then
+			return
+		end
 		if character then
 			Hamon.StartSunlightYellow(character)
 		end
@@ -38,11 +47,15 @@ AbilityRegistry[1] = {
 -- Ability 2 - RedBind (Press)
 --------------------------------------------------------------------
 AbilityRegistry[2] = {
-	Name = "DivineDrink",
+	Name = "ZoomPunch",
 	Type = "Press",
+	HamonCost = 20,
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
+		if Hamon.getHamonValue(character).Value < ZOOM_PUNCH_COST then
+			return
+		end
 		if character then
 			Hamon.ZoomPunch(character)
 		end
@@ -53,11 +66,15 @@ AbilityRegistry[2] = {
 -- Ability 3 - CrossfireHurricane (Press)
 --------------------------------------------------------------------
 AbilityRegistry[3] = {
-	Name = "SpaceRipperStingyEyes",
+	Name = "BubbleCutter",
 	Type = "Press",
+	HamonCost = 20,
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
+		if Hamon.getHamonValue(character).Value < BUBBLECUTTER_COST then
+			return
+		end
 		if character then
 			Hamon.BubbleCutter(character)
 		end
@@ -68,11 +85,15 @@ AbilityRegistry[3] = {
 -- Ability 4 - Hellfire (Press)
 --------------------------------------------------------------------
 AbilityRegistry[4] = {
-	Name = "BloodRush",
+	Name = "LifeForceAura",
 	Type = "Press",
+	HamonCost = 35,
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
+		if Hamon.getHamonValue(character).Value < LIFEFORCEAURA_COST then
+			return
+		end
 		if character then
 			Hamon.LifeForceAura(character)
 		end

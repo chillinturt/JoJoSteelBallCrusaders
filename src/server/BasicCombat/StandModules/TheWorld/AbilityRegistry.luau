@@ -19,7 +19,7 @@ AbilityRegistry.AbilityTypes = {
 AbilityRegistry[1] = {
 	Name = "ThrowKnives",
 	Type = "Press",
-	Cooldown = 7,
+	Cooldown = 9,
 	Execute = function(standModel, player)
 		TheWorld.ThrowKnives(standModel)
 	end,
@@ -31,7 +31,7 @@ AbilityRegistry[1] = {
 AbilityRegistry[2] = {
 	Name = "BlazingStrike",
 	Type = "Press",
-	Cooldown = 9,
+	Cooldown = 12,
 	Execute = function(standModel, player)
 		TheWorld.BlazingStrike(standModel)
 	end,
@@ -55,7 +55,7 @@ AbilityRegistry[3] = {
 AbilityRegistry[4] = {
 	Name = "TimeStop",
 	Type = "Press",
-	Cooldown = 35,
+	Cooldown = 40,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then

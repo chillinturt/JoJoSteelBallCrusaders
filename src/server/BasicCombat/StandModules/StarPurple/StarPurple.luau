@@ -4,6 +4,7 @@ local Debris = game:GetService("Debris")
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
@@ -31,9 +32,10 @@ local MACH_ORA_OFFSET = Vector3.new(2, 0, -8)
 local MACH_ORA_STUN = 1.5
 
 local GROUND_POUND_DAMAGE = 15
-local GROUND_POUND_SIZE = Vector3.new(10, 10, 10)
+local GROUND_POUND_SIZE = Vector3.new(15, 15, 15)
 local GROUND_POUND_OFFSET = Vector3.new(2, 0, -10)
 local GROUND_POUND_ENDLAG = 1
+local GROUNDPOUND_DURATION = 1
 
 local GROUNDPOUND_ANIM_ID = 90498591949232
 
@@ -54,6 +56,8 @@ local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
 local function MapDamageToSound(damage: number)
 	-- Clamp damage to a reasonable range (so extreme values don’t explode)
 	local minDamage, maxDamage = 0, 50
@@ -72,147 +76,6 @@ local function MapDamageToSound(damage: number)
 
 	return volume, pitch
 end
-
---[[
-local function spawnHitbox(character, offset, rightOffset, upOffset, damage)
-	-- Locate the stand model
-	local standModel = StandUtils.getStandModel(character)
-	if not standModel then
-		warn("⚠️ No stand model found for", character.Name)
-		return
-	end
-
-	-- Locate the stand’s PrimaryPart
-	local standRoot = standModel.PrimaryPart
-	if not standRoot then
-		warn("⚠️ No PrimaryPart found in stand model!")
-		return
-	end
-
-	-- Calculate offset position
-	local forwardDirection = standRoot.CFrame.LookVector
-	local rightDirection = standRoot.CFrame.RightVector
-	local upDirection = standRoot.CFrame.UpVector
-
-	local positionInFront = standRoot.Position
-		+ (forwardDirection * offset)
-		+ (rightDirection * rightOffset)
-		+ (upDirection * upOffset)
-
-	-- Create hitbox
-	local hitbox = Instance.new("Part")
-	hitbox.Name = "Hitbox"
-	hitbox.Size = MACH_ORA_SIZE
-	hitbox.Anchored = false
-	hitbox.CanCollide = false
-	hitbox.CanTouch = false
-	hitbox.Massless = true
-	hitbox.Transparency = 0.5
-	hitbox.BrickColor = BrickColor.new("Bright red")
-	hitbox.CFrame = CFrame.new(positionInFront, positionInFront + forwardDirection)
-	hitbox.Parent = workspace
-
-	-- Weld to stand
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = standRoot
-	weld.Part1 = hitbox
-	weld.Parent = hitbox
-
-	-- Hit tracking
-	local hitPlayers = {}
-	local paramsFilter = OverlapParams.new()
-	paramsFilter.FilterType = Enum.RaycastFilterType.Exclude
-	paramsFilter.FilterDescendantsInstances = { character, hitbox }
-
-	-- Timer
-	local startTime = tick()
-	local duration = 0.4 -- matches Debris lifetime
-	local conn
-	conn = RunService.Heartbeat:Connect(function()
-		local elapsed = tick() - startTime
-		if elapsed > duration then
-			conn:Disconnect()
-			if hitbox then
-				hitbox:Destroy()
-			end
-			return
-		end
-
-		-- Overlap check
-		local parts = workspace:GetPartBoundsInBox(hitbox.CFrame, hitbox.Size, paramsFilter)
-		for _, other in ipairs(parts) do
-			if other.Name == "Hurtbox" then
-				local targetCharacter = other.Parent
-				if targetCharacter and targetCharacter ~= character then
-					local humanoid = targetCharacter:FindFirstChildOfClass("Humanoid")
-
-					-- Redirect stand hitboxes back to owner
-					if not humanoid then
-						local standOwner = targetCharacter.Parent
-						if standOwner and standOwner:IsA("Model") then
-							humanoid = standOwner:FindFirstChildOfClass("Humanoid")
-							targetCharacter = standOwner
-							print("✅ Redirecting damage to:", targetCharacter.Name)
-						end
-					end
-
-					if TeamsModule.AreTeammates(targetCharacter, character) then
-						print("Both are on the same team. Not dealing damage")
-						return
-					end
-
-					if humanoid and not hitPlayers[targetCharacter.Name] then
-						hitPlayers[targetCharacter.Name] = true
-
-						local newDamage = CombatUtils.ReturnDamage(targetCharacter, damage, true, character)
-						humanoid:TakeDamage(newDamage)
-
-						local volume, pitch = MapDamageToSound(damage)
-
-						if not CombatUtils.GetIsBlocking(targetCharacter).Value then
-							SoundModule.PlaySound({
-								Root = targetCharacter,
-								soundName = "HitSound",
-								soundID = HIT_SOUND_ID,
-								volume = volume,
-								playbackSpeed = 1,
-								looped = false,
-								range = 160,
-								pitch = pitch,
-							})
-						else
-							SoundModule.PlaySound({
-								Root = targetCharacter,
-								soundName = "BlockHitSound",
-								soundID = BLOCK_SOUND_ID,
-								volume = 1,
-								playbackSpeed = 1,
-								looped = false,
-								range = 160,
-							})
-						end
-
-						print(targetCharacter.Name .. " was hit for " .. newDamage .. " damage!")
-
-						-- Destroy MachOraVelocity if it exists
-						local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
-						if humanoidRootPart then
-							local machOraVelocity = humanoidRootPart:FindFirstChild("MachOraVelocity")
-							if machOraVelocity then
-								machOraVelocity:Destroy()
-								print("MachOraVelocity has been destroyed!")
-							end
-						end
-					end
-				end
-			end
-		end
-	end)
-
-	Debris:AddItem(hitbox, duration)
-	return hitbox
-end
-]]
 
 --adds momentum
 local function applyMachOraDash(character)
@@ -456,11 +319,12 @@ end
 
 function StarPurple.GroundPound(standModel)
 	local character = standModel.Parent
+	local hrp = character:FindFirstChild("HumanoidRootPart")
 
 	AnimationModule.PlayAnimation(standModel, GROUNDPOUND_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, GROUND_POUND_ENDLAG)
 
-	task.wait(0.5)
+	task.wait(0.2)
 
 	HitboxSpawner.spawnStationaryHitbox({
 		Position = standModel.PrimaryPart.CFrame,
@@ -470,9 +334,9 @@ function StarPurple.GroundPound(standModel)
 		Size = GROUND_POUND_SIZE,
 		Offset = GROUND_POUND_OFFSET,
 		Color = BrickColor.new("Bright red"),
-		Duration = 1,
+		Duration = GROUNDPOUND_DURATION,
 		StunDuration = 1,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "BarrierDamageHitbox",
 	})
 
@@ -494,6 +358,33 @@ function StarPurple.GroundPound(standModel)
 		playbackSpeed = 1,
 		looped = false,
 		range = 160,
+	})
+
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "GroundPound",
+
+		-- Position
+		cframe = hrp.CFrame * CFrame.new(GROUND_POUND_OFFSET) * CFrame.new(-2, 0, 2),
+
+		-- Lifetime
+		lifetime = GROUNDPOUND_DURATION,
+
+		-- Rotation (slow spin)
+		rotationSpeed = Vector3.new(
+			0,
+			math.rad(720), -- Y-axis spin
+			0
+		),
+
+		-- Visual style
+		transparency = 0.5,
+		scale = 1, -- starting size
+
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 30,
+		maxScale = 1.2,
 	})
 end
 

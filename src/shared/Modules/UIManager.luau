@@ -16,6 +16,8 @@ local mobileFolder = uiFolder:WaitForChild("MobileUIs")
 local PCFolder = uiFolder:WaitForChild("PCUIs")
 local mainMenu = uiFolder:WaitForChild("MainMenu")
 
+local MenuState = require(game.Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("MenuState"))
+
 -- Roblox protected UIs that should never be deleted
 local ROBLOX_PROTECTED_UIS = {
 	["TouchGui"] = true,
@@ -50,15 +52,11 @@ end
 -- Clone Main Menu
 ----------------------------------------------------------
 local function loadMainMenu(playerGui)
-	if playerGui:FindFirstChild("MainMenu") then
-		return
-	end
-
 	local menuGui = mainMenu:FindFirstChild("MainMenu")
 	if menuGui then
 		local clone = menuGui:Clone()
 		clone.Parent = playerGui
-		clone.Enabled = true
+		clone.Enabled = MenuState.MenuOpen
 	end
 end
 
@@ -101,7 +99,8 @@ end
 -- Load Specialty UI
 ----------------------------------------------------------
 local function loadSpecialtyUI(playerGui, specialty)
-	if specialty == "" then
+	if not specialty or specialty == "" then
+		print("No specialty. Not loading spec UI.")
 		return
 	end
 
@@ -120,7 +119,7 @@ end
 -- Load Race UI
 ----------------------------------------------------------
 local function loadRaceUI(playerGui, race)
-	if race == "Human" then
+	if not race or race == "Human" then
 		return
 	end
 
@@ -223,8 +222,18 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	end
 
 	-- 8) Show main menu and hide all other UIs
-	loadMainMenu(playerGui)
-	disableAllGameplayUIs(playerGui)
+	if MenuState.MenuOpen then
+		-- Menu is active, so load and show menu, hide gameplay UIs
+		loadMainMenu(playerGui)
+		disableAllGameplayUIs(playerGui)
+	else
+		-- Menu is not active; ensure gameplay UIs are visible
+		for _, ui in ipairs(playerGui:GetChildren()) do
+			if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" then
+				ui.Enabled = true
+			end
+		end
+	end
 end
 
 return UIManager
