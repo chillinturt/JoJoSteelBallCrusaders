@@ -6,7 +6,7 @@
 
 ## Overview
 
-**JoJo: Steel Ball Crusaders** is a large-scale multiplayer game project built on the Roblox platform, where I designed and implemented **real-time, networked gameplay systems** with a strong focus on **reliability, state synchronization, and performance under live multiplayer conditions**.
+**JoJo: Steel Ball Crusaders** is a multiplayer game project built on the Roblox platform, where I designed and implemented **real-time, networked gameplay systems** with a strong focus on **reliability, state synchronization, and performance under live multiplayer conditions**.
 
 The project is actively developed and tested in a **real-world production environment**, with live players, continuous iteration, and rapid debugging cycles based on observed runtime behavior.
 
@@ -60,6 +60,7 @@ While implemented within Roblox’s networking model, the project demonstrates *
 - Latency-aware design
 - Synchronization of transient and persistent state
 - Security-minded design (preventing client-side authority exploits)
+- Highlight: many major **VFX do not exist on the server.** The server simply tells all clients to render them, thus saving the server's processing power.
 
 These concepts directly translate to **large-scale distributed systems** like those used in satellite communications and real-time networked services.
 
@@ -81,7 +82,7 @@ This mirrors real engineering environments where software engineers collaborate 
 
 ## Technologies & Languages
 
-- **Primary Languages:** Lua (Roblox), C++, Python, C#
+- **Primary Languages:** Lua (Roblox)
 - **Concepts:**  
   - Real-time systems  
   - Distributed state synchronization  
@@ -92,7 +93,7 @@ This mirrors real engineering environments where software engineers collaborate 
 
 ---
 
-## Why This Project Is Relevant to Starlink
+## Why This Project Is Relevant to Starlink (I love Starlink!)
 
 This project demonstrates:
 - Ability to build **highly reliable, real-time software**
@@ -108,7 +109,7 @@ While the application domain is a game, the **engineering challenges mirror thos
 ## Repository Visibility Note
 
 This repository represents a **sanitized and shareable subset** of the full project.  
-Additional details, architecture discussions, and live demonstrations can be provided upon request.
+Additional details, architecture discussions, and live demonstrations can be provided upon request. (Now available on Mobile)
 
 ---
 
@@ -116,7 +117,7 @@ Additional details, architecture discussions, and live demonstrations can be pro
 
 **ChillinTurt**  
 Software Engineering Student (Graduating 2025–2026)  
-Strong background in C++, Python, C#, and real-time distributed systems
+Strong background in C++, Python, C#, Lua, and real-time distributed systems
 
 
 # JoJoSteelBallCrusaders
