@@ -111,26 +111,6 @@ function GoldExperiment.EagleStrike(character)
 	local id = HttpService:GenerateGUID(false)
 
 	if eagleStrikeState[player] ~= "active" then
-		-- === Sound effects ===
-		SoundModule.PlaySound({
-			Root = hrp,
-			soundName = "EagleStrikeEffect",
-			soundID = "3378924410",
-			volume = 2,
-			playbackSpeed = 1,
-			looped = false,
-			range = 160,
-		})
-		SoundModule.PlaySound({
-			Root = hrp,
-			soundName = "EagleStrikeEffect2",
-			soundID = "139887585493497",
-			volume = 2,
-			playbackSpeed = 1,
-			looped = false,
-			range = 160,
-		})
-
 		-- === Direction ===
 		local startPos = hrp.Position
 		local direction
@@ -160,6 +140,26 @@ function GoldExperiment.EagleStrike(character)
 			Speed = EAGLESTRIKE_SPEED,
 			Direction = direction,
 			Origin = startPos,
+		})
+
+		-- === Sound effects ===
+		SoundModule.PlaySound({
+			Root = projectile,
+			soundName = "EagleStrikeEffect",
+			soundID = "3378924410",
+			volume = 2,
+			playbackSpeed = 1,
+			looped = false,
+			range = 160,
+		})
+		SoundModule.PlaySound({
+			Root = projectile,
+			soundName = "EagleStrikeEffect2",
+			soundID = "139887585493497",
+			volume = 2,
+			playbackSpeed = 1,
+			looped = false,
+			range = 160,
 		})
 
 		local vfxId = HttpService:GenerateGUID(false)
@@ -192,17 +192,6 @@ function GoldExperiment.EagleStrike(character)
 
 		return true, "launch"
 	else
-		-- === Redirect projectile ===
-		SoundModule.PlaySound({
-			Root = hrp,
-			soundName = "EagleStrikeRedirect",
-			soundID = "491270608",
-			volume = 2,
-			playbackSpeed = 1,
-			looped = false,
-			range = 160,
-		})
-
 		local oldProjectile = eagleStrikeProjectile[player]
 		if not oldProjectile or not oldProjectile.Parent then
 			return false
@@ -219,7 +208,7 @@ function GoldExperiment.EagleStrike(character)
 
 		local direction = (targetPoint - startPos).Unit
 
-		HitboxSpawner.spawnProjectile({
+		local projectile = HitboxSpawner.spawnProjectile({
 			Character = character,
 			Damage = EAGLESTRIKE_DAMAGE,
 			Size = EAGLESTRIKE_SIZE,
@@ -233,6 +222,17 @@ function GoldExperiment.EagleStrike(character)
 			Direction = direction,
 			Origin = startPos,
 			CanBlock = false,
+		})
+
+		-- === Redirect projectile ===
+		SoundModule.PlaySound({
+			Root = projectile,
+			soundName = "EagleStrikeRedirect",
+			soundID = "491270608",
+			volume = 2,
+			playbackSpeed = 1,
+			looped = false,
+			range = 160,
 		})
 
 		SpawnClientVfx:FireAllClients({
@@ -297,6 +297,16 @@ function GoldExperiment.TreeOfLife(character)
 
 	local id = HttpService:GenerateGUID(false)
 
+	SoundModule.PlaySound({
+		Root = hrp,
+		soundName = "TreeOfLifeSeedEffect",
+		soundID = "608600954",
+		volume = 1,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
 	HitboxSpawner.spawnArcProjectile({
 		Character = character,
 		Size = TREEOFLIFE_SEED_SIZE,
@@ -318,6 +328,47 @@ function GoldExperiment.TreeOfLife(character)
 
 			-- Determine stationary hitbox position
 			local hitPosition = hitResult.Position
+
+			local soundRoot = HitboxSpawner.spawnStationaryHitbox({
+				Position = hitPosition,
+				Character = character,
+				Size = TREEOFLIFE_SIZE,
+				Offset = hitBoxOffset,
+				Color = BrickColor.new("Bright red"),
+				Duration = TREEOFLIFE_DURATION,
+				StunDuration = 0,
+				Transparency = 1,
+				Name = "TreeOfLifeSoundRoot",
+				Rotation = horizontalDirection, -- ensures horizontal facing of projectile
+			})
+
+			SoundModule.PlaySound({
+				Root = soundRoot,
+				soundName = "TreeOfLifeEffect1",
+				soundID = "9125405369",
+				volume = 1.5,
+				playbackSpeed = 1,
+				looped = false,
+				range = 200,
+			})
+			SoundModule.PlaySound({
+				Root = soundRoot,
+				soundName = "TreeOfLifeEffect2",
+				soundID = "9120839010",
+				volume = 3,
+				playbackSpeed = 1,
+				looped = false,
+				range = 200,
+			})
+			SoundModule.PlaySound({
+				Root = soundRoot,
+				soundName = "TreeOfLifeEffect3",
+				soundID = "9120881528",
+				volume = 2,
+				playbackSpeed = 1,
+				looped = false,
+				range = 200,
+			})
 
 			-- Damage loop
 			task.spawn(function()
@@ -438,6 +489,7 @@ function GoldExperiment.CarnivorousTrap(character)
 		Gravity = Vector3.new(0, TREEOFLIFE_SEED_GRAVITY, 0), -- optional tweak
 		DetectSurface = true,
 		CanBlock = false,
+		Transparency = 1,
 
 		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
 			print("[GoldExperimentModule!!!] Projectile hit surface:", hitResult.Instance.Name)
@@ -461,7 +513,7 @@ function GoldExperiment.CarnivorousTrap(character)
 						Color = BrickColor.new("Bright red"),
 						Duration = 1,
 						StunDuration = 0,
-						Transparency = 0.3,
+						Transparency = 1,
 						Name = "TreeOfLifeHitbox",
 						Rotation = horizontalDirection, -- ensures horizontal facing of projectile
 						Heal = TREEOFLIFE_HEAL,

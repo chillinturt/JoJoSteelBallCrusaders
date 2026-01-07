@@ -354,7 +354,7 @@ function HamonModule.BubbleCutter(character)
 				Color = BrickColor.new("Bright red"),
 				Duration = BUBBLECUTTER_DURATION,
 				StunDuration = BUBBLECUTTER_STUN,
-				Transparency = 0.3,
+				Transparency = 1,
 				Name = "Bubble Cutter Hitbox",
 				Speed = BUBBLECUTTER_SPEED,
 				Direction = direction,
@@ -363,7 +363,7 @@ function HamonModule.BubbleCutter(character)
 
 			SpawnClientVfx:FireAllClients({
 				type = "Projectile",
-				effectName = "EagleStrike",
+				effectName = "BubbleCutter",
 				origin = startPos,
 				direction = direction,
 				speed = BUBBLECUTTER_SPEED,
