@@ -14,7 +14,7 @@ This repository represents a **systems-oriented software engineering project**, 
 
 ---
 
-## Key Technical Highlights (Relevant to Starlink)
+## Key Technical Highlights
 
 ### Real-Time, Distributed Software
 - Designed **client–server gameplay architecture** with authoritative server logic
@@ -93,7 +93,7 @@ This mirrors real engineering environments where software engineers collaborate 
 
 ---
 
-## Why This Project Is Relevant to Starlink (I love Starlink!)
+## Why This Project Is Relevant to Employers
 
 This project demonstrates:
 - Ability to build **highly reliable, real-time software**
