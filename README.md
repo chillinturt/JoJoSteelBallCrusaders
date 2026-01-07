@@ -104,6 +104,11 @@ This project demonstrates:
 
 While the application domain is a game, the **engineering challenges mirror those found in real-world, large-scale systems** — including networking, reliability, performance, and state management.
 
+Some content from the game:
+<img width="1903" height="999" alt="image" src="https://github.com/user-attachments/assets/969900cb-a2a9-4c7a-8da9-58515cc8097d" />
+
+Fully playable game link (working on PC, IOS, and Android):
+https://www.roblox.com/games/118168989887674/JoJo-Steel-Ball-Crusaders#!/game-instances
 ---
 
 ## Repository Visibility Note
