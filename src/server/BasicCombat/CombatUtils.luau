@@ -15,11 +15,24 @@ local SpecCooldownUpdateEvent = Instance.new("RemoteEvent")
 SpecCooldownUpdateEvent.Name = "SpecCooldownUpdateEvent"
 SpecCooldownUpdateEvent.Parent = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BasicCombat"):WaitForChild("UI")
 
+local BarrierStateEvent = Instance.new("RemoteEvent")
+BarrierStateEvent.Name = "BarrierState"
+BarrierStateEvent.Parent = ReplicatedStorage:WaitForChild("Shared"):WaitForChild("BasicCombat"):WaitForChild("UI")
+
+CombatUtils.StunEnded = Instance.new("BindableEvent")
+CombatUtils.ActionEnded = Instance.new("BindableEvent")
+
+local BlockUpdateEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("BlockUpdateEvent")
+
 local slidingPlayers = {}
 
 local activeVelocities = {}
 local heartbeatConnections = {}
 local baseVelocities = {}
+
+local ActiveStuns = {} -- [character] = { expiresAt = number }
+local STUN_SPEED_MULT = 0.16
+local EPSILON = 0.05
 
 local SLIDE_ANIM_ID = 100879728251436
 
@@ -53,29 +66,42 @@ local HAMON_DAMAGE_REDUCTION = 0.8 -- 25% damage reduction
 local BLOCK_REGEN_DELAY = 5 -- seconds to wait before regen starts
 local BLOCK_REGEN_RATE = 2 -- HP per second regenerated
 local BLOCK_MAX_HP = 80 -- maximum block HP
-local BLOOD_DRAIN_CONST = 10
+local blockingState = {} -- [Player | Character] = boolean
 
-local VAMPIRE_DAMAGE_BUFF = 1.2 -- 25%
+local BLOOD_DRAIN_CONST = 10 -- cost of buff is damage / const
+
+local VAMPIRE_DAMAGE_BUFF = 1.2 -- 20%
 
 local activeBarriers = {}
-local BARRIER_COLOR = Color3.fromRGB(0, 170, 255) -- optional visual cue
+local blockHPByCharacter = {} -- [character] = number
+
+-- Movement
+local moveSpeedByCharacter = {} -- [character] = number
+local jumpHeightByCharacter = {} -- [character] = number
+
+-- Block regen state
+local blockRegenState = {} -- [character] = { lastDamageTime, regenRunning }
+
+local actionInProgress = {}
+
+local DEFAULT_MOVE_SPEED = 24
+local DEFAULT_JUMP_HEIGHT = 40.996
 
 --services
 local RunService = game:GetService("RunService")
-local ServerScriptService = game:GetService("ServerScriptService")
 
 local AnimationModule = require(script.Parent.AnimationModule)
+local StandUtils = require(script.Parent.StandUtils)
 local VampireModule = require(game.ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
-local CombatManager = require(
-	game:GetService("ServerScriptService")
-		:WaitForChild("BasicCombat")
-		:WaitForChild("Managers")
-		:WaitForChild("CombatManager")
-)
+
+-- Function to send block updates to the client
+local function sendBlockUpdate(player, value)
+	BlockUpdateEvent:FireClient(player, value)
+end
 
 -- Function to return modified damage based on blocking state
 function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
-	local isBlocking = character:FindFirstChild("isBlocking")
+	local isBlocking = CombatUtils.IsBlocking(character)
 	local blockHP = CombatUtils.GetBlockHP(character)
 
 	local newDamage = damage
@@ -102,18 +128,28 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	end
 
 	-- If blocking is allowed
-	if canBlock and isBlocking and isBlocking:IsA("BoolValue") and isBlocking.Value == true and blockHP.Value > 0 then
+	if canBlock and isBlocking and isBlocking == true and blockHP > 0 then
 		-- Calculate the reduced damage that the block tries to absorb
 		local reducedDamage = newDamage * (1 - BLOCK_DAMAGE_REDUCTION)
 
 		-- If block HP can fully absorb the reduced damage
-		if blockHP.Value >= reducedDamage then
-			blockHP.Value -= reducedDamage
+		if blockHP >= reducedDamage then
+			CombatUtils.SpendBlockHP(character, reducedDamage)
+			blockHP -= reducedDamage
+			local player = Players:GetPlayerFromCharacter(character)
+			if player then
+				sendBlockUpdate(player, blockHP)
+			end
 			newDamage = newDamage * BLOCK_DAMAGE_REDUCTION -- player only takes reduced damage
 		else
 			-- Block HP runs out; calculate leftover damage
-			local remainingDamage = reducedDamage - blockHP.Value
-			blockHP.Value = 0
+			local remainingDamage = reducedDamage - blockHP
+			blockHP = 0
+
+			local player = Players:GetPlayerFromCharacter(character)
+			if player then
+				sendBlockUpdate(player, blockHP)
+			end
 
 			-- The leftover goes through at full damage rate (since block is broken)
 			newDamage = (newDamage * BLOCK_DAMAGE_REDUCTION) + remainingDamage
@@ -124,38 +160,53 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 end
 
 function CombatUtils.GetActionInProgress(character)
-	-- Setup action flag
 	if not character then
-		print("Cannot GetActionInProgress. Character does not exist")
-		return
+		warn("Cannot GetActionInProgress: character does not exist")
+		return false
 	end
-	local actionFlag = character:FindFirstChild("ActionInProgress") or Instance.new("BoolValue")
-	actionFlag.Name = "ActionInProgress"
-	actionFlag.Parent = character
-	return actionFlag
+
+	local state = actionInProgress[character]
+	if not state then
+		return false
+	end
+
+	-- Auto-expire
+	if os.clock() >= state.expiresAt then
+		actionInProgress[character] = nil
+		return false
+	end
+
+	return true
 end
 
 function CombatUtils.SetActionInProgress(character, duration)
 	if not character then
-		warn("Cannot SetActionInProgress. Character does not exist")
+		warn("Cannot SetActionInProgress: character does not exist")
 		return
 	end
 
-	-- Find or create the flag
-	local actionFlag = character:FindFirstChild("ActionInProgress") or Instance.new("BoolValue")
-	actionFlag.Name = "ActionInProgress"
-	actionFlag.Parent = character
-	actionFlag.Value = true
+	duration = duration or 0
 
-	-- Clear the flag after duration
+	local expiresAt = os.clock() + duration
+
+	-- Overwrite or extend
+	actionInProgress[character] = {
+		expiresAt = expiresAt,
+	}
+
+	-- Safety cleanup (optional but nice)
 	task.delay(duration, function()
-		-- Ensure the character and flag still exist before clearing
-		if character and actionFlag and actionFlag.Parent == character then
-			actionFlag.Value = false
+		local state = actionInProgress[character]
+		if state and state.expiresAt <= os.clock() then
+			actionInProgress[character] = nil
 		end
 	end)
 
-	return actionFlag
+	return expiresAt
+end
+
+function CombatUtils.ResetActionInProgress(character)
+	actionInProgress[character] = nil
 end
 
 function CombatUtils.applyStun(character, duration)
@@ -163,19 +214,36 @@ function CombatUtils.applyStun(character, duration)
 		return
 	end
 	local player = Players:GetPlayerFromCharacter(character)
-	CombatManager.RegisterStun(character, duration)
+	CombatUtils.RegisterStun(character, duration)
 	if player then
 		CombatUtils.StopSlide(player)
+	end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+	for _, child in ipairs(hrp:GetChildren()) do
+		if child:IsA("BasePart") and child:GetAttribute("RemoveOnStun") then
+			child:Destroy()
+		end
+	end
+
+	local stand = StandUtils.getStandModel(character)
+	if not stand then
+		return
+	end
+	local standRoot = stand.PrimaryPart
+
+	for _, child in ipairs(standRoot:GetChildren()) do
+		if child:IsA("BasePart") and child:GetAttribute("RemoveOnStun") then
+			child:Destroy()
+		end
 	end
 end
 
 function CombatUtils.GetStun(character)
-	local stunValue = character:FindFirstChild("Stun")
-	if stunValue then
-		return true
-	else
-		return false
-	end
+	return ActiveStuns[character] ~= nil
 end
 
 function CombatUtils.GetSlowMultiplier(character)
@@ -183,94 +251,161 @@ function CombatUtils.GetSlowMultiplier(character)
 	return finalMult
 end
 
-function CombatUtils.GetIsBlocking(character)
-	-- Setup blocking flag
-	local isBlocking = character:FindFirstChild("isBlocking") or Instance.new("BoolValue")
-	isBlocking.Name = "isBlocking"
-	isBlocking.Parent = character
-	return isBlocking
+function CombatUtils.IsBlocking(character)
+	return blockingState[character] == true
+end
+
+function CombatUtils.SetBlocking(character, value)
+	blockingState[character] = value == true
+end
+
+function CombatUtils.ClearBlocking(character)
+	blockingState[character] = nil
 end
 
 function CombatUtils.GetBlockHP(character)
-	local blockHP = character:FindFirstChild("BlockHP")
-	if not blockHP then
-		blockHP = Instance.new("NumberValue")
-		blockHP.Name = "BlockHP"
-		blockHP.Parent = character
-		blockHP.Value = 80
+	if not character then
+		return 0
 	end
 
-	return blockHP
+	if blockHPByCharacter[character] == nil then
+		blockHPByCharacter[character] = BLOCK_MAX_HP
+	end
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		sendBlockUpdate(player, blockHPByCharacter[character])
+	end
+
+	return blockHPByCharacter[character]
+end
+
+function CombatUtils.SpendBlockHP(character, hp)
+	if not character or hp <= 0 then
+		return false
+	end
+
+	local current = CombatUtils.GetBlockHP(character)
+	if current < hp then
+		return false
+	end
+
+	blockHPByCharacter[character] = current - hp
+	CombatUtils.NotifyBlockDamage(character)
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		sendBlockUpdate(player, current - hp)
+	end
+
+	return true
 end
 
 function CombatUtils.GetMoveSpeed(character)
-	local moveSpeed = character:FindFirstChild("MoveSpeed") or Instance.new("NumberValue")
-	moveSpeed.Name = "MoveSpeed"
-	moveSpeed.Parent = character
-	return moveSpeed
+	if not character then
+		return DEFAULT_MOVE_SPEED
+	end
+
+	if moveSpeedByCharacter[character] == nil then
+		moveSpeedByCharacter[character] = DEFAULT_MOVE_SPEED
+	end
+
+	return moveSpeedByCharacter[character]
 end
 
-function CombatUtils.SetMoveSpeed(character)
-	local moveSpeed = CombatUtils.GetMoveSpeed(character)
-	moveSpeed.Value = 24
+function CombatUtils.SetMoveSpeed(character, value)
+	if not character then
+		return
+	end
+
+	moveSpeedByCharacter[character] = value or DEFAULT_MOVE_SPEED
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.WalkSpeed = moveSpeedByCharacter[character]
+	end
 end
 
 function CombatUtils.GetJumpHeight(character)
-	local jumpHeight = character:FindFirstChild("JumpHeight") or Instance.new("NumberValue")
-	jumpHeight.Name = "JumpHeight"
-	jumpHeight.Parent = character
-	return jumpHeight
+	if not character then
+		return DEFAULT_JUMP_HEIGHT
+	end
+
+	if jumpHeightByCharacter[character] == nil then
+		jumpHeightByCharacter[character] = DEFAULT_JUMP_HEIGHT
+	end
+
+	return jumpHeightByCharacter[character]
 end
 
-function CombatUtils.SetJumpHeight(character)
-	local jumpHeight = CombatUtils.GetJumpHeight(character)
-	jumpHeight.Value = 40.996
+function CombatUtils.SetJumpHeight(character, value)
+	if not character then
+		return
+	end
+
+	jumpHeightByCharacter[character] = value or DEFAULT_JUMP_HEIGHT
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid.JumpHeight = jumpHeightByCharacter[character]
+	end
+end
+
+function CombatUtils.NotifyBlockDamage(character)
+	if not character then
+		return
+	end
+
+	blockRegenState[character] = blockRegenState[character] or {}
+	blockRegenState[character].lastDamageTime = os.clock()
 end
 
 function CombatUtils.StartBlockRegen(character)
-	local blockHP = CombatUtils.GetBlockHP(character)
-	if not blockHP then
+	if not character then
 		return
 	end
 
 	-- Prevent duplicate regen loops
-	if blockHP:FindFirstChild("RegenRunning") then
+	if blockRegenState[character] and blockRegenState[character].regenRunning then
 		return
 	end
 
-	-- Create tracking values
-	local lastDamageTime = Instance.new("NumberValue")
-	lastDamageTime.Name = "LastBlockDamage"
-	lastDamageTime.Value = tick()
-	lastDamageTime.Parent = blockHP
+	blockRegenState[character] = {
+		lastDamageTime = os.clock(),
+		regenRunning = true,
+	}
 
-	local regenFlag = Instance.new("BoolValue")
-	regenFlag.Name = "RegenRunning"
-	regenFlag.Value = true
-	regenFlag.Parent = blockHP
-
-	-- Track last HP value to detect real damage
-	local lastValue = blockHP.Value
-	blockHP.Changed:Connect(function(newValue)
-		if newValue < lastValue then
-			-- Only reset timer if block HP decreased
-			lastDamageTime.Value = tick()
-		end
-		lastValue = newValue
-	end)
-
-	-- Regen loop
 	task.spawn(function()
-		while blockHP.Parent and regenFlag.Parent do
+		while true do
 			task.wait(0.1)
 
-			local timeSinceDamage = tick() - lastDamageTime.Value
-			if timeSinceDamage >= BLOCK_REGEN_DELAY and blockHP.Value < BLOCK_MAX_HP then
-				-- Regen at 2 HP per second (0.2 HP every 0.1s)
-				blockHP.Value = math.min(BLOCK_MAX_HP, blockHP.Value + (BLOCK_REGEN_RATE * 0.1))
+			local state = blockRegenState[character]
+			if not state or not state.regenRunning then
+				break
+			end
+
+			local timeSinceDamage = os.clock() - state.lastDamageTime
+			if timeSinceDamage >= BLOCK_REGEN_DELAY then
+				local current = CombatUtils.GetBlockHP(character)
+				if current < BLOCK_MAX_HP then
+					local regenAmount = BLOCK_REGEN_RATE * 0.1
+					blockHPByCharacter[character] = math.min(BLOCK_MAX_HP, current + regenAmount)
+					local player = Players:GetPlayerFromCharacter(character)
+					if player then
+						sendBlockUpdate(player, current + regenAmount)
+					end
+				end
 			end
 		end
 	end)
+end
+
+local function cleanupCharacter(character)
+	moveSpeedByCharacter[character] = nil
+	jumpHeightByCharacter[character] = nil
+	blockHPByCharacter[character] = nil
+	blockRegenState[character] = nil
+	actionInProgress[character] = nil
 end
 
 game.Players.PlayerAdded:Connect(function(player)
@@ -280,10 +415,15 @@ game.Players.PlayerAdded:Connect(function(player)
 		CombatUtils.SetMoveSpeed(character)
 		CombatUtils.GetJumpHeight(character)
 		CombatUtils.SetJumpHeight(character)
-		local BarrierFolder = Instance.new("Folder")
-		BarrierFolder.Name = "BarrierFolder"
-		BarrierFolder.Parent = character
+
+		local humanoid = character:WaitForChild("Humanoid")
+
+		humanoid.Died:Connect(function()
+			cleanupCharacter(character)
+		end)
 	end)
+
+	player.CharacterRemoving:Connect(cleanupCharacter)
 end)
 
 function CombatUtils.ApplyInstantVelocity(humanoidRootPart: BasePart, boost: Vector3)
@@ -441,19 +581,6 @@ function CombatUtils.GetDamageMult(char)
 	end
 	return 1
 end
-
---[[
-function CombatUtils.ApplyTurningVelocity(character, speed, duration, dir)
-	CombatUtils.AddVelocity(character, dir, speed, duration)
-end
-]]
-
---[[
-function CombatUtils.ApplyTimedVelocity(character, speed, duration, _, dir)
-	CombatUtils.AddVelocity(character, dir, speed, duration)
-end
-]]
-
 -- Main velocity update
 local function UpdateVelocity(character, dt)
 	local totalVelocity = Vector3.zero
@@ -523,38 +650,6 @@ function CombatUtils.Clear(character)
 		heartbeatConnections[character] = nil
 	end
 end
-
---[[ Helper: Stop the slide
-function CombatUtils.StopSlide(player)
-	local character = player.Character
-	if not character then
-		return
-	end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-
-	local state = slidingPlayers[character]
-	if not state then
-		return
-	end
-
-	if state.Connection then
-		state.Connection:Disconnect()
-	end
-	if state.BodyVelocity then
-		state.BodyVelocity:Destroy()
-	end
-	if state.Gyro then
-		state.Gyro:Destroy()
-	end
-
-	slidingPlayers[character] = nil
-
-	AnimationModule.StopAllAnimations(character)
-
-	humanoid:ChangeState(Enum.HumanoidStateType.Running)
-end
-]]
 
 function CombatUtils.StopSlide(player)
 	local character = player.Character
@@ -645,175 +740,6 @@ function CombatUtils.GetIsDashing(character)
 
 	return false
 end
-
---[[
-function CombatUtils.StartSlide(player)
-    local character = player.Character
-    if not character then return false end
-
-    local root = character:FindFirstChild("HumanoidRootPart")
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not root or not humanoid then return false end
-
-    -- Prevent double slides / conflict with dash
-    if slidingPlayers[character] then return false end
-    if CombatUtils.GetIsDashing(character) then return false end
-
-    -- Ground detection
-    local params = RaycastParams.new()
-    params.FilterDescendantsInstances = { character }
-    params.FilterType = Enum.RaycastFilterType.Exclude
-
-    local groundRay = workspace:Raycast(root.Position, -root.CFrame.UpVector * 5, params)
-    if not groundRay then return false end
-
-    -- Velocity + slope properties
-    local vel = root.AssemblyLinearVelocity
-    local flatVel = Vector3.new(vel.X, 0, vel.Z)
-    local flatSpeed = flatVel.Magnitude
-
-    local slopeNormal = groundRay.Normal
-    local slopeAngle = math.deg(math.acos(slopeNormal:Dot(Vector3.new(0,1,0))))
-
-    local MIN_SLIDE_SPEED = 28
-    local MAX_SLOPE_TO_ALLOW_SLOW_SLIDE = 20
-
-    if flatSpeed < MIN_SLIDE_SPEED and slopeAngle < MAX_SLOPE_TO_ALLOW_SLOW_SLIDE then
-        return false
-    end
-
-    -- Animation
-    AnimationModule.PlayAnimation(character, SLIDE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
-
-    humanoid:ChangeState(Enum.HumanoidStateType.Physics)
-
-    ----------------------------------------------------------------------
-    -- 1. Choose initial direction
-    ----------------------------------------------------------------------
-    local initialDir
-    if flatSpeed > 1 then
-        initialDir = flatVel.Unit
-    else
-        local look = root.CFrame.LookVector
-        initialDir = Vector3.new(look.X, 0, look.Z).Unit
-    end
-
-    ----------------------------------------------------------------------
-    -- 2. Project direction onto slope tangent plane
-    ----------------------------------------------------------------------
-    local function ProjectOntoPlane(v, normal)
-        return (v - normal * v:Dot(normal)).Unit
-    end
-
-    local slideDirectionWorld = ProjectOntoPlane(initialDir, slopeNormal)
-
-    ----------------------------------------------------------------------
-    -- 3. Guarantee minimum launch speed
-    ----------------------------------------------------------------------
-    local MIN_LAUNCH = 100
-
-    if flatSpeed < MIN_LAUNCH then
-        local boosted = slideDirectionWorld * MIN_LAUNCH
-        root.AssemblyLinearVelocity = Vector3.new(
-            boosted.X,
-            vel.Y,
-            boosted.Z
-        )
-    end
-
-    ----------------------------------------------------------------------
-    -- Convert slide dir into local space to allow rotation during sliding
-    ----------------------------------------------------------------------
-    local localSlideDir = root.CFrame:VectorToObjectSpace(slideDirectionWorld)
-
-    local prevY = root.Position.Y
-    local currentMultiplier = 1
-    local airTime = 0
-    local AIR_GRACE = 0.5
-
-    -- State required for StopSlide
-    local state = {
-        Connection = nil,
-        UsingVelocityControl = true -- so StopSlide knows no BodyVelocity exists
-    }
-
-    slidingPlayers[character] = state
-
-    state.Connection = RunService.Heartbeat:Connect(function(dt)
-        if not root.Parent then
-            CombatUtils.StopSlide(player)
-            return
-        end
-
-        ------------------------------------------------------------------
-        -- Ground / slope tracking
-        ------------------------------------------------------------------
-        local ray = workspace:Raycast(root.Position, -root.CFrame.UpVector * 10, params)
-
-        local posY = root.Position.Y
-        local deltaY = posY - prevY
-        prevY = posY
-
-        if ray then
-            airTime = 0
-
-            -- recompute slope-orientation for alignment
-            local up = ray.Normal
-            local right = root.CFrame.RightVector
-            local forward = right:Cross(up)
-
-            -- optional: reorient player to slope without forcing facing direction
-            -- (comment out if undesired)
-            -- root.CFrame = CFrame.fromMatrix(root.Position, right, up, forward)
-        else
-            airTime += dt
-        end
-
-        ------------------------------------------------------------------
-        -- Slope-based accel/decel
-        ------------------------------------------------------------------
-        if math.abs(deltaY) < 0.1 then
-            currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Forward * dt
-        elseif deltaY > 0 then
-            currentMultiplier -= SLIDE_SETTINGS.SpeedChangeRate.Upward * dt
-        else
-            currentMultiplier += SLIDE_SETTINGS.SpeedChangeRate.Downward * dt
-        end
-
-        currentMultiplier = math.clamp(currentMultiplier, 0, SLIDE_SETTINGS.MaxMultiplier)
-
-        ------------------------------------------------------------------
-        -- Convert stored local dir back into world space (allows rotation)
-        ------------------------------------------------------------------
-        local worldDir = root.CFrame:VectorToWorldSpace(localSlideDir)
-
-        ------------------------------------------------------------------
-        -- APPLY VELOCITY DIRECTLY INSTEAD OF USING BODYVELOCITY
-        ------------------------------------------------------------------
-		local gravity = workspace.Gravity
-
-		-- Compute horizontal slide velocity
-		local horizontalVel = worldDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
-
-		-- Preserve vertical velocity (so Roblox gravity works)
-		local currentVel = root.AssemblyLinearVelocity
-		root.AssemblyLinearVelocity = Vector3.new(
-			horizontalVel.X,
-			currentVel.Y + gravity * dt, -- preserve default vertical velocity
-			horizontalVel.Z
-		)
-
-        ------------------------------------------------------------------
-        -- Stop conditions
-        ------------------------------------------------------------------
-        if currentMultiplier < 0.1 or airTime > AIR_GRACE then
-            CombatUtils.StopSlide(player)
-        end
-    end)
-
-    return true
-end
-]]
 
 function CombatUtils.StartSlide(player)
 	local character = player.Character
@@ -1001,6 +927,24 @@ function CombatUtils.StartSlide(player)
 	return true
 end
 
+local function sendBarrierUpdate(player, character)
+	local barriers = activeBarriers[character]
+	local total = 0
+	local max = 200
+
+	if barriers then
+		for _, data in pairs(barriers) do
+			total += data.Current
+		end
+	end
+
+	BarrierStateEvent:FireClient(player, {
+		total = total,
+		max = max,
+		barriers = barriers, -- optional, useful for advanced UI
+	})
+end
+
 -- === Add a barrier to a character ===
 function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrierId, maxCap)
 	if not character then
@@ -1017,58 +961,33 @@ function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrie
 	decayRate = decayRate or 1
 	decayDelay = decayDelay or 3
 	barrierId = barrierId or "Default"
-	maxCap = maxCap or 200 -- optional upper limit for stacking barrier
+	maxCap = maxCap or 200
 
-	-- Ensure barrier data structure exists
+	-- Ensure character table
 	activeBarriers[character] = activeBarriers[character] or {}
 	local barrierGroup = activeBarriers[character]
 
-	-- === Ensure a BarrierFolder exists for client visibility ===
-	local barrierFolder = character:FindFirstChild("BarrierFolder")
-	if not barrierFolder then
-		barrierFolder = Instance.new("Folder")
-		barrierFolder.Name = "BarrierFolder"
-		barrierFolder.Parent = character
-	end
+	local now = os.clock()
 
-	-- === Find or create the NumberValue for this barrier ===
-	local barrierValue = barrierFolder:FindFirstChild(barrierId .. "Barrier")
-	if not barrierValue then
-		barrierValue = Instance.new("NumberValue")
-		barrierValue.Name = barrierId .. "Barrier"
-		barrierValue.Value = amount
-		barrierValue.Parent = barrierFolder
-	else
-		-- Stack or refresh existing barrier
-		local newValue = math.min(barrierValue.Value + amount, maxCap)
-		barrierValue.Value = newValue
-	end
-
-	-- Create or update internal barrier data
+	-- Create or refresh barrier
 	if barrierGroup[barrierId] then
 		local data = barrierGroup[barrierId]
 		data.Max = math.min(data.Max + amount, maxCap)
 		data.Current = math.min(data.Current + amount, data.Max)
-		data.LastRefreshed = tick()
+		data.LastRefreshed = now
 	else
 		barrierGroup[barrierId] = {
 			Max = math.min(amount, maxCap),
 			Current = math.min(amount, maxCap),
 			DecayRate = decayRate,
 			DecayDelay = decayDelay,
-			LastRefreshed = tick(),
-			Value = barrierValue, -- link the NumberValue
+			LastRefreshed = now,
 		}
 	end
 
-	-- === Visual feedback ===
-	local barrierEffect = character:FindFirstChild("BarrierEffect")
-	if not barrierEffect then
-		barrierEffect = Instance.new("Highlight")
-		barrierEffect.FillColor = BARRIER_COLOR
-		barrierEffect.OutlineTransparency = 1
-		barrierEffect.Name = "BarrierEffect"
-		barrierEffect.Parent = character
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		sendBarrierUpdate(player, character)
 	end
 
 	-- === Hook damage interception once ===
@@ -1076,6 +995,7 @@ function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrie
 		humanoid:SetAttribute("BarrierHooked", true)
 
 		local lastHealth = humanoid.Health
+
 		humanoid.HealthChanged:Connect(function(newHealth)
 			local barriers = activeBarriers[character]
 			if not barriers then
@@ -1085,40 +1005,33 @@ function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrie
 
 			local delta = newHealth - lastHealth
 			if delta < 0 then
-				local damageTaken = -delta
-				local remainingDamage = damageTaken
+				local damage = -delta
+				local remaining = damage
 
-				-- Loop through barriers in insertion order
+				-- Absorb damage
 				for id, data in pairs(barriers) do
-					if data.Current > 0 and remainingDamage > 0 then
-						local absorb = math.min(data.Current, remainingDamage)
-						data.Current -= absorb
-						remainingDamage -= absorb
-						data.LastRefreshed = tick()
-
-						-- Update visible NumberValue
-						if data.Value then
-							data.Value.Value = data.Current
-						end
+					if data.Current > 0 and remaining > 0 then
+						local absorbed = math.min(data.Current, remaining)
+						data.Current -= absorbed
+						remaining -= absorbed
+						data.LastRefreshed = os.clock()
 
 						if data.Current <= 0 then
-							if data.Value then
-								data.Value:Destroy()
-							end
 							barriers[id] = nil
 						end
 					end
 				end
 
-				-- Apply leftover damage to health
-				humanoid.Health = lastHealth - remainingDamage
+				-- Apply leftover damage
+				humanoid.Health = lastHealth - remaining
 
-				-- Clean up if no barriers remain
+				-- Cleanup if empty
 				if not next(barriers) then
 					activeBarriers[character] = nil
-					if character:FindFirstChild("BarrierEffect") then
-						character.BarrierEffect:Destroy()
-					end
+				end
+
+				if player then
+					sendBarrierUpdate(player, character)
 				end
 			end
 
@@ -1126,44 +1039,32 @@ function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrie
 		end)
 	end
 
-	-- === Decay logic per barrier ===
+	-- === Decay loop per barrier ===
 	task.spawn(function()
-		local data = barrierGroup[barrierId]
-		if not data then
-			return
-		end
-
-		while activeBarriers[character] and activeBarriers[character][barrierId] do
+		while true do
 			task.wait(1)
-			data = activeBarriers[character] and activeBarriers[character][barrierId]
+
+			local barriers = activeBarriers[character]
+			local data = barriers and barriers[barrierId]
 			if not data then
 				break
 			end
 
-			-- Wait for decay delay after last refresh
-			if tick() - data.LastRefreshed >= data.DecayDelay then
+			if os.clock() - data.LastRefreshed >= data.DecayDelay then
 				data.Current = math.max(0, data.Current - data.DecayRate)
 
-				-- Update visible value
-				if data.Value then
-					data.Value.Value = data.Current
-				end
-
 				if data.Current <= 0 then
-					if data.Value then
-						data.Value:Destroy()
-					end
-					activeBarriers[character][barrierId] = nil
+					barriers[barrierId] = nil
 
-					-- Cleanup if no barriers remain
-					if not next(activeBarriers[character]) then
+					if not next(barriers) then
 						activeBarriers[character] = nil
-						if character:FindFirstChild("BarrierEffect") then
-							character.BarrierEffect:Destroy()
-						end
 					end
 					break
 				end
+			end
+
+			if player then
+				sendBarrierUpdate(player, character)
 			end
 		end
 	end)
@@ -1186,5 +1087,97 @@ function CombatUtils.RemoveBarrier(character)
 		effect:Destroy()
 	end
 end
+
+-- Add or refresh a stun
+function CombatUtils.RegisterStun(character, duration)
+	if not (character and character.Parent) then
+		return
+	end
+
+	duration = math.max(0, duration)
+	local now = os.clock()
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local entry = ActiveStuns[character]
+
+	if entry then
+		-- Extend stun (never shorten)
+		entry.expiresAt = math.max(entry.expiresAt, now + duration)
+	else
+		-- Create new stun
+		ActiveStuns[character] = {
+			expiresAt = now + duration,
+		}
+
+		-- Apply slowing effect
+		SlowingFieldRegistry.SetSlow(character, "Stun", STUN_SPEED_MULT)
+
+		-- Apply slowed walk speed (memory-based)
+		local baseSpeed = CombatUtils.GetMoveSpeed(character)
+		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
+		humanoid.WalkSpeed = baseSpeed * mult
+
+		-- Disable jumping
+		humanoid.JumpPower = 0
+
+		-- Optional: force-stop actions
+		CombatUtils.SetActionInProgress(character, duration)
+	end
+end
+
+-- Remove stun and restore normal stats
+function CombatUtils.UnregisterStun(character)
+	if not character then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		-- Clear slow from stun
+		SlowingFieldRegistry.ClearSlow(character, "Stun")
+
+		-- Restore movement
+		local baseSpeed = CombatUtils.GetMoveSpeed(character)
+		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
+		humanoid.WalkSpeed = baseSpeed * mult
+
+		-- Restore jump
+		humanoid.JumpPower = CombatUtils.GetJumpHeight(character)
+	end
+
+	-- Remove stun from memory
+	if ActiveStuns[character] then
+		ActiveStuns[character] = nil
+
+		-- 🔔 Notify listeners (block buffering, etc.)
+		CombatUtils.StunEnded:Fire(character)
+	end
+end
+
+-- Update loop
+RunService.Heartbeat:Connect(function()
+	local now = os.clock()
+
+	for character, data in pairs(ActiveStuns) do
+		local ok, err = pcall(function()
+			if not character or not character.Parent then
+				ActiveStuns[character] = nil
+				return
+			end
+
+			if now >= data.expiresAt - EPSILON then
+				CombatUtils.UnregisterStun(character)
+			end
+		end)
+
+		if not ok then
+			warn("⚠️ CombatUtils stun update error:", err)
+		end
+	end
+end)
 
 return CombatUtils

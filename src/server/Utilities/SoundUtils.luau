@@ -40,6 +40,7 @@ function SoundUtils.PlaySound(params)
 
 	sound.Looped = looped
 	sound.RollOffMaxDistance = range
+	sound.RollOffMinDistance = range * 0.5
 
 	-- Play the sound
 	sound:Play()

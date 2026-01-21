@@ -1,8 +1,11 @@
+local EncodingService = game:GetService("EncodingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local InventoryManager = require(game.ServerScriptService.DataSaving:WaitForChild("InventoryManager"))
 local PlayerData = require(game.ServerScriptService.DataSaving:WaitForChild("PlayerData"))
+local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
 
 local TP_AREAS = {
 	["1v1Spawn1"] = game.Workspace.Arena1.Model:WaitForChild("1v1Spawn1"),
@@ -66,6 +69,7 @@ local MODERATOR_LIST = {
 	[412043782] = true, -- NotAndrew1234
 	[7150098622] = true, -- Vyl1t
 	--4155032061] = true, -- diego
+	[31053701] = true, -- DREpiclass
 }
 
 local function IsModerator(player)
@@ -289,6 +293,13 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 		print(player.Name .. " redeemed specialty:", typedCode)
 		codeEvent:FireClient(player, true, typedCode)
 		return
+	end
+
+	if typedCode == "maxmeout" then
+		if not IsModerator(player) then
+			return
+		end
+		XPSystem.AddXP(player, 99999999)
 	end
 
 	-- ❌ Invalid Code

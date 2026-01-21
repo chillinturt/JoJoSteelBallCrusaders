@@ -148,8 +148,8 @@ function PilotMode.ExitPilotMode(character)
 	-- Restore player movement
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value
-		humanoid.JumpPower = CombatUtils.GetJumpHeight(character).Value
+		humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character)
+		humanoid.JumpPower = CombatUtils.GetJumpHeight(character)
 	end
 
 	-- Remove data entirely
@@ -184,8 +184,8 @@ exitPilotEvent.Event:Connect(function(character)
 	-- Restore player movement
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
-		humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character).Value
-		humanoid.JumpPower = CombatUtils.GetJumpHeight(character).Value
+		humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character)
+		humanoid.JumpPower = CombatUtils.GetJumpHeight(character)
 	end
 
 	-- Remove data entirely

@@ -2,6 +2,8 @@
 
 local OneVsOneModule = {}
 
+local FootstepSystem = require(game.ServerScriptService.Utilities.FootstepSystem)
+
 -- Internal state
 OneVsOneModule.Queue = {} -- List of players in queue
 OneVsOneModule.ActiveGame = false -- Boolean to track if a game is currently active
@@ -65,16 +67,26 @@ end
 
 -- Function to teleport a player to a spawn
 function OneVsOneModule:TeleportPlayer(player, spawnPart)
-	if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-		player.Character.HumanoidRootPart.CFrame = spawnPart.CFrame
-	else
-		-- Handle if character not loaded (optional: wait or respawn)
-		player:LoadCharacter()
-		wait(1) -- Wait for character to load
-		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			player.Character.HumanoidRootPart.CFrame = spawnPart.CFrame + Vector3.new(0, 3, 0)
-		end
+	if not player or not spawnPart then
+		return
 	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+
+	-- Simple, reliable teleport (mirror of working function)
+	FootstepSystem.Disable(player, 0.5)
+
+	hrp.CFrame = spawnPart.CFrame + Vector3.new(0, 8, 0)
+
+	FootstepSystem.Reset(player, character)
 end
 
 -- Function to end the game and award win

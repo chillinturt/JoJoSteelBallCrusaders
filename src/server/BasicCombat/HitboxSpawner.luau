@@ -2,7 +2,6 @@ local HitboxSpawner = {}
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
@@ -21,7 +20,6 @@ local SlowingFieldRegistry = require(game.ServerScriptService.BasicCombat.Manage
 
 local Debris = game:GetService("Debris")
 local ServerScriptService = game:GetService("ServerScriptService")
-local BlockModule = require(script.Parent.BlockModule)
 local SoundUtils = require(ServerScriptService.Utilities.SoundUtils)
 
 local activeFields = {} -- [player] = { [field] = true, ... }
@@ -78,7 +76,7 @@ function HitboxSpawner.spawnHitbox(params)
 	local duration = params.Duration or 0.3
 	local stunDuration = params.StunDuration
 	local transparency = params.Transparency or 1
-	local name = params.Name or "PunchHitbox"
+	local name = params.Name or "StandardHitbox"
 	local damagePerTick = params.DamagePerTick
 	local DOTTickInterval = params.DOTTickInterval
 	local DOTDuration = params.DOTDuration
@@ -86,6 +84,7 @@ function HitboxSpawner.spawnHitbox(params)
 	local canBlock = params.CanBlock or true
 	local shape = params.Shape or Enum.PartType.Block
 	local rotation = params.Rotation or CFrame.Angles(0, 0, 0)
+	local removeOnStun = params.RemoveOnStun ~= false
 
 	if not character then
 		return
@@ -120,6 +119,7 @@ function HitboxSpawner.spawnHitbox(params)
 	hitbox.CastShadow = false
 	hitbox.Shape = shape
 	RaycastIgnoreModule.AddToIgnore(hitbox)
+	hitbox:SetAttribute("RemoveOnStun", removeOnStun)
 
 	-- Only weld if PrimaryPart exists
 	if standRoot then
@@ -139,6 +139,11 @@ function HitboxSpawner.spawnHitbox(params)
 
 	local conn
 	conn = RunService.Heartbeat:Connect(function()
+		if not hitbox or not hitbox.Parent then
+			conn:Disconnect()
+			conn = nil
+			return
+		end
 		local elapsed = tick() - startTime
 		if elapsed > duration then
 			conn:Disconnect()
@@ -202,7 +207,7 @@ function HitboxSpawner.spawnHitbox(params)
 
 						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
-						if not CombatUtils.GetIsBlocking(targetChar).Value then
+						if not CombatUtils.IsBlocking(targetChar) then
 							if stunDuration then
 								CombatUtils.applyStun(targetChar, stunDuration)
 							end
@@ -237,6 +242,13 @@ function HitboxSpawner.spawnHitbox(params)
 		end
 	end)
 
+	hitbox.Destroying:Connect(function()
+		if conn then
+			conn:Disconnect()
+			conn = nil
+		end
+	end)
+
 	Debris:AddItem(hitbox, duration)
 	return hitbox
 end
@@ -254,6 +266,7 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	local heal = params.Heal
 	local onHit = params.OnHit
 	local canBlock = params.CanBlock ~= false -- default true unless explicitly false
+	local removeOnStun = params.RemoveOnStun ~= false
 
 	if not character then
 		return false
@@ -273,6 +286,7 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	hitbox.BrickColor = color
 	hitbox.Parent = humanoidRootPart
 	RaycastIgnoreModule.AddToIgnore(hitbox)
+	hitbox:SetAttribute("RemoveOnStun", removeOnStun)
 
 	local weld = Instance.new("WeldConstraint")
 	weld.Part0 = humanoidRootPart
@@ -290,6 +304,11 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 
 	local conn
 	conn = RunService.Heartbeat:Connect(function()
+		if not hitbox or not hitbox.Parent then
+			conn:Disconnect()
+			conn = nil
+			return
+		end
 		local elapsed = tick() - startTime
 		if elapsed > duration then
 			conn:Disconnect()
@@ -341,10 +360,10 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
 						-- Play correct sound and apply stun
-						local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+						local isBlocking = CombatUtils.IsBlocking(targetChar)
 						if not isBlocking or not canBlock then
 							if isBlocking then
-								BlockModule.StopBlocking(targetChar)
+								--BlockModule.StopBlocking(targetChar)
 							end
 							CombatUtils.applyStun(targetChar, stunDuration)
 							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
@@ -379,6 +398,13 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 					end
 				end
 			end
+		end
+	end)
+
+	hitbox.Destroying:Connect(function()
+		if conn then
+			conn:Disconnect()
+			conn = nil
 		end
 	end)
 
@@ -462,7 +488,7 @@ function HitboxSpawner.spawnProjectile(params)
 		end,
 
 		getIsBlocking = function(target)
-			return CombatUtils.GetIsBlocking(target)
+			return CombatUtils.IsBlocking(target)
 		end,
 
 		applyStun = function(target, duration)
@@ -479,7 +505,7 @@ function HitboxSpawner.spawnProjectile(params)
 
 			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
-			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+			local isBlocking = CombatUtils.IsBlocking(targetChar)
 			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
 					Root = targetHRP,
@@ -593,7 +619,7 @@ function HitboxSpawner.spawnArcProjectile(params)
 		end,
 
 		getIsBlocking = function(target)
-			return CombatUtils.GetIsBlocking(target)
+			return CombatUtils.IsBlocking(target)
 		end,
 
 		applyStun = function(target, duration)
@@ -610,7 +636,7 @@ function HitboxSpawner.spawnArcProjectile(params)
 
 			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
-			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+			local isBlocking = CombatUtils.IsBlocking(targetChar)
 			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
 					Root = targetHRP,
@@ -715,14 +741,14 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 		end,
 
 		getIsBlocking = function(target)
-			return CombatUtils.GetIsBlocking(target)
+			return CombatUtils.IsBlocking(target)
 		end,
 
 		applyStun = function(target, duration)
 			if target and target.Parent then
 				CombatUtils.applyStun(target, duration)
 				AnimationModule.PlayAnimation(target, STUN_ANIMATION_ID)
-				BlockModule.StopBlocking(target)
+				--BlockModule.StopBlocking(target)
 			end
 		end,
 
@@ -731,7 +757,7 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 				return
 			end
 			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
-			local isBlocking = CombatUtils.GetIsBlocking(targetChar).Value
+			local isBlocking = CombatUtils.IsBlocking(targetChar)
 			if isBlocking and canBlock then
 				SoundUtils.PlaySound({
 					Root = targetHRP,
@@ -902,7 +928,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 
 						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
-						if not CombatUtils.GetIsBlocking(targetChar).Value then
+						if not CombatUtils.IsBlocking(targetChar) then
 							CombatUtils.applyStun(targetChar, stunDuration)
 							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
 
@@ -1129,12 +1155,12 @@ function HitboxSpawner.SpawnStationarySlowingField(params)
 			return
 		end
 
-		local baseSpeedObj = character:FindFirstChild("MoveSpeed")
+		local baseSpeedObj = CombatUtils.GetMoveSpeed(character)
 		if not baseSpeedObj then
 			return
 		end
 
-		local base = baseSpeedObj.Value
+		local base = baseSpeedObj
 		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
 
 		hum.WalkSpeed = base * mult
@@ -1243,8 +1269,10 @@ function HitboxSpawner.ApplyDamageOverTime(humanoid, damagePerTick, tickInterval
 
 			local volume, pitch = MapDamageToSound(damagePerTick)
 
+			local targetHRP = humanoid.Parent:FindFirstChild("HumanoidRootPart")
+
 			SoundUtils.PlaySound({
-				Root = humanoid.Parent,
+				Root = targetHRP,
 				soundName = "HitSound",
 				soundID = HIT_SOUND_ID,
 				volume = volume,

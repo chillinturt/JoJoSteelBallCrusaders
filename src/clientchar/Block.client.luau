@@ -7,7 +7,8 @@ local CanBlockFunction = ReplicatedStorage.Shared.BasicCombat:WaitForChild("CanB
 
 -- ===== CONFIG =====
 local BUFFER_DURATION = 30 -- How long to hold a buffered F input (reduce from 100s!)
-local BUFFER_CHECK_RATE = 0.05 -- How often to retry (in seconds)
+local DOUBLE_TAP_WINDOW = 0.25 -- seconds
+local lastBlockPress = 0
 
 -- ===== STATE =====
 local isBlocking = false
@@ -98,17 +99,29 @@ local function stopBlocking()
 end
 
 -- === Input Hooks ===
-UserInputService.InputBegan:Connect(function(input, gameProcessed)
-	if gameProcessed then
+UserInputService.InputBegan:Connect(function(input, gp)
+	if gp then
 		return
 	end
-	if input.KeyCode == Enum.KeyCode.F then
-		startBlockingBuffered()
+	if input.KeyCode ~= Enum.KeyCode.F then
+		return
+	end
+
+	local now = os.clock()
+	local isDoubleTap = (now - lastBlockPress) <= DOUBLE_TAP_WINDOW
+	lastBlockPress = now
+
+	-- ✅ Always express normal block intent
+	blockEvent:FireServer("Start")
+
+	-- 🚨 Emergency is ADDITIVE, not exclusive
+	if isDoubleTap then
+		blockEvent:FireServer("EmergencyStart")
 	end
 end)
 
 UserInputService.InputEnded:Connect(function(input)
 	if input.KeyCode == Enum.KeyCode.F then
-		stopBlocking()
+		blockEvent:FireServer("End")
 	end
 end)

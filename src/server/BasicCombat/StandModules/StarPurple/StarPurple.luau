@@ -16,16 +16,9 @@ local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("B
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
 
-local cooldownTime = 8 -- MachOra cooldown in seconds
-local machOra2Delay = 0.6 -- Time after MachOra before MachOra2 can be used
-local machOra2Cooldown = 8 -- MachOra2 cooldown after use
-local lastMachOraUse = {} -- Tracks last activation time per player
-local lastMachOra2Use = {} -- Tracks last use time for MachOra2 per player
-local machOra2Window = {} -- Stores the short window where MachOra2 is valid
-
 local MACH_ORA_DAMAGE = 12
-local MACH_ORA_DASH_SPEED = 50 -- Speed of the dash
-local MACH_ORA_DASH_DURATION = 0.4 -- How long the dash lasts in seconds
+local MACH_ORA_DASH_SPEED = 90 -- Speed of the dash
+local MACH_ORA_DASH_DURATION = 0.7 -- How long the dash lasts in seconds
 local MACH_ORA_ENDLAG = 0.4
 local MACH_ORA_SIZE = Vector3.new(5, 6, 9)
 local MACH_ORA_OFFSET = Vector3.new(2, 0, -8)
@@ -34,7 +27,7 @@ local MACH_ORA_STUN = 1.5
 local GROUND_POUND_DAMAGE = 15
 local GROUND_POUND_SIZE = Vector3.new(15, 15, 15)
 local GROUND_POUND_OFFSET = Vector3.new(2, 0, -10)
-local GROUND_POUND_ENDLAG = 1
+local GROUND_POUND_ENDLAG = 0.5
 local GROUNDPOUND_DURATION = 1
 
 local GROUNDPOUND_ANIM_ID = 90498591949232
@@ -51,7 +44,7 @@ local BLOCK_SOUND_ID = 132615624053575
 -- CONFIG
 local STOP_DURATION = 3 -- seconds
 local IMMOBILE_ANCHOR_NAME = "StarPurpleTimeStopAnchor"
-local TIME_STOP_DAMAGE_MULT = 1.25
+local TIME_STOP_DAMAGE_MULT = 1
 local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
@@ -119,21 +112,6 @@ function StarPurple.onMachOraRequested(character)
 
 	CombatUtils.SetActionInProgress(character, MACH_ORA_ENDLAG)
 
-	-- Check MachOra cooldown
-	local currentTime = tick()
-	local lastUseTime = lastMachOraUse[character] or 0
-	if currentTime - lastUseTime < cooldownTime then
-		local remainingTime = cooldownTime - (currentTime - lastUseTime)
-		print(
-			character.Name .. " tried to use MachOra but is on cooldown! Time left: " .. math.ceil(remainingTime) .. "s"
-		)
-		return
-	end
-
-	-- ✅ Set cooldown & prevent MachOra2 until its window opens
-	lastMachOraUse[character] = currentTime
-	machOra2Window[character] = nil -- Reset window until enabled
-
 	-- Locate the stand
 	local standModel = StandUtils.getStandModel(character)
 	if not standModel then
@@ -170,13 +148,8 @@ function StarPurple.onMachOraRequested(character)
 	-- Fire first animation (charge-up)
 	AnimationModule.PlayAnimation(standModel, 117096419135889, false, Enum.AnimationPriority.Action, 1)
 
-	-- ✅ Enable MachOra2 only within 0.6s window
-	task.delay(machOra2Delay, function()
-		machOra2Window[character] = { start = tick(), duration = 2 }
-	end)
-
 	-- ⏳ Wait 0.6s, then play punch animation & sound
-	task.wait(0.2)
+	--task.wait(0.2)
 	--hitbox spawn
 	--spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
 	HitboxSpawner.spawnHitbox({
@@ -185,10 +158,11 @@ function StarPurple.onMachOraRequested(character)
 		Size = MACH_ORA_SIZE,
 		Offset = CFrame.new(MACH_ORA_OFFSET),
 		Color = BrickColor.new("Bright red"),
-		Duration = 0.75,
+		Duration = MACH_ORA_DASH_DURATION,
 		StunDuration = MACH_ORA_STUN,
 		Transparency = 1,
 		Name = "BasicPunchHitbox",
+		RemoveOnStun = false,
 
 		OnHit = function(projectile, hitResult, horizontalDirection)
 			-- Destroy MachOraVelocity if it exists
@@ -221,26 +195,6 @@ function StarPurple.onMachOraRequested(character)
 end
 
 function StarPurple.onMachOra2Requested(character)
-	-- ✅ Check if MachOra2 has been enabled in the window
-	local currentTime = tick()
-	local lastMachOra2Time = lastMachOra2Use[character] or 0
-	local window = machOra2Window[character]
-
-	-- 🔒 Reject if MachOra2 is on cooldown
-	if currentTime - lastMachOra2Time < machOra2Cooldown then
-		return
-	end
-
-	-- 🔒 Reject if the window is not active or expired
-	if not window or currentTime > (window.start + window.duration) then
-		return
-	end
-
-	-- ✅ Allow MachOra2 & start cooldown
-	print("MachOra2 Fired On Server for", character.Name)
-	lastMachOra2Use[character] = currentTime -- Start cooldown
-	machOra2Window[character] = nil -- Disable future MachOra2 usage until MachOra is used again
-
 	-- Locate the stand
 	local standModel = StandUtils.getStandModel(character)
 	if not standModel then
@@ -269,10 +223,11 @@ function StarPurple.onMachOra2Requested(character)
 		Size = MACH_ORA_SIZE,
 		Offset = CFrame.new(MACH_ORA_OFFSET),
 		Color = BrickColor.new("Bright red"),
-		Duration = 0.75,
+		Duration = MACH_ORA_DASH_DURATION,
 		StunDuration = MACH_ORA_STUN,
 		Transparency = 1,
 		Name = "BasicPunchHitbox",
+		RemoveOnStun = false,
 
 		OnHit = function(projectile, hitResult, horizontalDirection)
 			-- Destroy MachOraVelocity if it exists
@@ -323,8 +278,6 @@ function StarPurple.GroundPound(standModel)
 
 	AnimationModule.PlayAnimation(standModel, GROUNDPOUND_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, GROUND_POUND_ENDLAG)
-
-	task.wait(0.2)
 
 	HitboxSpawner.spawnStationaryHitbox({
 		Position = standModel.PrimaryPart.CFrame,

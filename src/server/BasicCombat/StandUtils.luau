@@ -26,7 +26,6 @@ function StandUtils.getStandModel(character)
 	-- Customize this logic depending on how you parent your stands
 	for _, child in ipairs(character:GetChildren()) do
 		if child:IsA("Model") and child:FindFirstChild("StandTag") then
-			print("Found a model: " .. child.Name)
 			return child
 		end
 	end

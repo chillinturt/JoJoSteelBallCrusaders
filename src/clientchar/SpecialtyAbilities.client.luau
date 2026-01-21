@@ -17,11 +17,21 @@ local AbilityTypesRemote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("Sp
 local CurrentAbilityTypes = {}
 local AbilitiesReady = false
 
-AbilityTypesRemote.OnClientEvent:Connect(function(abilityTypes)
-	CurrentAbilityTypes = abilityTypes or {}
-	AbilitiesReady = true
-	print("[Client] Received ability types:", abilityTypes)
-end)
+local function fetchAbilityTypes()
+	local success, result = pcall(function()
+		return AbilityTypesRemote:InvokeServer()
+	end)
+
+	if success and result then
+		CurrentAbilityTypes = result
+		AbilitiesReady = true
+		print("[Client] Ability types loaded:", result)
+	else
+		warn("[Client] Failed to fetch ability types")
+	end
+end
+
+fetchAbilityTypes()
 
 -----------------------------------------------------------------------
 -- Keybind → AbilityID mapping

@@ -27,7 +27,7 @@ local REDBIND_DAMAGE = 5
 local REDBIND_ENDLAG = 1
 local REDBIND_SIZE = Vector3.new(8, 8, 9)
 local REDBIND_OFFSET = Vector3.new(2, 0, -8)
-local REDBIND_DPS = 1
+local REDBIND_DPS = 0.85
 local REDBIND_TICK_INTERVAL = 0.33
 local REDBIND_DURATION = 5
 local REDBIND_STUN = 1.5
@@ -40,15 +40,15 @@ local CROSSFIREHURRICANE_SIZE = Vector3.new(13, 15, 13)
 local CROSSFIREHURRICANE_DAMAGE = 10
 local CROSSFIREHURRICANE_DURATION = 5
 
-local CROSSFIREHURRICANE_EXPLOSION_SIZE = Vector3.new(40, 40, 40)
+local CROSSFIREHURRICANE_EXPLOSION_SIZE = Vector3.new(35, 35, 35)
 local CROSSFIREHURRICANE_EXPLOSION_DAMAGE = 5
 local CROSSFIREHURRICANE_EXPLOSION_STUN = 1.5
-local CROSSFIREHURRICANE_EXPLOSION_DPS = 2
+local CROSSFIREHURRICANE_EXPLOSION_DPS = 1.7
 local CROSSFIREHURRICANE_EXPLOSION_DURATION = 1
 
 local HELLFIRE_DAMAGE = 10
-local HELLFIRE_DPS = 3
-local HELLFIRE_EXPLOSION_SIZE = Vector3.new(70, 70, 70)
+local HELLFIRE_DPS = 2.55
+local HELLFIRE_EXPLOSION_SIZE = Vector3.new(65, 65, 65)
 local HELLFIRE_EXPLOSION_DURATION = 1
 
 local HIT_SOUND_ID = 8255306220
@@ -192,6 +192,8 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 
 			-- apply the burn damage
 			humanoid:TakeDamage(stack.damagePerTick)
+			local targetChar = humanoid.Parent
+			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
 
 			-- Sound
 			local ok, volume, pitch = pcall(function()
@@ -200,7 +202,7 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 			if ok and volume then
 				pcall(function()
 					SoundModule.PlaySound({
-						Root = humanoid.Parent,
+						Root = targetHRP,
 						soundName = "HitSound",
 						soundID = HIT_SOUND_ID,
 						volume = volume,
@@ -606,7 +608,7 @@ function MagiciansRed.Hellfire(character)
 		OnHit = function(targetChar, newDamage)
 			local hitHumanoid = targetChar:FindFirstChild("Humanoid")
 
-			if not CombatUtils.GetIsBlocking(targetChar).Value then
+			if not CombatUtils.IsBlocking(targetChar).Value then
 				-- Apply a burn stack (damage over time)
 				MagiciansRed.ApplyBurnStack(
 					hitHumanoid, -- The humanoid being hit

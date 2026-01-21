@@ -57,6 +57,11 @@ function BasicStandAttacks.BasicPunch(standModel)
 		return false
 	end
 
+	if CombatUtils.IsBlocking(character) then
+		print("isblocking")
+		return
+	end
+
 	local standTag = standModel:FindFirstChild("StandTag")
 	if not standTag then
 		return false
@@ -182,28 +187,28 @@ function BasicStandAttacks.StartBarrage(character)
 
 	local primaryPart = standModel.PrimaryPart
 	if not primaryPart or not character then
+		print("no primary part or no character")
 		return false
 	end
 	local motor = primaryPart:FindFirstChild("StandMotor", true)
 
 	local standTag = standModel:FindFirstChild("StandTag")
 	if not standTag then
+		print("no standtag")
 		return false
 	end
 
-	local isBlocking = CombatUtils.GetIsBlocking(character)
-	if isBlocking.Value then
+	if CombatUtils.IsBlocking(character) then
+		print("isblocking")
 		return
 	end
 
 	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if not actionFlag then
+	if actionFlag then
+		print("actionflag")
 		return
 	end
-	if actionFlag.Value then
-		return
-	end
-	actionFlag.Value = true
+	CombatUtils.SetActionInProgress(character, MAX_BARRAGE_DURATION)
 
 	print("checks passed")
 
@@ -256,8 +261,6 @@ function BasicStandAttacks.StartBarrage(character)
 			motor.C0 = originalC0s[standModel] * CFrame.new(2, 0, 0)
 		end
 	end
-
-	print("Anotehr test")
 
 	-- Stop idle and play barrage animation
 	AnimationModule.StopAllAnimations(standModel)
@@ -333,10 +336,10 @@ function BasicStandAttacks.StopBarrage(character)
 
 	local actionFlag = CombatUtils.GetActionInProgress(character)
 	if actionFlag then
-		actionFlag.Value = false
+		CombatUtils.SetActionInProgress(character, 0)
 	end
 	if not standModel then
-		actionFlag.Value = false
+		CombatUtils.SetActionInProgress(character, 0)
 		return true
 	end
 

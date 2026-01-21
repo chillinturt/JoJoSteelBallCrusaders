@@ -17,12 +17,10 @@ local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild(
 -- CONFIGURATION
 local MAX_HAMON = 100
 local CHARGE_RATE = 5 -- units per second
-local DRAIN_RATE = 2.5 -- units per second
 local UPDATE_INTERVAL = 0.1 -- seconds
 
 -- Internal tracking
-local chargingFlags = {} -- [character] = true/false
-local activeHamonValues = {} -- [character] = NumberValue
+local hamonByCharacter = {} -- [character] = number
 
 local ZOOM_PUNCH_ANIM_ID = 136847469830162
 local ZOOM_PUNCH_ENDLAG = 0.8
@@ -45,7 +43,7 @@ local BUBBLECUTTER_ENDLAG = 1
 local BUBBLECUTTER_DAMAGE = 6
 local BUBBLECUTTER_SIZE = Vector3.new(12, 6, 10)
 local BUBBLECUTTER_OFFSET = Vector3.new(0, 4, -2)
-local BUBBLECUTTER_COST = 20
+local BUBBLECUTTER_COST = 10
 local BUBBLECUTTER_STUN = 0
 local BUBBLECUTTER_SHOT_COUNT = 3
 local BUBBLECUTTER_DELAY = 0.15 -- seconds between each shot
@@ -63,98 +61,46 @@ local LIFEFORCEAURA_DURATION = 1
 local LIFEFORCEAURA_HEAL = 40
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+local HamonUpdated = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("HamonUpdated")
+
+print("Hamon module required")
 
 -- Utility: get or create HamonMeter NumberValue
-function HamonModule.getHamonValue(character)
-	if not character then
-		return
-	end
-	local val = character:FindFirstChild("HamonMeter")
-	if not val then
-		val = Instance.new("NumberValue")
-		val.Name = "HamonMeter"
-		val.Value = 0
-		val.Parent = character
-	end
-	return val
+function HamonModule.GetHamon(character)
+	return hamonByCharacter[character] or 0
 end
 
-local function spendHamon(character, cost)
-	if not character or typeof(cost) ~= "number" then
-		return false -- invalid input
-	end
+function HamonModule.SetHamon(character, value)
+	hamonByCharacter[character] = math.clamp(value, 0, MAX_HAMON)
 
-	local hamonVal = HamonModule.getHamonValue(character)
-	if not hamonVal then
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		HamonUpdated:FireClient(player, hamonByCharacter[character], MAX_HAMON)
+	end
+end
+
+function HamonModule.SpendHamon(character, cost)
+	if not character or typeof(cost) ~= "number" then
 		return false
 	end
 
-	-- Check if the player has enough Hamon
-	if hamonVal.Value >= cost then
-		hamonVal.Value -= cost
-		return true -- success
-	else
-		return false -- not enough Hamon
-	end
-end
-
--- Start or stop charging
-function HamonModule.StartCharge(character)
-	print("Hamon charge in module")
-	if not character or not character.Parent then
-		return
+	local current = hamonByCharacter[character] or 0
+	if current < cost then
+		return false
 	end
 
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then
-		return
+	hamonByCharacter[character] = current - cost
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		HamonUpdated:FireClient(player, hamonByCharacter[character], MAX_HAMON)
 	end
 
-	local hrp = character:FindFirstChild("HumanoidRootPart")
-	if not hrp then
-		return
-	end
-
-	-- Prevent re-entry
-	if chargingFlags[character] then
-		-- Toggle off (stop charging)
-		chargingFlags[character] = nil
-		return
-	end
-
-	chargingFlags[character] = true
-
-	local hamonValue = HamonModule.getHamonValue(character)
-	activeHamonValues[character] = hamonValue
-
-	-- Start charge loop
-	task.spawn(function()
-		while character.Parent and chargingFlags[character] do
-			local dt = UPDATE_INTERVAL
-			hamonValue.Value = math.clamp(hamonValue.Value + CHARGE_RATE * dt, 0, MAX_HAMON)
-			task.wait(UPDATE_INTERVAL)
-		end
-	end)
-
-	SoundUtils.PlaySound({
-		Root = hrp,
-		soundName = "ChargeHamon",
-		soundID = "18421707745",
-		volume = 1,
-		playbackSpeed = 1,
-		looped = false,
-		range = 160,
-	})
-end
-
-function HamonModule.StopCharge(character)
-	-- Clear SunlightYellow flag
-	chargingFlags[character] = nil
-	print("Charging stopped in module")
+	return true
 end
 
 function HamonModule.ZoomPunch(character)
-	if not spendHamon(character, ZOOM_PUNCH_COST) then
+	if not HamonModule.SpendHamon(character, ZOOM_PUNCH_COST) then
 		return
 	end
 
@@ -172,7 +118,7 @@ function HamonModule.ZoomPunch(character)
 		Duration = ZOOM_PUNCH_DURATION,
 		StunDuration = ZOOM_PUNCH_STUN,
 		Transparency = 1,
-		Name = "Zoom Punch Hitbox",
+		Name = "StandardHitbox",
 	})
 
 	SoundModule.PlaySound({
@@ -197,19 +143,15 @@ function HamonModule.ZoomPunch(character)
 end
 
 function HamonModule.StartSunlightYellow(character)
-	local isBlocking = CombatUtils.GetIsBlocking(character)
-	if isBlocking.Value then
+	local isBlocking = CombatUtils.IsBlocking(character)
+	if isBlocking then
 		return
 	end
 
 	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if not actionFlag then
+	if actionFlag then
 		return
 	end
-	if actionFlag.Value then
-		return
-	end
-	actionFlag.Value = true
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
@@ -257,7 +199,7 @@ function HamonModule.StartSunlightYellow(character)
 	-- Start spawning hitboxes
 	task.spawn(function()
 		while sunlightYellowFlags[character] do
-			if not spendHamon(character, SUNLIGHT_YELLOW_COST) then
+			if not HamonModule.SpendHamon(character, SUNLIGHT_YELLOW_COST) then
 				HamonModule.StopSunlightYellow(character)
 				return
 			end
@@ -273,10 +215,6 @@ function HamonModule.StartSunlightYellow(character)
 				Transparency = 1,
 				Name = "SunlightYellowPunchHitbox",
 				CanBlock = false,
-
-				OnHit = function(targetChar, humanoid)
-					print(character.Name .. " drained " .. targetChar.Name .. " successfully!")
-				end,
 			})
 			task.wait(SUNLIGHT_YELLOW_INTERVAL)
 		end
@@ -288,10 +226,7 @@ end
 function HamonModule.StopSunlightYellow(character)
 	sunlightYellowFlags[character] = false
 
-	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag then
-		actionFlag.Value = false
-	end
+	CombatUtils.ResetActionInProgress(character)
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
@@ -310,7 +245,7 @@ function HamonModule.StopSunlightYellow(character)
 end
 
 function HamonModule.BubbleCutter(character)
-	if not spendHamon(character, BUBBLECUTTER_COST) then
+	if not HamonModule.SpendHamon(character, BUBBLECUTTER_COST) then
 		return
 	end
 
@@ -359,6 +294,7 @@ function HamonModule.BubbleCutter(character)
 				Speed = BUBBLECUTTER_SPEED,
 				Direction = direction,
 				Origin = startPos,
+				CanBlock = false,
 			})
 
 			SpawnClientVfx:FireAllClients({
@@ -397,7 +333,7 @@ function HamonModule.BubbleCutter(character)
 end
 
 function HamonModule.LifeForceAura(character)
-	if not spendHamon(character, LIFEFORCEAURA_COST) then
+	if not HamonModule.SpendHamon(character, LIFEFORCEAURA_COST) then
 		return
 	end
 
@@ -422,37 +358,88 @@ function HamonModule.LifeForceAura(character)
 	humanoid.Health = newHealth
 end
 
-function HamonModule.initHamonForPlayer(player)
-	-- When the character spawns, ensure it has a HamonMeter
+local function initCharacter(player, character)
+	hamonByCharacter[character] = 0
+	HamonUpdated:FireClient(player, 0, MAX_HAMON)
+end
+
+local function initPlayer(player)
+	-- Handle current character
+	if player.Character then
+		initCharacter(player, player.Character)
+	end
+
+	-- Handle future spawns
 	player.CharacterAdded:Connect(function(character)
-		character:WaitForChild("Humanoid") -- wait until the character is fully loaded
-		local specValue = HeroManager.GetField(player, "Specialty")
-		if specValue == "Hamon" then
-			HamonModule.getHamonValue(character)
-			HamonModule.StartCharge(character)
-		end
+		initCharacter(player, character)
+	end)
+
+	player.CharacterRemoving:Connect(function(character)
+		hamonByCharacter[character] = nil
 	end)
 end
 
+for _, player in ipairs(Players:GetPlayers()) do
+	initPlayer(player)
+end
+
+function HamonModule.initHamonForPlayer(player)
+	player.CharacterAdded:Connect(function(character)
+		hamonByCharacter[character] = 0
+		HamonUpdated:FireClient(player, hamonByCharacter[character], MAX_HAMON)
+	end)
+end
+
+local function cleanupCharacter(character)
+	hamonByCharacter[character] = nil
+end
+
+-- Handle future players
+Players.PlayerAdded:Connect(initPlayer)
+
+--[[
 Players.PlayerAdded:Connect(function(player)
+	-- Initialize already-connected players (CRITICAL)
+	for _, player in ipairs(Players:GetPlayers()) do
+		HamonModule.initHamonForPlayer(player)
+		player.CharacterRemoving:Connect(cleanupCharacter)
+
+		if player.Character then
+			hamonByCharacter[player.Character] = 0
+			HamonUpdated:FireClient(player, 0, MAX_HAMON)
+		end
+	end
+
 	HamonModule.initHamonForPlayer(player)
+	player.CharacterRemoving:Connect(cleanupCharacter)
 end)
+]]
 
 -- Constant drain when not charging
 RunService.Heartbeat:Connect(function(dt)
-	for char, hamonVal in pairs(activeHamonValues) do
-		if char and char.Parent and not chargingFlags[char] then
-			hamonVal.Value = math.clamp(hamonVal.Value - DRAIN_RATE * dt, 0, MAX_HAMON)
+	for character, value in pairs(hamonByCharacter) do
+		if not (character and character.Parent) then
+			hamonByCharacter[character] = nil
+			continue
+		end
+
+		-- Passive regeneration
+		local newValue = math.clamp(value + CHARGE_RATE * dt, 0, MAX_HAMON)
+
+		if newValue ~= value then
+			hamonByCharacter[character] = newValue
+			local player = Players:GetPlayerFromCharacter(character)
+			if player then
+				HamonUpdated:FireClient(player, hamonByCharacter[character], MAX_HAMON)
+			end
 		end
 	end
 end)
 
 -- Cleanup when character despawns
 Players.PlayerRemoving:Connect(function(player)
-	local char = player.Character
-	if char then
-		chargingFlags[char] = nil
-		activeHamonValues[char] = nil
+	if player.Character then
+		cleanupCharacter(player.Character)
 	end
 end)
 

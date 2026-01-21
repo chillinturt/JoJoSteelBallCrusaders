@@ -1,6 +1,15 @@
 local KingCarmine = require(script.Parent:WaitForChild("KingCarmine"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+
+local CooldownUpdateEvent = game.ReplicatedStorage
+	:WaitForChild("Shared")
+	:WaitForChild("BasicCombat")
+	:WaitForChild("UI")
+	:WaitForChild("CooldownUpdateEvent")
 
 local AbilityRegistry = {}
+
+local lastTimeEraseUse = {}
 
 --------------------------------------------------------------------
 -- Ability Types (Sent to Client)
@@ -61,8 +70,35 @@ AbilityRegistry[4] = {
 	Type = "Press",
 	Hyperarmor = true,
 	Cooldown = 45,
+	EndlagCancel = true,
+
+	BypassGlobalCooldown = true,
+
 	Execute = function(standModel, player)
+		local character = standModel.Parent
+		if not character then
+			return
+		end
+
+		local now = tick()
+
+		-- SECOND PRESS: cancel
+		if KingCarmine.IsTimeEraseActive(player) then
+			KingCarmine.CancelTimeErase(character)
+			return
+		end
+
+		-- cooldown check
+		local lastUse = lastTimeEraseUse[player] or 0
+		if now - lastUse < 45 then
+			return
+		end
+
+		-- activate
 		KingCarmine.TimeErase(standModel)
+
+		lastTimeEraseUse[player] = now
+		CooldownUpdateEvent:FireClient(player, 4, 45)
 	end,
 }
 

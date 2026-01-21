@@ -1,10 +1,10 @@
 -- ServerScriptService/ProjectileManager
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TouchInputService = game:GetService("TouchInputService")
 
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
-local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("BlockModule"))
 
 local RequestProjectileTarget = Instance.new("RemoteFunction")
 RequestProjectileTarget.Name = "RequestProjectileTarget"
@@ -104,18 +104,23 @@ RunService.Heartbeat:Connect(function(dt)
 
 								-- damage & stun
 								local newDamage = p.damageFunc and p.damageFunc(targetChar) or p.damage
-								local isBlocking = p.getIsBlocking(targetChar).Value
-								
+								local isBlocking = p.getIsBlocking(targetChar)
+
 								if isBlocking then
 									if p.CanBlock then
 										-- Successful block — do NOT stop blocking
 										p.playSound(targetChar, newDamage)
 									else
 										-- Tried to block an UNBLOCKABLE projectile → force block cancel
-										BlockModule.StopBlocking(targetChar)
-										humanoid:TakeDamage(newDamage)
-										p.playSound(targetChar, newDamage)
-										p.applyStun(targetChar, p.stunDuration)
+										if p.EndsBlock then
+											--BlockModule.StopBlocking(targetChar)
+											humanoid:TakeDamage(newDamage)
+											p.playSound(targetChar, newDamage)
+											p.applyStun(targetChar, p.stunDuration)
+										else
+											humanoid:TakeDamage(newDamage)
+											p.playSound(targetChar, newDamage)
+										end
 									end
 								else
 									-- Not blocking — normal hit
@@ -123,7 +128,6 @@ RunService.Heartbeat:Connect(function(dt)
 									p.playSound(targetChar, newDamage)
 									p.applyStun(targetChar, p.stunDuration)
 								end
-
 							end
 						end
 					end

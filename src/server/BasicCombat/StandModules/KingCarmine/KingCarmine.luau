@@ -12,6 +12,8 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
+local AbilityHandler =
+	require(game.ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("AbilityHandler"))
 
 local MAX_TELEPORT_DISTANCE = 60 -- studs
 
@@ -33,8 +35,10 @@ local SPLATTER_DAMAGE = 20
 local SPLATTER_DURATION = 3
 local SPLATTER_OFFSET = Vector3.new(0, 0, 8)
 local SPLATTER_ENDLAG = 0.8
-local SPLATTER_STUN = 1.1
+local SPLATTER_STUN = 1.5
 local SPLATTER_SPEED = 200
+
+local activeTimeErase = {}
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
@@ -106,44 +110,6 @@ function KingCarmine.Teleport(character)
 
 	-- Keep the player standing upright, looking horizontally
 	humanoidRootPart.CFrame = CFrame.lookAt(finalTarget, finalTarget + horizontalDirection)
-end
-
-function KingCarmine.TimeErase(standModel)
-	print("Time Erase called on module")
-	local character = standModel.Parent
-
-	local characterHurtbox = character:FindFirstChild("Hurtbox")
-	local standHurtbox = standModel:FindFirstChild("Hurtbox")
-
-	characterHurtbox.CanQuery = false
-	standHurtbox.CanQuery = false
-
-	CombatUtils.SetActionInProgress(character, TIME_ERASE_DURATION)
-
-	SoundModule.PlaySound({
-		Root = standModel.PrimaryPart,
-		soundName = "TimeEraseEffect",
-		soundID = "89498716177477",
-		volume = 2,
-		playbackSpeed = 1,
-		looped = false,
-		range = 160,
-	})
-
-	SoundModule.PlaySound({
-		Root = standModel.PrimaryPart,
-		soundName = "TimeEraseCall",
-		soundID = "4251553413",
-		volume = 2,
-		playbackSpeed = 1,
-		looped = false,
-		range = 160,
-	})
-
-	task.wait(TIME_ERASE_DURATION)
-
-	characterHurtbox.CanQuery = true
-	standHurtbox.CanQuery = true
 end
 
 function KingCarmine.Chop(standModel)
@@ -271,6 +237,97 @@ function KingCarmine.Splatter(standModel)
 		lifetime = SPLATTER_DURATION,
 	})
 	return true
+end
+
+function KingCarmine.TimeErase(standModel)
+	local character = standModel.Parent
+	if not character then
+		return
+	end
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return
+	end
+
+	local token = {}
+	activeTimeErase[player] = token
+
+	-- (hurtboxes, sounds, cooldown resets...)
+	local characterHurtbox = character:FindFirstChild("Hurtbox")
+	local standHurtbox = standModel:FindFirstChild("Hurtbox")
+
+	if characterHurtbox then
+		characterHurtbox.CanQuery = false
+	end
+	if standHurtbox then
+		standHurtbox.CanQuery = false
+	end
+
+	CombatUtils.SetActionInProgress(character, TIME_ERASE_DURATION)
+
+	SoundModule.PlaySound({
+		Root = standModel.PrimaryPart,
+		soundName = "TimeEraseEffect",
+		soundID = "89498716177477",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	SoundModule.PlaySound({
+		Root = standModel.PrimaryPart,
+		soundName = "TimeEraseCall",
+		soundID = "4251553413",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	-- Reset other abilities
+	AbilityHandler.ResetCooldown(player, 1)
+	AbilityHandler.ResetCooldown(player, 2)
+	AbilityHandler.ResetCooldown(player, 3)
+
+	local start = tick()
+	while tick() - start < TIME_ERASE_DURATION do
+		if activeTimeErase[player] ~= token then
+			break
+		end
+		task.wait()
+	end
+
+	-- Cleanup (shared exit path)
+	if characterHurtbox then
+		characterHurtbox.CanQuery = true
+	end
+	if standHurtbox then
+		standHurtbox.CanQuery = true
+	end
+
+	SoundModule.StopSound(standModel.PrimaryPart, "TimeEraseEffect")
+	SoundModule.StopSound(standModel.PrimaryPart, "TimeEraseCall")
+
+	CombatUtils.SetActionInProgress(character, 0.1)
+
+	-- cleanup
+	activeTimeErase[player] = nil
+end
+
+function KingCarmine.CancelTimeErase(character)
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return
+	end
+
+	activeTimeErase[player] = nil
+	print("Time Erase canceled")
+end
+
+function KingCarmine.IsTimeEraseActive(player)
+	return activeTimeErase[player] ~= nil
 end
 
 return KingCarmine

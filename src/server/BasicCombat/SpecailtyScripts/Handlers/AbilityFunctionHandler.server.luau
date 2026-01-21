@@ -11,7 +11,7 @@ local SpecialtyAbilityEvent = Instance.new("RemoteEvent")
 SpecialtyAbilityEvent.Name = "SpecialtyAbilityEvent"
 SpecialtyAbilityEvent.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 
-local AbilityTypes = Instance.new("RemoteEvent")
+local AbilityTypes = Instance.new("RemoteFunction")
 AbilityTypes.Name = "SpecialtyAbilityTypes"
 AbilityTypes.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 

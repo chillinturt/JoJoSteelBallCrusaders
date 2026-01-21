@@ -60,6 +60,24 @@ function AbilityHandler.ApplyCooldown(player, abilityId, duration)
 	cooldownUIEvent:FireClient(player, abilityId, duration or 0)
 end
 
+function AbilityHandler.ResetCooldown(player, abilityId)
+	if not cooldowns[player] then
+		return
+	end
+
+	-- Remove cooldown entry
+	cooldowns[player][abilityId] = nil
+
+	-- Optional cleanup if player has no cooldowns left
+	if next(cooldowns[player]) == nil then
+		cooldowns[player] = nil
+	end
+
+	-- Tell client UI cooldown is finished
+	local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
+	cooldownUIEvent:FireClient(player, abilityId, 0)
+end
+
 -- Check if player is currently on cooldown for abilityId. Returns remaining time or 0.
 function AbilityHandler.IsOnCooldown(player, abilityId)
 	local playerCDs = cooldowns[player]
@@ -80,6 +98,11 @@ end
 function AbilityHandler.ExecuteAbility(player, abilityId, state)
 	local character = player.Character
 	if not character then
+		return
+	end
+
+	if CombatUtils.IsBlocking(character) then
+		print("isblocking")
 		return
 	end
 
@@ -159,7 +182,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 				return
 			end
 			local actionFlag = CombatUtils.GetActionInProgress(character)
-			if actionFlag.Value then
+			if actionFlag then
 				return
 			end
 
@@ -193,7 +216,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 			if CombatUtils.GetStun(character) then
 				return
 			end
-			if CombatUtils.GetActionInProgress(character).Value and not abilityData.EndlagCancel then
+			if CombatUtils.GetActionInProgress(character) and not abilityData.EndlagCancel then
 				return
 			end
 
@@ -225,7 +248,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		end
 	end
 	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag.Value and not abilityData.EndlagCancel then
+	if actionFlag and not abilityData.EndlagCancel then
 		return
 	end
 

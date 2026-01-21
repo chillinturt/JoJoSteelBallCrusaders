@@ -23,12 +23,12 @@ local function hasEnoughHamon(character, cost)
 		return true
 	end
 
-	local hamonValue = HamonModule.getHamonValue(character)
+	local hamonValue = HamonModule.GetHamon(character)
 	if not hamonValue then
 		return false
 	end
 
-	return hamonValue.Value >= cost
+	return hamonValue >= cost
 end
 
 ---------------------------------------------------------------------
@@ -93,6 +93,11 @@ end
 function AbilityHandler.ExecuteAbility(player, abilityId, state)
 	local character = player.Character
 	if not character then
+		return
+	end
+
+	if CombatUtils.IsBlocking(character) then
+		print("isblocking")
 		return
 	end
 
@@ -162,7 +167,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 				return
 			end
 			local actionFlag = CombatUtils.GetActionInProgress(character)
-			if actionFlag.Value then
+			if actionFlag then
 				return
 			end
 			if not hasEnoughHamon(character, abilityData.HamonCost) then
@@ -199,7 +204,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 			if CombatUtils.GetStun(character) then
 				return
 			end
-			if CombatUtils.GetActionInProgress(character).Value then
+			if CombatUtils.GetActionInProgress(character) then
 				return
 			end
 
@@ -229,7 +234,7 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		return
 	end
 	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag.Value then
+	if actionFlag then
 		return
 	end
 	if not hasEnoughHamon(character, abilityData.HamonCost) then

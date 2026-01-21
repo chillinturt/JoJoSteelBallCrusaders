@@ -58,7 +58,6 @@ end
 -- Unified input handlers
 -----------------------------------------------------------------------
 local function handleInputBegan(abilityId)
-	print("handle input begins...")
 	local abilityType = CurrentAbilityTypes[abilityId]
 	if not abilityType then
 		print("no ability type found")
@@ -67,13 +66,10 @@ local function handleInputBegan(abilityId)
 
 	if abilityType == "Press" then
 		FireAbility(abilityId, nil)
-		print("Press ability fired from client")
 	elseif abilityType == "Toggle" then
 		FireAbility(abilityId, "Toggle")
-		print("Toggle ability fired from client")
 	elseif abilityType == "Hold" then
 		FireAbility(abilityId, "Start")
-		print("Hold ability fired from client")
 	end
 end
 

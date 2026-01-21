@@ -1,23 +1,26 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-
-local blockEvent = Instance.new("RemoteEvent")
-blockEvent.Name = "BlockEvent"
-blockEvent.Parent = ReplicatedStorage.Shared.BasicCombat
-
+print("before loading block module")
 local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("BlockModule"))
+print("after loading block module")
+local CanBlockFunction = Instance.new("RemoteFunction")
+CanBlockFunction.Name = "CanBlockFunction"
+CanBlockFunction.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 
-blockEvent.OnServerEvent:Connect(function(player, isStarting)
+local BlockEvent = Instance.new("RemoteEvent")
+BlockEvent.Name = "BlockEvent"
+BlockEvent.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
+
+BlockEvent.OnServerEvent:Connect(function(player, action)
 	local character = player.Character
-	local stun = character and character:FindFirstChild("Stun")
 
-	-- Prevent blocking if stunned
-	if stun then
-		return
-	end
-
-	if isStarting then
-		BlockModule.StartBlocking(character)
-	else
+	if action == "Start" then
+		BlockModule.SetBlockHeld(character, true)
+		BlockModule.TryStartBlocking(character)
+	elseif action == "EmergencyStart" then
+		BlockModule.SetBlockHeld(character, true)
+		BlockModule.TryStartEmergencyBlock(character)
+	elseif action == "End" then
+		BlockModule.SetBlockHeld(character, false)
 		BlockModule.StopBlocking(character)
 	end
 end)

@@ -6,6 +6,7 @@ local Players = game:GetService("Players")
 
 -- Require the module (adjust path if needed)
 local OneVsOne = require(ServerScriptService.Objectives.OneVsOneModule)
+local FootstepSystem = require(game.ServerScriptService.Utilities.FootstepSystem)
 
 -- **IMPORTANT**: Ensure your OneVsOneModule has these lines at the bottom (if not already added):
 -- OneVsOne.Spawn1 = Spawn1
@@ -126,7 +127,9 @@ local function SetupCharacterConnections(player)
 			if CurrentGameLives[player] and PlayerSpawns[player] and CurrentGameLives[player] > 0 then
 				local hrp = character:FindFirstChild("HumanoidRootPart")
 				if hrp then
-					hrp.CFrame = PlayerSpawns[player].CFrame + Vector3.new(0, 3, 0) -- Offset to prevent spawnkill
+					FootstepSystem.Disable(player, 0.5)
+					hrp.CFrame = PlayerSpawns[player].CFrame + Vector3.new(0, 8, 0) -- Offset to prevent spawnkill
+					FootstepSystem.Reset(player, character)
 					print(player.Name .. " respawned in arena (lives: " .. CurrentGameLives[player] .. ")")
 				end
 			end

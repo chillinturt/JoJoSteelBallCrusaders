@@ -88,10 +88,10 @@ function HierophantModule.StartSplash(character)
 	end
 
 	local actionFlag = combatUtils.GetActionInProgress(character)
-	if actionFlag.Value then
+	if actionFlag then
 		return
 	end
-	actionFlag.Value = true
+	combatUtils.SetActionInProgress(character, MAX_SPLASH_DURATION)
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
@@ -240,7 +240,7 @@ function HierophantModule.StopSplash(character)
 	end
 
 	if actionFlag then
-		actionFlag.Value = false
+		combatUtils.ResetActionInProgress(character)
 	end
 
 	-- Reset animation

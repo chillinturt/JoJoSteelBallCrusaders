@@ -1,4 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Players = game:GetService("Players")
 
 local StarPurple = require(script.Parent:WaitForChild("StarPurple"))
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
@@ -10,7 +11,8 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 
 -- Track MachOra cooldown & 2-second follow-up window
 local lastMachOraUseTime = {} -- player -> tick()
-local recentMachOra = {} -- player -> tick() + 2 seconds
+local machOraState = {}
+local machOraFollowupExpiry = {}
 
 local COOLDOWN_TIME = 10
 local FOLLOWUP_WINDOW = 2
@@ -46,8 +48,7 @@ AbilityRegistry[2] = {
 	Name = "MachOra",
 	Type = "Press",
 	Cooldown = COOLDOWN_TIME,
-
-	-- 🔥 tell AbilityHandler NOT to block this ability
+	Hyperarmor = true,
 	BypassGlobalCooldown = true,
 
 	Execute = function(standModel, player)
@@ -57,38 +58,80 @@ AbilityRegistry[2] = {
 		end
 
 		local now = tick()
-		local lastUse = lastMachOraUseTime[player] or 0
-		local followupExpiry = recentMachOra[player] or 0
+		local state = machOraState[player] or "idle"
 
-		-- MachOra2 follow-up (bypass stun, cooldown, action restrictions)
-		if now <= followupExpiry then
-			StarPurple.onMachOra2Requested(character)
-			recentMachOra[player] = nil
-			return
-		end
+		----------------------------------------------------------
+		-- ❌ GLOBAL LOCKS
+		----------------------------------------------------------
 
-		-- MachOra1 (normal use)
-		-- obey stun & action
-		if CombatUtils.GetStun(character) then
-			return
-		end
 		if CombatUtils.GetActionInProgress(character).Value then
 			return
 		end
 
-		if now - lastUse < COOLDOWN_TIME then
-			return -- still on cooldown
+		----------------------------------------------------------
+		-- ✅ MACHORA2 (SECOND PRESS)
+		----------------------------------------------------------
+		if state == "followup" then
+			machOraState[player] = "cooldown"
+			machOraFollowupExpiry[player] = nil
+			lastMachOraUseTime[player] = now
+
+			StarPurple.onMachOra2Requested(character)
+			CooldownUpdateEvent:FireClient(player, 2, COOLDOWN_TIME)
+
+			-- Exit cooldown
+			task.delay(COOLDOWN_TIME, function()
+				if machOraState[player] == "cooldown" then
+					machOraState[player] = "idle"
+				end
+			end)
+
+			return
 		end
 
-		-- Perform MachOra1
+		----------------------------------------------------------
+		-- ❌ BLOCK NON-IDLE STATES
+		----------------------------------------------------------
+		if state ~= "idle" then
+			return
+		end
+
+		if CombatUtils.GetStun(character) then
+			return
+		end
+
+		----------------------------------------------------------
+		-- ❌ COOLDOWN CHECK
+		----------------------------------------------------------
+		local lastUse = lastMachOraUseTime[player] or 0
+		if now - lastUse < COOLDOWN_TIME then
+			return
+		end
+
+		----------------------------------------------------------
+		-- ✅ MACHORA1 (FIRST PRESS)
+		----------------------------------------------------------
 		StarPurple.onMachOraRequested(character)
 
-		-- Start cooldown manually
-		lastMachOraUseTime[player] = now
-		CooldownUpdateEvent:FireClient(player, 2, COOLDOWN_TIME)
+		machOraState[player] = "followup"
+		machOraFollowupExpiry[player] = now + FOLLOWUP_WINDOW
 
-		-- Allow MachOra2 for 2 seconds
-		recentMachOra[player] = now + FOLLOWUP_WINDOW
+		-- 🔥 AUTO-EXPIRE FOLLOW-UP → COOLDOWN
+		task.delay(FOLLOWUP_WINDOW, function()
+			if machOraState[player] == "followup" then
+				machOraState[player] = "cooldown"
+				machOraFollowupExpiry[player] = nil
+				lastMachOraUseTime[player] = tick()
+
+				CooldownUpdateEvent:FireClient(player, 2, COOLDOWN_TIME)
+
+				task.delay(COOLDOWN_TIME, function()
+					if machOraState[player] == "cooldown" then
+						machOraState[player] = "idle"
+					end
+				end)
+			end
+		end)
 	end,
 }
 
@@ -121,5 +164,11 @@ AbilityRegistry[4] = {
 		end
 	end,
 }
+
+Players.PlayerRemoving:Connect(function(player)
+	machOraState[player] = nil
+	machOraFollowupExpiry[player] = nil
+	lastMachOraUseTime[player] = nil
+end)
 
 return AbilityRegistry

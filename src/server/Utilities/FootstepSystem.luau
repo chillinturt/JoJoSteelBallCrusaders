@@ -1,9 +1,17 @@
--- ServerScript: FootstepSystem
+local FootstepSystem = {}
+
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 
--- Configure sounds per material
+-- === STATE ===
+local footstepDisabledUntil = {}
+local lastFootstep = {}
+local connections = {}
+
+-- === CONFIG ===
+local STEP_INTERVAL = 10
+
 local FootstepSounds = {
 	Grass = "98069158661569",
 	Concrete = "81623756670923",
@@ -12,36 +20,25 @@ local FootstepSounds = {
 	Default = "81623756670923",
 }
 
--- Distance between footsteps in studs
-local STEP_INTERVAL = 10 -- Adjust to your liking
-
--- Track last footstep position for each player
-local lastFootstep = {}
-
--- Raycast parameters
 local raycastParams = RaycastParams.new()
 raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 raycastParams.IgnoreWater = true
 
--- Helper: detect material under character
+-- === HELPERS ===
+
 local function getMaterialUnderHumanoid(humanoid)
 	local root = humanoid.RootPart
 	if not root then
 		return nil
 	end
 
-	local origin = root.Position
-	local direction = Vector3.new(0, -5, 0) -- cast downward
 	raycastParams.FilterDescendantsInstances = { humanoid.Parent }
 
-	local ray = workspace:Raycast(origin, direction, raycastParams)
-	if ray and ray.Instance then
-		return ray.Material.Name
-	end
-	return nil
+	local ray = workspace:Raycast(root.Position, Vector3.new(0, -5, 0), raycastParams)
+
+	return ray and ray.Material.Name or nil
 end
 
--- Helper: play footstep sound
 local function playFootstep(player, humanoid)
 	local root = humanoid.RootPart
 	if not root then
@@ -62,24 +59,30 @@ local function playFootstep(player, humanoid)
 	})
 end
 
--- Setup footstep tracking for a player
-local function setupFootsteps(player, character)
+-- === CORE ===
+
+function FootstepSystem.SetupCharacter(player, character)
 	local humanoid = character:WaitForChild("Humanoid")
 	local root = character:WaitForChild("HumanoidRootPart")
 
 	lastFootstep[player] = root.Position
 
-	local connection
-	connection = RunService.Heartbeat:Connect(function()
-		if not humanoid or humanoid.Health <= 0 then
-			if connection then
-				connection:Disconnect()
-			end
-			lastFootstep[player] = nil
+	-- Cleanup old connection
+	if connections[player] then
+		connections[player]:Disconnect()
+	end
+
+	connections[player] = RunService.Heartbeat:Connect(function()
+		-- Suppressed?
+		if footstepDisabledUntil[player] and tick() < footstepDisabledUntil[player] then
+			lastFootstep[player] = root.Position
 			return
 		end
 
-		-- Only play footsteps if touching the ground
+		if humanoid.Health <= 0 then
+			return
+		end
+
 		if humanoid.FloorMaterial ~= Enum.Material.Air then
 			local dist = (root.Position - lastFootstep[player]).Magnitude
 			if dist >= STEP_INTERVAL then
@@ -90,19 +93,47 @@ local function setupFootsteps(player, character)
 	end)
 end
 
--- Connect for new characters
+-- === PUBLIC API ===
+
+function FootstepSystem.Disable(player, duration)
+	footstepDisabledUntil[player] = tick() + (duration or 0.3)
+end
+
+function FootstepSystem.Reset(player, character)
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if root then
+		lastFootstep[player] = root.Position
+	end
+end
+
+function FootstepSystem.Enable(player)
+	footstepDisabledUntil[player] = nil
+end
+
+function FootstepSystem.Cleanup(player)
+	if connections[player] then
+		connections[player]:Disconnect()
+		connections[player] = nil
+	end
+	lastFootstep[player] = nil
+	footstepDisabledUntil[player] = nil
+end
+
+-- === PLAYER HOOKS ===
+
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
-		setupFootsteps(player, character)
+		FootstepSystem.SetupCharacter(player, character)
 	end)
 end)
 
--- Connect existing players
 for _, player in ipairs(Players:GetPlayers()) do
 	if player.Character then
-		setupFootsteps(player, player.Character)
+		FootstepSystem.SetupCharacter(player, player.Character)
 	end
 	player.CharacterAdded:Connect(function(character)
-		setupFootsteps(player, character)
+		FootstepSystem.SetupCharacter(player, character)
 	end)
 end
+
+return FootstepSystem

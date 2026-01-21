@@ -28,7 +28,7 @@ AbilityRegistry[1] = {
 	HamonCost = 2,
 	ExecuteStart = function(player)
 		local character = player.Character
-		if Hamon.getHamonValue(character).Value < SUNLIGHT_YELLOW_COST then
+		if Hamon.GetHamon(character) < SUNLIGHT_YELLOW_COST then
 			return
 		end
 		if character then
@@ -53,7 +53,7 @@ AbilityRegistry[2] = {
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
-		if Hamon.getHamonValue(character).Value < ZOOM_PUNCH_COST then
+		if Hamon.GetHamon(character) < ZOOM_PUNCH_COST then
 			return
 		end
 		if character then
@@ -72,7 +72,7 @@ AbilityRegistry[3] = {
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
-		if Hamon.getHamonValue(character).Value < BUBBLECUTTER_COST then
+		if Hamon.GetHamon(character) < BUBBLECUTTER_COST then
 			return
 		end
 		if character then
@@ -91,7 +91,7 @@ AbilityRegistry[4] = {
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
-		if Hamon.getHamonValue(character).Value < LIFEFORCEAURA_COST then
+		if Hamon.GetHamon(character) < LIFEFORCEAURA_COST then
 			return
 		end
 		if character then

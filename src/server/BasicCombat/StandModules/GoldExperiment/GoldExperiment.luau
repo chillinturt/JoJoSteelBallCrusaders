@@ -13,7 +13,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
-local LIFE_OVERFLOW_DAMAGE = 15
+local LIFE_OVERFLOW_DAMAGE = 25
 local LIFE_OVERFLOW_ENDLAG = 1
 local LIFE_OVERFLOW_SIZE = Vector3.new(4, 4, 7)
 local LIFE_OVERFLOW_OFFSET = Vector3.new(2, 0, -8)
@@ -22,12 +22,12 @@ local LIFE_OVERFLOW_STUN = 2
 
 local ERASE_ANIM_ID = 90498591949232
 
-local EAGLESTRIKE_DAMAGE = 13
+local EAGLESTRIKE_DAMAGE = 20
 local EAGLESTRIKE_SIZE = Vector3.new(4, 4, 7)
 local EAGLESTRIKE_OFFSET = Vector3.new(0, 4, -2)
-local EAGLESTRIKE_STUN = 1
-local EAGLESTRIKE_SPEED = 40
-local EAGLESTRIKE_REDIRECT_SPEED = 70
+local EAGLESTRIKE_STUN = 1.5
+local EAGLESTRIKE_SPEED = 170
+local EAGLESTRIKE_REDIRECT_SPEED = 220
 local EAGLESTRIKE_ENDLAG = 0.5
 local EAGLESTRIKE_DURATION = 10
 
@@ -36,11 +36,12 @@ local TREEOFLIFE_SIZE = Vector3.new(30, 30, 30)
 local TREEOFLIFE_DELAY = 1
 local TREEOFLIFE_HEAL = 4
 
-local TREEOFLIFE_SEED_DAMAGE = 15
+local TREEOFLIFE_SEED_DAMAGE = 25
 local TREEOFLIFE_SEED_SIZE = Vector3.new(5, 5, 5)
 local TREEOFLIFE_SEED_SPEED = 100
 local TREEOFLIFE_SEED_GRAVITY = -workspace.Gravity * 0.8
 local TREEOFLIFE_SEED_DURATION = 5
+local TREEOFLIFE_SEED_STUN = 1.5
 
 -- track projectile state per player
 local eagleStrikeState = {} -- [player] = "first" | "redirect"
@@ -81,7 +82,7 @@ function GoldExperiment.LifeOverflow(standModel)
 		Size = LIFE_OVERFLOW_SIZE,
 		Offset = CFrame.new(LIFE_OVERFLOW_OFFSET),
 		Color = BrickColor.new("Bright red"),
-		Duration = 0.75,
+		Duration = 1,
 		StunDuration = LIFE_OVERFLOW_STUN,
 		Transparency = 1,
 		Name = "LifeOverflowHitbox",
@@ -320,6 +321,7 @@ function GoldExperiment.TreeOfLife(character)
 		DetectSurface = true,
 		CanBlock = false,
 		Transparency = 1,
+		StunDuration = TREEOFLIFE_SEED_STUN,
 
 		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
 			print("[GoldExperimentModule!!!] Projectile hit surface:", hitResult.Instance.Name)
@@ -490,6 +492,7 @@ function GoldExperiment.CarnivorousTrap(character)
 		DetectSurface = true,
 		CanBlock = false,
 		Transparency = 1,
+		StunDuration = TREEOFLIFE_SEED_STUN,
 
 		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
 			print("[GoldExperimentModule!!!] Projectile hit surface:", hitResult.Instance.Name)

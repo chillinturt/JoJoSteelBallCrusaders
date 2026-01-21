@@ -16,7 +16,7 @@ PunchEvent.OnServerEvent:Connect(function(player)
 	end
 
 	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag.Value then
+	if actionFlag then
 		return
 	end
 

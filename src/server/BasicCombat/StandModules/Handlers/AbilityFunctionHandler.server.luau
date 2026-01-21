@@ -19,7 +19,6 @@ local AbilityHandler = require(ServerScriptService.BasicCombat.StandModules.Hand
 
 -- Client calls: AbilityFunction:InvokeServer(abilityId, state)
 AbilityFunction.OnServerInvoke = function(player, abilityId, state)
-	print("Ability event fired")
 	AbilityHandler.ExecuteAbility(player, abilityId, state)
 	return true -- optional: success feedback
 end

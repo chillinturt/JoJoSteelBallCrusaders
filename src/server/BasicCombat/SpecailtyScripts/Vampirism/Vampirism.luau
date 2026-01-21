@@ -33,8 +33,8 @@ local SPACE_RIPPER_STINGY_EYES_ENDLAG = 0.1
 local SPACE_RIPPER_STINGY_EYES_DAMAGE = 2.0
 local SPACE_RIPPER_STINGY_EYES_SIZE = Vector3.new(6, 6, 6)
 local SPACE_RIPPER_STINGY_EYES_OFFSET = Vector3.new(0, 4, 2)
-local SPACE_RIPPER_STINGY_EYES_COST = 10
-local SPACE_RIPPER_STINGY_EYES_STUN = 0
+--local SPACE_RIPPER_STINGY_EYES_COST = 10
+local SPACE_RIPPER_STINGY_EYES_STUN = 0.5
 local SPACE_RIPPER_STINGY_EYES_SHOT_COUNT = 10
 local SPACE_RIPPER_STINGY_EYES_DELAY = 0.04 -- seconds between each shot
 local SPACE_RIPPER_STINGY_EYES_STARTUP = 0.6
@@ -62,7 +62,7 @@ function VampirismModule.DivineDrink(character)
 		Duration = DIVINE_DRINK_DURATION,
 		StunDuration = DIVINE_DRINK_STUN,
 		Transparency = 1,
-		Name = "DivineDrinkHitbox",
+		Name = "StandardHitbox",
 		CanBlock = false, -- ✅ Unblockable
 		OnHit = function(targetChar, humanoid)
 			print(character.Name .. " drained " .. targetChar.Name .. " successfully!")
@@ -107,7 +107,7 @@ function VampirismModule.VaporizationFreeze(character)
 		Duration = VAPORIZATION_FREEZE_DURATION,
 		StunDuration = VAPORIZATION_FREEZE_STUN,
 		Transparency = 1,
-		Name = "VaporizationFreezeHitbox",
+		Name = "StandardHitbox",
 		OnHit = function(targetChar, humanoid)
 			print(character.Name .. " drained " .. targetChar.Name .. " successfully!")
 			VampireModule.addBlood(character, VAPORIZATION_FREEZE_BLOOD)
@@ -136,10 +136,6 @@ function VampirismModule.VaporizationFreeze(character)
 end
 
 function VampirismModule.SpaceRipperStingyEyes(character)
-	if not VampireModule.spendBlood(character, SPACE_RIPPER_STINGY_EYES_COST) then
-		return
-	end
-
 	AnimationModule.PlayAnimation(character, DIVINE_DRINK_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, SPACE_RIPPER_STINGY_EYES_ENDLAG)
 
@@ -186,6 +182,7 @@ function VampirismModule.SpaceRipperStingyEyes(character)
 				Speed = 250,
 				Direction = direction,
 				Origin = startPos,
+				CanBlock = false,
 			})
 			if i < SPACE_RIPPER_STINGY_EYES_SHOT_COUNT then
 				task.wait(SPACE_RIPPER_STINGY_EYES_DELAY)
@@ -200,7 +197,7 @@ function VampirismModule.SpaceRipperStingyEyes(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
+		range = 1000,
 	})
 end
 

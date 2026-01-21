@@ -8,6 +8,7 @@ MenuState.Changed = Instance.new("BindableEvent")
 function MenuState:SetOpen(isOpen)
 	self.MenuOpen = isOpen
 	self.Changed:Fire(isOpen)
+	print("Menu state changed..." .. tostring(isOpen))
 end
 
 return MenuState

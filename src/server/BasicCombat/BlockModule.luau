@@ -1,13 +1,8 @@
 --// BlockModule.lua
 local BlockModule = {}
 
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
-
-local CanBlockFunction = Instance.new("RemoteFunction")
-CanBlockFunction.Name = "CanBlockFunction"
-CanBlockFunction.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 
 --// Constants
 local BLOCK_ANIMATION_ID = "82125777884940" -- character loop
@@ -15,19 +10,40 @@ local STAND_BLOCK_ANIMATION = "133892948612008" -- Stand loop
 
 local BLOCK_SLOW = 0.5
 
+local EMERGENCYBLOCK_COST = 35
+
 --// Services / Modules
 local SlowingFieldRegistry = require(ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
-local PilotModule = require(game.ServerScriptService.BasicCombat:WaitForChild("PilotModule"))
+local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
+local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 
 --// Internal state
 local activeAnimations = {} -- [character] = AnimationTrack
 
+-- Server
+local emergencyBlockCooldown = {} -- [player] = timeWhenAllowedAgain
+local currentlyBlocking = {} -- [player] = true/false
+local suppressAutoRestart = {}
+local blockHeld = {} -- [character] = true / false
+
+local EMERGENCY_BLOCK_COOLDOWN = 1.5 -- seconds (tune later)
+local EMERGENCYBLOCK_SIZE = Vector3.new(10, 10, 10)
+local EMERGENCYBLOCK_KNOCKBACK_SPEED = 60
+local EMERGENCYBLOCK_KNOCKBACK_DURATION = 0.5
+local EMERGENCYBLOCK_OFFSET = Vector3.new(0, 0, 0)
+
+local BlockUpdateEvent = game.ReplicatedStorage.UIs.RemoteEvents:WaitForChild("BlockUpdateEvent")
+
 --=============================================================
 --  Helper Functions
 --=============================================================
+
+local function sendBlockUpdate(player, value)
+	BlockUpdateEvent:FireClient(player, value)
+end
 
 local function stopBlockingAnimation(character)
 	if activeAnimations[character] then
@@ -57,68 +73,26 @@ end
 --=============================================================
 --  Core Functions
 --=============================================================
-
-function BlockModule.StartBlocking(character)
-	if not character then
-		print("no character found")
-		return
-	end
-
-	local actionFlag = CombatUtils.GetActionInProgress(character)
-	local isBlocking = CombatUtils.GetIsBlocking(character)
-	local stun = character:FindFirstChild("Stun")
-
-	-- Prevent block during stun or conflicting actions
-	if stun or actionFlag.Value or isBlocking.Value then
-		print(" tried to block, but stunned or blocking or actionflag")
-		return
-	end
-
-	local standModel = StandUtils.getStandModel(character)
-	local entity = standModel or character
+local function applyBlockingState(character)
 	local hum = character:FindFirstChild("Humanoid")
-	local moveSpeed = character:FindFirstChild("MoveSpeed")
+	local moveSpeed = CombatUtils.GetMoveSpeed(character)
 
 	-- Apply slow
 	if hum and moveSpeed then
 		SlowingFieldRegistry.SetSlow(character, "Block", BLOCK_SLOW)
-		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		local baseSpeed = CombatUtils.GetMoveSpeed(character)
 		local mult = CombatUtils.GetSlowMultiplier(character)
 		hum.WalkSpeed = baseSpeed * mult
 	end
 
-	-- Set flags
-	isBlocking.Value = true
-	actionFlag.Value = true
-
-	-- Stop previous animation
 	stopBlockingAnimation(character)
 
-	local player = Players:GetPlayerFromCharacter(character)
-	local nonBlockStand = false
-	if player then
-		local powersFolder = player:FindFirstChild("Powers")
-		local heroValue = powersFolder:FindFirstChild("Hero")
-		if heroValue then
-			if
-				heroValue.Value == "Tusk Act 1"
-				or heroValue.Value == "Tusk Act 2"
-				or heroValue.Value == "Tusk Act 3"
-				or heroValue.Value == "Nuclear Rain"
-			then
-				nonBlockStand = true
-			end
-		end
-	end
+	local standModel = StandUtils.getStandModel(character)
+	local entity = standModel or character
 
-	-- Choose correct animation
 	local track
-	if standModel and not nonBlockStand then
-		if PilotModule.GetBoolPilotMode(character) then
-			track = AnimationModule.PlayAnimation(entity, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
-		else
-			track = AnimationModule.PlayAnimation(entity, STAND_BLOCK_ANIMATION, false, Enum.AnimationPriority.Action)
-		end
+	if standModel then
+		track = AnimationModule.PlayAnimation(entity, STAND_BLOCK_ANIMATION, false, Enum.AnimationPriority.Action)
 	else
 		track = AnimationModule.PlayAnimation(character, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
 	end
@@ -127,6 +101,27 @@ function BlockModule.StartBlocking(character)
 		activeAnimations[character] = track
 		freezeAnimation(track)
 	end
+end
+
+function BlockModule.StartBlocking(character)
+	print("start blocking function entered")
+	if currentlyBlocking[character] then
+		return
+	end
+
+	local actionFlag = CombatUtils.GetActionInProgress(character)
+
+	if CombatUtils.GetStun(character) or actionFlag then
+		return
+	end
+	if CombatUtils.IsBlocking(character) then
+		return
+	end
+
+	currentlyBlocking[character] = true
+	CombatUtils.SetBlocking(character, true)
+
+	applyBlockingState(character)
 
 	print(character.Name .. " started blocking!")
 end
@@ -136,29 +131,124 @@ function BlockModule.StopBlocking(character)
 		return
 	end
 
-	local isBlocking = CombatUtils.GetIsBlocking(character)
-	local actionFlag = CombatUtils.GetActionInProgress(character)
-	local hum = character:FindFirstChild("Humanoid")
-	local moveSpeed = character:FindFirstChild("MoveSpeed")
+	-- Prevent auto restart
+	suppressAutoRestart[character] = true
 
-	if not isBlocking.Value then
-		return -- Already off, no double stop
+	-- Always clear internal state
+	currentlyBlocking[character] = nil
+
+	BlockModule.SetBlockHeld(character, false)
+
+	-- Always clear blocking flag
+	if CombatUtils.IsBlocking(character) then
+		CombatUtils.SetBlocking(character, false)
 	end
 
-	-- Reset flags
-	isBlocking.Value = false
-	actionFlag.Value = false
-
 	-- Restore movement
+	local hum = character:FindFirstChild("Humanoid")
+	local moveSpeed = CombatUtils.GetMoveSpeed(character)
+
 	if hum and moveSpeed then
-		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		local baseSpeed = CombatUtils.GetMoveSpeed(character)
 		SlowingFieldRegistry.ClearSlow(character, "Block")
 		local mult = CombatUtils.GetSlowMultiplier(character)
 		hum.WalkSpeed = baseSpeed * mult
 	end
 
+	-- Stop animation
 	stopBlockingAnimation(character)
+
 	print(character.Name .. " stopped blocking!")
+
+	task.defer(function()
+		suppressAutoRestart[character] = nil
+	end)
+end
+
+function BlockModule.StartEmergencyBlocking(character)
+	print(character.Name .. " EMERGENCY BLOCK!")
+
+	CombatUtils.SetBlocking(character, true)
+
+	applyBlockingState(character)
+
+	SoundModule.PlaySound({
+		Root = character:FindFirstChild("HumanoidRootPart"),
+		soundName = "EmergencyBlockingEffect",
+		soundID = "9120042703",
+		volume = 1,
+	})
+
+	if currentlyBlocking[character] then
+		return
+	end
+	currentlyBlocking[character] = true
+	print("It's an EmergencyBlocking!")
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+
+	HitboxSpawner.spawnStationaryHitbox({
+		Position = hrp.CFrame,
+		Character = character,
+		Damage = 0,
+		Size = EMERGENCYBLOCK_SIZE,
+		Offset = CFrame.new(EMERGENCYBLOCK_OFFSET),
+		Color = BrickColor.new("Bright red"),
+		Duration = 0.75,
+		StunDuration = 0,
+		Transparency = 0.6,
+		Name = "EmergencyBlockHitbox",
+		CanBlock = false,
+
+		OnHit = function(targetChar, newDamage)
+			local hitHumanoid = targetChar:FindFirstChild("Humanoid")
+			local targetRootPart = targetChar:FindFirstChild("HumanoidRootPart")
+			local attackerRoot = character:FindFirstChild("HumanoidRootPart")
+
+			if not (hitHumanoid and targetRootPart and attackerRoot) then
+				return
+			end
+
+			-- Lock rotation
+			hitHumanoid.AutoRotate = false
+
+			local rootJoint = targetRootPart:FindFirstChild("RootJoint")
+			local originalC0 = rootJoint and rootJoint.C0
+
+			-- 🔹 Horizontal-only knockback direction
+			-- Forward-based knockback (NOT radial)
+			local worldDirection = attackerRoot.CFrame.LookVector
+			worldDirection = Vector3.new(worldDirection.X, 0, worldDirection.Z).Unit
+
+			-- Convert WORLD → TARGET LOCAL
+			local localDirection = targetRootPart.CFrame:VectorToObjectSpace(worldDirection)
+
+			CombatUtils.ApplyTurningVelocity({
+				Character = targetChar,
+				Speed = EMERGENCYBLOCK_KNOCKBACK_SPEED,
+				Duration = EMERGENCYBLOCK_KNOCKBACK_DURATION,
+				Name = "BlazingStrikeVelocity",
+				Direction = localDirection,
+			})
+
+			-- Restore rotation
+			task.delay(EMERGENCYBLOCK_KNOCKBACK_DURATION, function()
+				if hitHumanoid then
+					hitHumanoid.AutoRotate = true
+				end
+				if rootJoint and originalC0 then
+					rootJoint.C0 = originalC0
+				end
+			end)
+		end,
+	})
+
+	-- Auto stop emergency block
+	task.delay(0.75, function()
+		if character and currentlyBlocking[character] then
+			BlockModule.StopBlocking(character)
+		end
+	end)
 end
 
 --=============================================================
@@ -166,67 +256,134 @@ end
 --=============================================================
 
 function BlockModule.BlockOn(character)
-	local isBlocking = CombatUtils.GetIsBlocking(character)
-	isBlocking.Value = true
+	CombatUtils.SetBlocking(character, true)
 
 	local hum = character:FindFirstChild("Humanoid")
-	local moveSpeed = character:FindFirstChild("MoveSpeed")
+	local moveSpeed = CombatUtils.GetMoveSpeed(character)
 	-- Apply slow
 	if hum and moveSpeed then
 		SlowingFieldRegistry.SetSlow(character, "Block", BLOCK_SLOW)
-		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		local baseSpeed = CombatUtils.GetMoveSpeed(character)
 		local mult = CombatUtils.GetSlowMultiplier(character)
 		hum.WalkSpeed = baseSpeed * mult
 	end
 end
 
 function BlockModule.BlockOff(character)
-	local isBlocking = CombatUtils.GetIsBlocking(character)
-	isBlocking.Value = false
+	CombatUtils.SetBlocking(character, false)
 
 	local hum = character:FindFirstChild("Humanoid")
-	local moveSpeed = character:FindFirstChild("MoveSpeed")
+	local moveSpeed = CombatUtils.GetMoveSpeed(character)
 	-- Restore movement
 	if hum and moveSpeed then
-		local baseSpeed = CombatUtils.GetMoveSpeed(character).Value
+		local baseSpeed = CombatUtils.GetMoveSpeed(character)
 		SlowingFieldRegistry.ClearSlow(character, "Block")
 		local mult = CombatUtils.GetSlowMultiplier(character)
 		hum.WalkSpeed = baseSpeed * mult
 	end
-
 end
 
---=============================================================
---  Validation Function
---=============================================================
+-- helpers
 
-CanBlockFunction.OnServerInvoke = function(player)
-	local character = player.Character
+function BlockModule.SetBlockHeld(character, held)
 	if not character then
-		return false
+		return
 	end
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid or humanoid.Health <= 0 then
-		return false
-	end
-
-	local blockValue = character:FindFirstChild("isBlocking")
-	if blockValue and blockValue.Value then
-		return false -- Already blocking
-	end
-
-	local actionFlag = character:FindFirstChild("ActionInProgress")
-	if actionFlag and actionFlag.Value then
-		return false -- Action in progress
-	end
-
-	local stun = character:FindFirstChild("Stun")
-	if stun then
-		return false -- Stunned
-	end
-
-	return true
+	blockHeld[character] = held
 end
+
+function BlockModule.IsBlockHeld(character)
+	return blockHeld[character] == true
+end
+
+function BlockModule.TryStartBlocking(character)
+	print("tried to start blocking")
+	if not BlockModule.IsBlockHeld(character) then
+		print("block not held")
+		return
+	end
+	if currentlyBlocking[character] then
+		print("already blocking!")
+		return
+	end -- NEW guard
+	if suppressAutoRestart[character] then
+		print("supressing auto restart")
+		return
+	end
+
+	local actionFlag = CombatUtils.GetActionInProgress(character)
+	local stun = CombatUtils.GetStun(character)
+
+	if stun or actionFlag then
+		print("stunned or actionfalg")
+		return
+	end
+	if CombatUtils.IsBlocking(character) then
+		print("is already blocking, using combatutils")
+		return
+	end
+
+	BlockModule.StartBlocking(character)
+end
+
+function BlockModule.TryStartEmergencyBlock(character)
+	if currentlyBlocking[character] then
+		return
+	end
+
+	-- 🔒 Cooldown check
+	local now = os.clock()
+	local nextAllowed = emergencyBlockCooldown[character]
+	if nextAllowed and now < nextAllowed then
+		return
+	end
+
+	if CombatUtils.IsBlocking(character) then
+		return
+	end
+
+	-- 🔓 Emergency block ignores stun
+	local actionFlag = CombatUtils.GetActionInProgress(character)
+	if actionFlag then
+		return
+	end -- still respect actions (for now)
+
+	if not CombatUtils.GetStun(character) then
+		return
+	end
+
+	if not CombatUtils.SpendBlockHP(character, EMERGENCYBLOCK_COST) then
+		return
+	end
+
+	local blockHP = CombatUtils.GetBlockHP(character)
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		sendBlockUpdate(player, blockHP)
+	end
+
+	emergencyBlockCooldown[character] = now + EMERGENCY_BLOCK_COOLDOWN
+
+	BlockModule.StartEmergencyBlocking(character)
+end
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function(character)
+		local hum = character:FindFirstChild("Humanoid")
+		if hum then
+			hum.Died:Connect(function()
+				BlockModule.StopBlocking(character)
+			end)
+		end
+	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	local character = player.Character
+	if character then
+		BlockModule.StopBlocking(character)
+	end
+end)
 
 return BlockModule

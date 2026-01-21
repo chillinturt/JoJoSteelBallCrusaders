@@ -1,4 +1,7 @@
 local Vampirism = require(script.Parent:WaitForChild("Vampirism"))
+local Vampire = require(game.ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
+
+local BLOODRUSH_COST = 20
 
 local AbilityRegistry = {}
 
@@ -19,7 +22,7 @@ AbilityRegistry.AbilityTypes = {
 AbilityRegistry[1] = {
 	Name = "VaporizationFreeze",
 	Type = "Press",
-	Cooldown = 10,
+	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
 		if character then
@@ -67,7 +70,8 @@ AbilityRegistry[4] = {
 	Cooldown = 8,
 	Execute = function(player)
 		local character = player.Character
-		if character then
+		local blood = Vampire.getBloodValue(character).Value
+		if character and blood >= BLOODRUSH_COST then
 			Vampirism.BloodRush(character)
 		end
 	end,

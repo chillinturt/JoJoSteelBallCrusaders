@@ -6,11 +6,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
-local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
-
-local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
+local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 
 local ERASE_ANIM_ID = 90498591949232
 
@@ -59,10 +57,9 @@ function Tusk.NailShot(character)
 	end
 
 	if player then
-		local powersFolder = player:FindFirstChild("Powers")
-		local heroValue = powersFolder:FindFirstChild("Hero")
+		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
-			heroValue.Value = "TuskAct1"
+			HeroManager.SetField(player, "Hero", "TuskAct1")
 			print(player.Name .. " is now TuskAct1!")
 		end
 
@@ -138,10 +135,9 @@ function Tusk.GuidedNail(character)
 	end
 
 	if player then
-		local powersFolder = player:FindFirstChild("Powers")
-		local heroValue = powersFolder:FindFirstChild("Hero")
+		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
-			heroValue.Value = "TuskAct2"
+			HeroManager.SetField(player, "Hero", "TuskAct2")
 			print(player.Name .. " is now TuskAct2!")
 		end
 
@@ -238,10 +234,9 @@ function Tusk.SpinWormhole(character)
 	end
 
 	if player then
-		local powersFolder = player:FindFirstChild("Powers")
-		local heroValue = powersFolder:FindFirstChild("Hero")
+		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
-			heroValue.Value = "TuskAct3"
+			HeroManager.SetField(player, "Hero", "TuskAct3")
 			print(player.Name .. " is now TuskAct3!")
 		end
 
@@ -337,10 +332,9 @@ function Tusk.InfiniteRotation(character)
 	end
 
 	if player then
-		local powersFolder = player:FindFirstChild("Powers")
-		local heroValue = powersFolder:FindFirstChild("Hero")
+		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
-			heroValue.Value = "TuskAct4"
+			HeroManager.SetField(player, "Hero", "TuskAct4")
 			print(player.Name .. " is now TuskAct4!")
 		end
 

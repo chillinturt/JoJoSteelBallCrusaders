@@ -87,35 +87,43 @@ local function startRecharge(player)
 end
 
 local function onDashRequested(player, dirLabel)
+	print("dash requested")
 	-- Validate player & character
 	local character = player and player.Character
 	if not character then
+		print("No character")
 		return
 	end
 	local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then
+		print("no HRP")
 		return
 	end
 	if CombatUtils.GetStun(character) then
+		print("stunned!")
 		return
 	end
-	if CombatUtils.GetIsBlocking(character).Value then
+	if CombatUtils.IsBlocking(character) then
+		print("isblocking")
 		return
 	end
 
 	local data = dashData[player]
 	if not data then
+		print("no dash data")
 		return
 	end
 
 	-- cooldown check
 	local now = tick()
 	if data.lastDashTime and (now - data.lastDashTime) < DASH_COOLDOWN then
+		print("on cooldown")
 		return -- too soon
 	end
 
 	-- Not enough charges
 	if data.charges <= 0 then
+		print("no charges")
 		return
 	end
 
@@ -159,7 +167,7 @@ local function onDashRequested(player, dirLabel)
 		volume = 1.5,
 		playbackSpeed = 1,
 		looped = false,
-		range = 100,
+		range = 160,
 	})
 
 	-- Start recharge if not full
@@ -168,6 +176,7 @@ local function onDashRequested(player, dirLabel)
 	end
 
 	CombatUtils.SetIsDashing(character, 0.5)
+	print("dash finished!")
 end
 
 local function isAirborne(rootPart)
@@ -378,159 +387,39 @@ local function GetDoubleJump(character)
 	return hasDoubleJumped
 end
 
---[[
-local function onDoubleJumpRequest(player)
-	local character = player.Character
-	if not character then
-		return
-	end
-
-	local hrp = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not hrp or not humanoid then
-		return
-	end
-
-	if CombatUtils.GetStun(character) then
-		return
-	end
-	if CombatUtils.GetIsBlocking(character).Value then
-		return
-	end
-	if not isAirborne(hrp) then
-		return
-	end
-
-	-- ✅ Prioritize wall jump: if wall jump is available, do NOT double jump
-	if canWallJump(character) then
-		print("Wall jump available — skipping double jump")
-		return
-	end
-
-	local hasDoubleJumped = GetDoubleJump(character)
-	if hasDoubleJumped.Value then
-		return
-	end
-
-	local dashInfo = dashData[player]
-	if not dashInfo or dashInfo.charges <= 0 then
-		return
-	end
-
-	-- Consume 1 dash charge
-	dashInfo.charges -= 1
-	updateClient(player)
-
-	-- Mark double jump as used
-	SetDoubleJump(character, true)
-
-	task.defer(function()
-		CombatUtils.ApplyTimedVelocity(hrp, DOUBLE_JUMP_Y, DOUBLE_JUMP_DURATION, "DoubleJump", Vector3.new(0, 1, 0))
-	end)
-
-	AnimationModule.PlayAnimation(character, "121074387087243", false, 1, 1)
-	SoundModule.PlaySound({
-		Root = hrp,
-		soundName = "DoubleJump",
-		soundID = "7043834737",
-		volume = 1,
-		playbackSpeed = 1,
-		looped = false,
-		range = 100,
-	})
-
-	print("Double jump on server")
-
-	if dashInfo.charges < MAX_CHARGES then
-		startRecharge(player)
-	end
-end
-
-local function onWallJumpRequest(player)
-	local character = player.Character
-	if not character then
-		return
-	end
-
-	local hrp = character:FindFirstChild("HumanoidRootPart")
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not hrp or not humanoid then
-		return
-	end
-
-	if CombatUtils.GetStun(character) then
-		return
-	end
-	if CombatUtils.GetIsBlocking(character).Value then
-		return
-	end
-	if not isAirborne(hrp) then
-		return
-	end
-
-	-- Check wall jump availability
-	if not canWallJump(character) then
-		return
-	end
-
-	local dashInfo = dashData[player]
-	if not dashInfo then
-		return
-	end
-
-	-- Consume the wall jump
-	SetWallJumpAvailable(character, false)
-
-	task.defer(function()
-		CombatUtils.ApplyTimedVelocity(hrp, DOUBLE_JUMP_Y, DOUBLE_JUMP_DURATION, "WallJump", Vector3.new(0, 1, 0))
-	end)
-
-	AnimationModule.PlayAnimation(character, "121074387087243", false, 1, 1)
-	SoundModule.PlaySound({
-		Root = hrp,
-		soundName = "WallJump",
-		soundID = "6817149752",
-		volume = 2,
-		playbackSpeed = 1,
-		looped = false,
-		range = 100,
-	})
-
-	print("Wall jump on server")
-
-	if dashInfo.charges < MAX_CHARGES then
-		startRecharge(player)
-	end
-end
-]]
-
 local function onJumpRequest(player)
 	local character = player.Character
 	if not character then
+		print("no character")
 		return
 	end
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	local humanoid = character:FindFirstChildOfClass("Humanoid")
 	if not hrp or not humanoid then
+		print("no hrp")
 		return
 	end
 
 	-- Cannot jump while stunned or blocking
 	if CombatUtils.GetStun(character) then
+		print("stun")
 		return
 	end
-	if CombatUtils.GetIsBlocking(character).Value then
+	if CombatUtils.IsBlocking(character) then
+		print("blocking,..")
 		return
 	end
 
 	-- Must be airborne for wall/double jumps
 	if not isAirborne(hrp) then
+		print("not airborne")
 		return
 	end
 
 	local dashInfo = dashData[player]
 	if not dashInfo then
+		print("no dashinfo")
 		return
 	end
 
@@ -546,6 +435,7 @@ local function onJumpRequest(player)
 		SetWallJumpAvailable(character, false)
 	elseif not GetDoubleJump(character).Value and isAirborne(hrp) then
 		if dashInfo.charges <= 0 then
+			print("no charges")
 			return
 		end
 		jumpType = "DoubleJump"
@@ -575,7 +465,7 @@ local function onJumpRequest(player)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 100,
+		range = 160,
 	})
 
 	print(jumpType .. " performed on server")
@@ -586,26 +476,59 @@ local function onJumpRequest(player)
 	end
 end
 
--- Initialize when player joins
-Players.PlayerAdded:Connect(function(player)
+local function initCharacter(player, character)
+	-- Refresh UI on respawn
+	updateClient(player)
+
+	-- Character-specific setup
+	setupDoubleJump(player)
+	getWallJumpValue(character)
+
+	task.spawn(function()
+		monitorGroundState(character)
+	end)
+end
+
+local function initPlayer(player)
+	if dashData[player] then
+		return
+	end
+
+	-- Initialize stamina/dash memory ONCE
 	dashData[player] = {
 		charges = MAX_CHARGES,
 		recharging = false,
 		lastDashTime = 0,
 	}
-	setupDoubleJump(player)
+
+	playerJumpData[player] = playerJumpData[player] or {}
 
 	updateClient(player)
+	setupDoubleJump(player)
 
+	-- Handle existing character
+	if player.Character then
+		initCharacter(player, player.Character)
+	end
+
+	-- Handle future respawns
 	player.CharacterAdded:Connect(function(character)
-		updateClient(player) -- refresh UI on respawn
-		setupDoubleJump(player)
-		getWallJumpValue(character)
-		task.spawn(function()
-			monitorGroundState(character)
-		end)
+		initCharacter(player, character)
 	end)
-end)
+
+	-- Cleanup on leave
+	player.CharacterRemoving:Connect(function(character)
+		-- Character-specific cleanup if needed
+	end)
+end
+
+-- Existing players (THIS FIXES YOUR BUG)
+for _, player in ipairs(Players:GetPlayers()) do
+	initPlayer(player)
+end
+
+-- Future players
+Players.PlayerAdded:Connect(initPlayer)
 
 Players.PlayerRemoving:Connect(function(player)
 	dashData[player] = nil
