@@ -1,4 +1,4 @@
-local TheWorld = {}
+local CrazedDiamond = {}
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
@@ -44,7 +44,7 @@ local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
-function TheWorld.ThrowKnives(standModel)
+function CrazedDiamond.ThrowKnives(standModel)
 	local character = standModel.Parent
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
@@ -113,7 +113,7 @@ function TheWorld.ThrowKnives(standModel)
 	return true
 end
 
-function TheWorld.BlazingStrike(standModel)
+function CrazedDiamond.BlazingStrike(standModel)
 	local character = standModel.Parent
 
 	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
@@ -209,7 +209,7 @@ function TheWorld.BlazingStrike(standModel)
 	})
 end
 
-function TheWorld.KickBarrage(standModel)
+function CrazedDiamond.KickBarrage(standModel)
 	local character = standModel.Parent
 
 	--CombatUtils.SetActionInProgress(character, TEAR_SPACE_DURATION)
@@ -232,7 +232,7 @@ function TheWorld.KickBarrage(standModel)
 	TandemModule.ExitTandemMode(character)
 end
 
-function TheWorld.TimeStop(caster)
+function CrazedDiamond.TimeStop(caster)
 	if not caster then
 		return
 	end
@@ -421,4 +421,4 @@ function TheWorld.TimeStop(caster)
 	end)
 end
 
-return TheWorld
+return CrazedDiamond

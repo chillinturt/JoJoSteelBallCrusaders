@@ -1,4 +1,5 @@
 local NuclearRain = require(script.Parent:WaitForChild("NuclearRain"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 
 local AbilityRegistry = {}
 
@@ -56,7 +57,7 @@ AbilityRegistry[3] = {
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then
-			-- NuclearRain.HeavyRaindrop(standModel)
+			NuclearRain.ExpelBarrier(character)
 		end
 	end,
 }
@@ -64,9 +65,17 @@ AbilityRegistry[3] = {
 AbilityRegistry[4] = {
 	Name = "RainCage",
 	Type = "Press",
-	Cooldown = 20,
+	Cooldown = 25,
 	Execute = function(standModel, player)
-		-- NuclearRain.Hellfire(standModel)
+		local character = standModel.Parent
+		-- 1️⃣ Read barrier FIRST
+		local barrierDamage = CombatUtils.GetTotalBarrier(character)
+		if barrierDamage < 0 then
+			return
+		end
+		if character then
+			NuclearRain.LiquidCage(character)
+		end
 	end,
 }
 

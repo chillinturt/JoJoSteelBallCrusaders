@@ -4,6 +4,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
+local RunService = game:GetService("RunService")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
@@ -42,6 +43,17 @@ local TREEOFLIFE_SEED_SPEED = 100
 local TREEOFLIFE_SEED_GRAVITY = -workspace.Gravity * 0.8
 local TREEOFLIFE_SEED_DURATION = 5
 local TREEOFLIFE_SEED_STUN = 1.5
+
+local TRAP_RADIUS = 28
+local TRAP_DURATION = 6
+local TRAP_PULL_FORCE = 18000
+
+local DEAD_ZONE_RADIUS = 3
+local MAX_PULL_SPEED = 40
+local DAMPING = 0.85
+local CENTER_DAMPING = 0.25
+
+local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
 -- track projectile state per player
 local eagleStrikeState = {} -- [player] = "first" | "redirect"
@@ -274,9 +286,9 @@ function GoldExperiment.TreeOfLife(character)
 	local player = Players:GetPlayerFromCharacter(character)
 
 	local remote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("RequestCameraDirection")
-	local camDirection = remote:InvokeClient(player)
 
 	if player then
+		local camDirection = remote:InvokeClient(player)
 		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
 		if isClose then
 			--direction = hrp:GetPivot().LookVector
@@ -298,17 +310,7 @@ function GoldExperiment.TreeOfLife(character)
 
 	local id = HttpService:GenerateGUID(false)
 
-	SoundModule.PlaySound({
-		Root = hrp,
-		soundName = "TreeOfLifeSeedEffect",
-		soundID = "608600954",
-		volume = 1,
-		playbackSpeed = 1,
-		looped = false,
-		range = 160,
-	})
-
-	HitboxSpawner.spawnArcProjectile({
+	local hitbox = HitboxSpawner.spawnArcProjectile({
 		Character = character,
 		Size = TREEOFLIFE_SEED_SIZE,
 		Damage = TREEOFLIFE_SEED_DAMAGE,
@@ -440,7 +442,107 @@ function GoldExperiment.TreeOfLife(character)
 		lifetime = TREEOFLIFE_SEED_DURATION,
 	})
 
+	SoundModule.PlaySound({
+		Root = hitbox,
+		soundName = "TreeOfLifeSeedEffect",
+		soundID = "608600954",
+		volume = 1,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
 	return true
+end
+
+local function applyVortex(model, center, radius, duration)
+	local humanoid = model:FindFirstChildOfClass("Humanoid")
+	local hrp = model:FindFirstChild("HumanoidRootPart")
+	if not humanoid or not hrp or humanoid.Health <= 0 then
+		return
+	end
+
+	-- Save state
+	local originalPlatformStand = humanoid.PlatformStand
+	local originalAutoRotate = humanoid.AutoRotate
+
+	humanoid.PlatformStand = true
+	humanoid.AutoRotate = false
+
+	local attachment = Instance.new("Attachment")
+	attachment.Parent = hrp
+
+	local force = Instance.new("VectorForce")
+	force.Attachment0 = attachment
+	force.RelativeTo = Enum.ActuatorRelativeTo.World
+	force.ApplyAtCenterOfMass = true
+	force.Parent = hrp
+
+	local connection
+	connection = RunService.Heartbeat:Connect(function()
+		if not model.Parent or humanoid.Health <= 0 then
+			connection:Disconnect()
+			return
+		end
+
+		local offset = center - hrp.Position
+		local distance = offset.Magnitude
+
+		-- Outside influence radius
+		if distance > radius then
+			force.Force = Vector3.zero
+			return
+		end
+
+		local velocity = hrp.AssemblyLinearVelocity
+
+		-- =========================
+		-- 1️⃣ CENTER DEAD ZONE
+		-- =========================
+		if distance <= DEAD_ZONE_RADIUS then
+			-- Kill almost all motion near center
+			hrp.AssemblyLinearVelocity = velocity * CENTER_DAMPING
+			force.Force = Vector3.zero
+			return
+		end
+
+		-- =========================
+		-- 2️⃣ DIRECTIONAL PULL
+		-- =========================
+		local direction = offset.Unit
+		local pullStrength = math.clamp(1 - (distance / radius), 0.25, 1)
+		local desiredForce = direction * TRAP_PULL_FORCE * pullStrength
+
+		-- =========================
+		-- 3️⃣ VELOCITY DAMPING
+		-- =========================
+		local radialSpeed = velocity:Dot(direction)
+		local tangentialVelocity = velocity - direction * radialSpeed
+
+		-- Kill orbiting
+		velocity -= tangentialVelocity * DAMPING
+
+		-- Clamp inward speed
+		if radialSpeed > MAX_PULL_SPEED then
+			velocity -= direction * (radialSpeed - MAX_PULL_SPEED)
+		end
+
+		hrp.AssemblyLinearVelocity = velocity
+		force.Force = desiredForce
+	end)
+
+	task.delay(duration, function()
+		if connection then
+			connection:Disconnect()
+		end
+		force:Destroy()
+		attachment:Destroy()
+
+		if humanoid then
+			humanoid.PlatformStand = originalPlatformStand
+			humanoid.AutoRotate = originalAutoRotate
+		end
+	end)
 end
 
 function GoldExperiment.CarnivorousTrap(character)
@@ -455,9 +557,9 @@ function GoldExperiment.CarnivorousTrap(character)
 	local player = Players:GetPlayerFromCharacter(character)
 
 	local remote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("RequestCameraDirection")
-	local camDirection = remote:InvokeClient(player)
 
 	if player then
+		local camDirection = remote:InvokeClient(player)
 		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
 		if isClose then
 			--direction = hrp:GetPivot().LookVector
@@ -479,7 +581,7 @@ function GoldExperiment.CarnivorousTrap(character)
 
 	local id = HttpService:GenerateGUID(false)
 
-	HitboxSpawner.spawnArcProjectile({
+	local projectile = HitboxSpawner.spawnArcProjectile({
 		Character = character,
 		Size = TREEOFLIFE_SEED_SIZE,
 		Damage = TREEOFLIFE_SEED_DAMAGE,
@@ -495,48 +597,40 @@ function GoldExperiment.CarnivorousTrap(character)
 		StunDuration = TREEOFLIFE_SEED_STUN,
 
 		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
-			print("[GoldExperimentModule!!!] Projectile hit surface:", hitResult.Instance.Name)
+			print("[GoldExperiment] CarnivorousTrap activated")
 
 			local hitBoxOffset = Vector3.new(0, 0, 0)
 
 			-- Determine stationary hitbox position
 			local hitPosition = hitResult.Position
 
-			-- Damage loop
-			task.spawn(function()
-				local startTime = tick()
+			local center = hitResult.Position
 
-				while tick() - startTime < TREEOFLIFE_DURATION do
-					-- Spawn a stationary damage hitbox
-					HitboxSpawner.spawnStationaryHitbox({
-						Position = hitPosition,
-						Character = character,
-						Size = TREEOFLIFE_SIZE,
-						Offset = hitBoxOffset,
-						Color = BrickColor.new("Bright red"),
-						Duration = 1,
-						StunDuration = 0,
-						Transparency = 1,
-						Name = "TreeOfLifeHitbox",
-						Rotation = horizontalDirection, -- ensures horizontal facing of projectile
-						Heal = TREEOFLIFE_HEAL,
-						CanSelfHit = true,
-					})
-
-					-- Wait until next pulse
-					task.wait(TREEOFLIFE_DELAY)
+			-- Pull PLAYERS
+			for _, player in ipairs(Players:GetPlayers()) do
+				if player.Character and player.Character ~= character then
+					local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+					if hrp and (hrp.Position - center).Magnitude <= TRAP_RADIUS then
+						applyVortex(player.Character, center, TRAP_RADIUS, TRAP_DURATION)
+					end
 				end
-			end)
+			end
 
+			-- Pull NPCs
+			for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
+				local hrp = npc:FindFirstChild("HumanoidRootPart")
+				if hrp and (hrp.Position - center).Magnitude <= TRAP_RADIUS then
+					applyVortex(npc, center, TRAP_RADIUS, TRAP_DURATION)
+				end
+			end
+
+			-- VFX
 			SpawnClientVfx:FireAllClients({
 				type = "Stationary",
 				effectName = "CarnivorousTrap",
-				cframe = CFrame.new(hitPosition),
-
-				lifetime = TREEOFLIFE_DURATION,
-
-				scale = 0.1, -- starting size
-
+				cframe = CFrame.new(center),
+				lifetime = TRAP_DURATION,
+				scale = 0.1,
 				expand = true,
 				expandRate = 4,
 				maxScale = 1,
@@ -544,7 +638,30 @@ function GoldExperiment.CarnivorousTrap(character)
 
 			SpawnClientVfx:FireAllClients({
 				type = "Projectile",
-				deleteId = id, -- tells the client to delete
+				deleteId = id,
+			})
+
+			local soundRoot = HitboxSpawner.spawnStationaryHitbox({
+				Position = hitPosition,
+				Character = character,
+				Size = TREEOFLIFE_SIZE,
+				Offset = hitBoxOffset,
+				Color = BrickColor.new("Bright red"),
+				Duration = TRAP_DURATION,
+				StunDuration = 0,
+				Transparency = 1,
+				Name = "CarnivorousTrapSoundRoot",
+				Rotation = horizontalDirection, -- ensures horizontal facing of projectile
+			})
+
+			SoundModule.PlaySound({
+				Root = soundRoot,
+				soundName = "CarnivorousTrapLeavesEffect",
+				soundID = "677921455",
+				volume = 4,
+				playbackSpeed = 1,
+				looped = false,
+				range = 240,
 			})
 		end,
 	})
@@ -563,6 +680,38 @@ function GoldExperiment.CarnivorousTrap(character)
 
 		lifetime = TREEOFLIFE_SEED_DURATION,
 	})
+
+	SoundModule.PlaySound({
+		Root = projectile,
+		soundName = "CarnivorousTrapSeedEffect",
+		soundID = "608600954",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 240,
+	})
+
+	SoundModule.PlaySound({
+		Root = hrp,
+		soundName = "CarnivorousTrapCall",
+		soundID = "6174593000",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 240,
+	})
+
+	task.delay(3, function()
+		SoundModule.PlaySound({
+			Root = hrp,
+			soundName = "CarnivorousTrapCall2",
+			soundID = "135077341189682",
+			volume = 3,
+			playbackSpeed = 1,
+			looped = false,
+			range = 240,
+		})
+	end)
 
 	return true
 end

@@ -74,6 +74,7 @@ end
 ----------------------------------------------------------
 -- Remove all non-default, non-protected UIs
 ----------------------------------------------------------
+
 local function clearNonDefaultUIs(playerGui)
 	for _, ui in ipairs(playerGui:GetChildren()) do
 		if ui:IsA("ScreenGui") then
@@ -87,12 +88,17 @@ local function clearNonDefaultUIs(playerGui)
 		end
 	end
 end
-
 ----------------------------------------------------------
 -- Ensure Default UIs Are Loaded
 ----------------------------------------------------------
 local function ensureDefaultUIs(playerGui)
 	cloneFolderUIs(defaultFolder, playerGui)
+
+	-- 🔒 Force CommsWheel to start disabled
+	local comms = playerGui:FindFirstChild("CommsWheel")
+	if comms then
+		comms.Enabled = false
+	end
 end
 
 ----------------------------------------------------------
@@ -113,6 +119,7 @@ local function loadSpecialtyUI(playerGui, specialty)
 	if cooldownUI then
 		cooldownUI:Clone().Parent = playerGui
 	end
+	print("Successfully loaded spec ui")
 end
 
 ----------------------------------------------------------
@@ -229,10 +236,16 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	else
 		-- Menu is not active; ensure gameplay UIs are visible
 		for _, ui in ipairs(playerGui:GetChildren()) do
-			if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" then
+			if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" and ui.Name ~= "CommsWheel" then
 				ui.Enabled = true
 			end
 		end
+	end
+
+	-- 🔒 Absolute safety: CommsWheel must NEVER start enabled
+	local comms = playerGui:FindFirstChild("CommsWheel")
+	if comms then
+		comms.Enabled = false
 	end
 end
 

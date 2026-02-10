@@ -5,6 +5,7 @@ local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
@@ -50,24 +51,94 @@ local TIME_STOP_RANGE = 50
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+local ScreenColorVfxEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("ScreenColorVfx")
 
-local function MapDamageToSound(damage: number)
-	-- Clamp damage to a reasonable range (so extreme values don’t explode)
-	local minDamage, maxDamage = 0, 50
-	damage = math.clamp(damage, minDamage, maxDamage)
+local function timeStopBall(caster)
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "TimeStopBall",
 
-	-- Normalize to 0–1
-	local t = (damage - minDamage) / (maxDamage - minDamage)
+		-- Position
+		cframe = caster.PrimaryPart.CFrame,
 
-	-- Lerp volume (directly proportional)
-	local minVolume, maxVolume = 0.1, 2
-	local volume = minVolume + (maxVolume - minVolume) * t
+		-- Lifetime
+		lifetime = 0.8,
 
-	-- Lerp pitch (inversely proportional)
-	local minPitch, maxPitch = 0.1, 2.0
-	local pitch = maxPitch - (maxPitch - minPitch) * t
+		-- Visual style
+		transparency = 0.5,
+		scale = 0.8, -- starting size
 
-	return volume, pitch
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 70,
+		maxScale = 20,
+	})
+
+	task.delay(0.3, function()
+		SpawnClientVfx:FireAllClients({
+			type = "Stationary",
+			effectName = "TimeStopBall",
+
+			-- Position
+			cframe = caster.PrimaryPart.CFrame,
+
+			-- Lifetime
+			lifetime = 0.8,
+
+			-- Visual style
+			transparency = 0.5,
+			scale = 0.8, -- starting size
+
+			-- Optional flags for client expansion logic
+			expand = true,
+			expandRate = 70,
+			maxScale = 20,
+		})
+	end)
+
+	task.delay(0.6, function()
+		SpawnClientVfx:FireAllClients({
+			type = "Stationary",
+			effectName = "TimeStopBall",
+
+			-- Position
+			cframe = caster.PrimaryPart.CFrame,
+
+			-- Lifetime
+			lifetime = 0.6,
+
+			-- Visual style
+			transparency = 0.5,
+			scale = 0.8, -- starting size
+
+			-- Optional flags for client expansion logic
+			expand = true,
+			expandRate = 70,
+			maxScale = 20,
+		})
+	end)
+
+	task.delay(1.2, function()
+		SpawnClientVfx:FireAllClients({
+			type = "Stationary",
+			effectName = "TimeStopBall",
+
+			-- Position
+			cframe = caster.PrimaryPart.CFrame,
+
+			-- Lifetime
+			lifetime = 0.6,
+
+			-- Visual style
+			transparency = 0.5,
+			scale = 20, -- starting size
+
+			-- Optional flags for client expansion logic
+			expand = true,
+			expandRate = -60,
+			maxScale = 0.2,
+		})
+	end)
 end
 
 --adds momentum
@@ -82,6 +153,8 @@ local function applyMachOraDash(character)
 	if existingDashVelocity then
 		existingDashVelocity:Destroy() -- Destroy the existing DashVelocity
 	end
+
+	CombatUtils.SetIsDashing(character, MACH_ORA_DASH_DURATION)
 
 	-- Create new BodyVelocity for MachOra
 	local machOraVelocity = Instance.new("BodyVelocity")
@@ -146,13 +219,13 @@ function StarPurple.onMachOraRequested(character)
 	})
 
 	-- Fire first animation (charge-up)
-	AnimationModule.PlayAnimation(standModel, 117096419135889, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimationThenIdle(standModel, 117096419135889, false, Enum.AnimationPriority.Action, 1)
 
 	-- ⏳ Wait 0.6s, then play punch animation & sound
 	--task.wait(0.2)
 	--hitbox spawn
 	--spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
-	HitboxSpawner.spawnHitbox({
+	local hitbox = HitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = MACH_ORA_DAMAGE or 0.1,
 		Size = MACH_ORA_SIZE,
@@ -177,6 +250,26 @@ function StarPurple.onMachOraRequested(character)
 		end,
 	})
 
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "MachOra",
+		attachId = vfxId,
+
+		initialRotation = Vector3.new(
+			0, -- X
+			math.rad(90), -- Y
+			math.rad(90) -- Z
+		),
+
+		offset = CFrame.new(0, 0, 0),
+		scale = 1,
+		transparency = 0.7,
+		attachTo = hitbox,
+	})
+
 	task.wait(0.2)
 
 	-- 🔊 Play punch sound
@@ -189,9 +282,6 @@ function StarPurple.onMachOraRequested(character)
 		looped = false,
 		range = 160,
 	})
-
-	-- Fire second animation (idle)
-	AnimationModule.PlayAnimation(standModel, 89452205434139, false, Enum.AnimationPriority.Action, 1)
 end
 
 function StarPurple.onMachOra2Requested(character)
@@ -210,14 +300,14 @@ function StarPurple.onMachOra2Requested(character)
 	end
 
 	-- Fire animation
-	AnimationModule.PlayAnimation(standModel, 116753187024506, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimationThenIdle(standModel, 116753187024506, false, Enum.AnimationPriority.Action, 1)
 
 	--momentum
 	applyMachOraDash(character)
 
 	--hitbox spawn
 	--spawnHitbox(character, 5, 2, 0, MACH_ORA_DAMAGE)
-	HitboxSpawner.spawnHitbox({
+	local hitbox = HitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = MACH_ORA_DAMAGE or 0.1,
 		Size = MACH_ORA_SIZE,
@@ -242,6 +332,26 @@ function StarPurple.onMachOra2Requested(character)
 		end,
 	})
 
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "MachOra",
+		attachId = vfxId,
+
+		initialRotation = Vector3.new(
+			0, -- X
+			math.rad(90), -- Y
+			math.rad(90) -- Z
+		),
+
+		offset = CFrame.new(0, 0, 0),
+		scale = 1,
+		transparency = 0.7,
+		attachTo = hitbox,
+	})
+
 	-- 🔊 Find or create Sound objects
 	SoundModule.PlaySound({
 		Root = standRoot,
@@ -253,7 +363,6 @@ function StarPurple.onMachOra2Requested(character)
 		range = 160,
 	})
 
-	-- ⏳ Wait 0.6s, then fire idle animation
 	task.wait(0.6)
 
 	-- 🔊 Play punch sound
@@ -267,16 +376,13 @@ function StarPurple.onMachOra2Requested(character)
 		looped = false,
 		range = 160,
 	})
-
-	-- Fire animation
-	AnimationModule.PlayAnimation(standModel, 89452205434139, false, Enum.AnimationPriority.Action, 1)
 end
 
 function StarPurple.GroundPound(standModel)
 	local character = standModel.Parent
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
-	AnimationModule.PlayAnimation(standModel, GROUNDPOUND_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimationThenIdle(standModel, GROUNDPOUND_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, GROUND_POUND_ENDLAG)
 
 	HitboxSpawner.spawnStationaryHitbox({
@@ -347,7 +453,7 @@ function StarPurple.StarFinger(standModel)
 	AnimationModule.PlayAnimation(standModel, GROUNDPOUND_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, STARFINGER_ENDLAG)
 
-	HitboxSpawner.spawnHitbox({
+	local hitbox = HitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = STARFINGER_DAMAGE or 0.1,
 		Size = STARFINGER_SIZE,
@@ -378,12 +484,33 @@ function StarPurple.StarFinger(standModel)
 		looped = false,
 		range = 160,
 	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "StarFingerSlash",
+		attachId = vfxId,
+
+		initialRotation = Vector3.new(
+			0, -- X
+			0, -- Y
+			0 -- Z
+		),
+
+		offset = CFrame.new(0, 0, -4),
+		attachTo = hitbox,
+		scale = Vector3.new(1, 1, 1),
+	})
 end
 
 function StarPurple.TimeStop(caster)
 	if not caster then
 		return
 	end
+
+	local affectedPlayersVfx = {}
 
 	local standModel = StandUtils.getStandModel(caster)
 
@@ -399,23 +526,16 @@ function StarPurple.TimeStop(caster)
 		range = 240,
 	})
 
-	HitboxSpawner.spawnStationaryHitbox({
-		Position = caster.PrimaryPart.CFrame,
-		Stand = standModel,
-		Character = caster,
-		Damage = 0,
-		Size = Vector3.new(100, 100, 100),
-		Offset = Vector3.new(0, 0, 0),
-		Color = BrickColor.new("White"),
-		Duration = 1,
-		StunDuration = 0,
-		Transparency = 0.8,
-		Name = "TimeStopRangeHitbox",
-	})
+	timeStopBall(caster)
 
 	local casterRoot = caster:FindFirstChild("HumanoidRootPart")
 	if not casterRoot then
 		return
+	end
+
+	local casterPlayer = Players:GetPlayerFromCharacter(caster)
+	if casterPlayer then
+		table.insert(affectedPlayersVfx, casterPlayer)
 	end
 
 	-- Freeze all players except caster
@@ -430,6 +550,8 @@ function StarPurple.TimeStop(caster)
 
 				BlockModule.StopBlocking(char)
 				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
+
+				table.insert(affectedPlayersVfx, player)
 
 				local humanoid = char:FindFirstChildOfClass("Humanoid")
 				if humanoid then
@@ -452,9 +574,18 @@ function StarPurple.TimeStop(caster)
 		end
 	end
 
+	for _, plr in ipairs(affectedPlayersVfx) do
+		ScreenColorVfxEvent:FireClient(plr, "TimeStop.Start", STOP_DURATION)
+	end
+
 	-- Freeze all enemy NPCs
 	for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
-		if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+		if
+			npc:IsA("Model")
+			and npc:FindFirstChild("Humanoid")
+			and npc:FindFirstChild("HumanoidRootPart")
+			and npc ~= caster
+		then
 			local root = npc:FindFirstChild("HumanoidRootPart")
 			local distance = (root.Position - casterRoot.Position).Magnitude
 
@@ -521,6 +652,10 @@ function StarPurple.TimeStop(caster)
 			end
 		end
 
+		for _, plr in ipairs(affectedPlayersVfx) do
+			ScreenColorVfxEvent:FireClient(plr, "TimeStop.End")
+		end
+
 		-- Resume NPCs
 		for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
 			if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
@@ -536,7 +671,7 @@ function StarPurple.TimeStop(caster)
 					local moveSpeed = npc:FindFirstChild("MoveSpeed")
 					-- resume movement
 					if moveSpeed then
-						local baseSpeed = CombatUtils.GetMoveSpeed(npc).Value
+						local baseSpeed = CombatUtils.GetMoveSpeed(npc)
 						local mult = CombatUtils.GetSlowMultiplier(npc)
 						humanoid.WalkSpeed = baseSpeed * mult
 					end

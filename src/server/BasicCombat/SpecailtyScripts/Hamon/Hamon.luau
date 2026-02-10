@@ -3,9 +3,8 @@ local HamonModule = {}
 
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local ServerScriptService = game:GetService("ServerScriptService")
-local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local HitboxSpawner = require(game.ServerScriptService.BasicCombat.HitboxSpawner)
@@ -109,7 +108,7 @@ function HamonModule.ZoomPunch(character)
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
-	HitboxSpawner.spawnStandOffHitbox({
+	local hitbox = HitboxSpawner.spawnStandOffHitbox({
 		Character = character,
 		Damage = ZOOM_PUNCH_DAMAGE or 0.1,
 		Size = ZOOM_PUNCH_SIZE,
@@ -140,6 +139,18 @@ function HamonModule.ZoomPunch(character)
 		looped = false,
 		range = 160,
 	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "HamonAttack",
+		attachId = vfxId,
+		offset = CFrame.new(ZOOM_PUNCH_OFFSET),
+		scale = ZOOM_PUNCH_SIZE,
+		attachTo = hitbox,
+	})
 end
 
 function HamonModule.StartSunlightYellow(character)
@@ -154,9 +165,12 @@ function HamonModule.StartSunlightYellow(character)
 	end
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
-	if not hrp then
+	if not hrp or sunlightYellowFlags[character] then
 		return
 	end
+	CombatUtils.SetActionInProgress(character, MAX_SUNLIGHT_YELLOW_DURATION)
+
+	sunlightYellowFlags[character] = {}
 
 	local AnimSpeed = 2
 	local hitBoxOffset = CFrame.new(0, 0, -2)
@@ -164,9 +178,6 @@ function HamonModule.StartSunlightYellow(character)
 	-- Stop idle and play SunlightYellow animation
 	AnimationModule.StopAllAnimations(character)
 	AnimationModule.PlayAnimation(character, SUNLIGHT_YELLOW_ANIM_ID, true, Enum.AnimationPriority.Action, AnimSpeed)
-
-	-- Set SunlightYellow flag
-	sunlightYellowFlags[character] = true
 
 	-- Auto-stop SunlightYellow after max duration
 	task.delay(MAX_SUNLIGHT_YELLOW_DURATION, function()
@@ -196,6 +207,34 @@ function HamonModule.StartSunlightYellow(character)
 		range = 160,
 	})
 
+	local vfxRoot = HitboxSpawner.spawnStandOffHitbox({
+		Character = character,
+		Damage = 0,
+		Size = Vector3.new(1, 1, 1),
+		Offset = CFrame.new(0, 0, 0),
+		Color = BrickColor.new("Bright red"),
+		Duration = 30,
+		Transparency = 1,
+		Name = "TorrentialDownpourVfxRoot",
+		RemoveOnStun = false,
+	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	vfxRoot:SetAttribute("VFX_ID", vfxId)
+
+	-- Store references
+	sunlightYellowFlags[character].vfxRoot = vfxRoot
+	sunlightYellowFlags[character].vfxId = vfxId
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "HamonAttack",
+		attachId = vfxId,
+		offset = hitBoxOffset,
+		attachTo = vfxRoot,
+		scale = SUNLIGHT_YELLOW_SIZE,
+	})
+
 	-- Start spawning hitboxes
 	task.spawn(function()
 		while sunlightYellowFlags[character] do
@@ -215,6 +254,7 @@ function HamonModule.StartSunlightYellow(character)
 				Transparency = 1,
 				Name = "SunlightYellowPunchHitbox",
 				CanBlock = false,
+				RemoveOnStun = false,
 			})
 			task.wait(SUNLIGHT_YELLOW_INTERVAL)
 		end
@@ -224,17 +264,27 @@ function HamonModule.StartSunlightYellow(character)
 end
 
 function HamonModule.StopSunlightYellow(character)
-	sunlightYellowFlags[character] = false
-
-	CombatUtils.ResetActionInProgress(character)
-
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
 		return
 	end
 
+	local state = sunlightYellowFlags[character]
+	if not state then
+		print("no state")
+		return
+	end
+
+	-- 🧨 Kill VFX root
+	if state.vfxRoot and state.vfxRoot.Parent then
+		state.vfxRoot:Destroy()
+	end
+
+	CombatUtils.ResetActionInProgress(character)
+
 	-- Clear barrage flag
 	sunlightYellowFlags[character] = nil
+	CombatUtils.ResetActionInProgress(character)
 
 	-- Reset animation
 	AnimationModule.StopAllAnimations(character)
@@ -340,7 +390,7 @@ function HamonModule.LifeForceAura(character)
 	AnimationModule.PlayAnimation(character, LIFEFORCEAURA_ANIMID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, LIFEFORCEAURA_ENDLAG)
 
-	HitboxSpawner.spawnStandOffHitbox({
+	local hitbox = HitboxSpawner.spawnStandOffHitbox({
 		Character = character,
 		Damage = LIFEFORCEAURA_DAMAGE or 0.1,
 		Size = LIFEFORCEAURA_SIZE,
@@ -348,14 +398,47 @@ function HamonModule.LifeForceAura(character)
 		Color = BrickColor.new("Bright red"),
 		Duration = LIFEFORCEAURA_DURATION,
 		StunDuration = LIFEFORCEAURA_STUN,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "Zoom Punch Hitbox",
 		Heal = LIFEFORCEAURA_HEAL,
+	})
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+
+	SoundModule.PlaySound({
+		Root = hrp,
+		soundName = "LifeforceAuraEffect",
+		soundID = "122883460633743",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+	SoundModule.PlaySound({
+		Root = hrp,
+		soundName = "LifeforceAuraCall",
+		soundID = "120705921714718",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
 	})
 
 	local humanoid = character:FindFirstChild("Humanoid")
 	local newHealth = math.min(humanoid.Health + LIFEFORCEAURA_HEAL / 3, humanoid.MaxHealth)
 	humanoid.Health = newHealth
+
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "HamonAttack",
+		attachId = vfxId,
+		offset = CFrame.new(LIFEFORCEAURA_OFFSET),
+		scale = LIFEFORCEAURA_SIZE,
+		attachTo = hitbox,
+	})
 end
 
 local function initCharacter(player, character)

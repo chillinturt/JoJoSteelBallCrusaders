@@ -1,12 +1,41 @@
-local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
 local HttpService = game:GetService("HttpService")
+local TweenService = game:GetService("TweenService")
 
 local activeProjectiles = {} -- map: id -> { projectile, conn }
 
 local SpawnVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 local StandEffectsFolder = ReplicatedStorage:WaitForChild("Effects"):WaitForChild("StandEffects")
+local BarrageVfx = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("BarrageVfx"))
+
+-- Client
+local VfxRootsById = {} -- [vfxId] = BasePart
+
+local ActiveEmojis = {} -- character → BillboardGui
+local EmojiFolder = ReplicatedStorage.Effects:WaitForChild("Emojis")
+
+local function TryRegisterVfxRoot(inst)
+	if inst:IsA("BasePart") then
+		local id = inst:GetAttribute("VFX_ID")
+		if id then
+			VfxRootsById[id] = inst
+
+			-- Auto-cleanup
+			inst.Destroying:Once(function()
+				VfxRootsById[id] = nil
+			end)
+		end
+	end
+end
+
+-- Register already-existing parts
+for _, inst in ipairs(workspace:GetDescendants()) do
+	TryRegisterVfxRoot(inst)
+end
+
+-- Register future parts
+workspace.DescendantAdded:Connect(TryRegisterVfxRoot)
 
 local function WeldModel(model)
 	if not model:IsA("Model") then
@@ -71,24 +100,6 @@ local function ApplyModelScale(model, scaleData, scale)
 	end
 end
 
--- Makes any effect visual-only
-local function MakeVisualOnly(instance)
-	for _, obj in ipairs(instance:GetDescendants()) do
-		if obj:IsA("BasePart") then
-			obj.Anchored = true
-			obj.Massless = true
-			obj.CanCollide = false
-			obj.CanTouch = false
-			obj.CanQuery = false
-			obj.AssemblyLinearVelocity = Vector3.zero
-			obj.AssemblyAngularVelocity = Vector3.zero
-			obj.LocalTransparencyModifier = 0
-		elseif obj:IsA("ParticleEmitter") or obj:IsA("Beam") or obj:IsA("Trail") then
-			obj.Enabled = true
-		end
-	end
-end
-
 -- Finds an effect model by name across all stands
 local function FindEffect(effectName)
 	for _, standFolder in ipairs(StandEffectsFolder:GetChildren()) do
@@ -120,8 +131,6 @@ end
 local function SpawnProjectileVFX(template, data)
 	local projectile = template:Clone()
 	projectile.Parent = workspace
-
-	MakeVisualOnly(projectile)
 
 	-- Assign unique ID
 	local id = data.id or HttpService:GenerateGUID(false)
@@ -214,8 +223,6 @@ local function SpawnStationaryEffect(params)
 	local effect = params.template:Clone()
 	effect.Parent = workspace
 
-	MakeVisualOnly(effect)
-
 	local lifetime = params.lifetime or math.huge
 	local rotationSpeed = params.rotationSpeed or Vector3.zero
 	local transparency = params.transparency
@@ -229,12 +236,14 @@ local function SpawnStationaryEffect(params)
 	local expandRate = params.expandRate or 0
 	local initialRotation = params.initialRotation or Vector3.zero
 	local baseCFrame = params.cframe * CFrame.fromOrientation(initialRotation.X, initialRotation.Y, initialRotation.Z)
+	local originalSize
 
 	local currentScale = scale or 1
 	local scaleData
-	-- Handle BasePart vs Model
+
 	if effect:IsA("BasePart") then
 		effect.CFrame = baseCFrame
+		originalSize = effect.Size
 	else
 		if not effect.PrimaryPart then
 			effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
@@ -243,7 +252,7 @@ local function SpawnStationaryEffect(params)
 		-- 🔥 IMPORTANT: place model FIRST
 		effect:SetPrimaryPartCFrame(baseCFrame)
 
-		-- 🔥 THEN cache offsets / sizes
+		-- 🔥 Cache per-part scale data (this IS the "original size")
 		scaleData = CacheModelScaleData(effect)
 	end
 
@@ -284,18 +293,23 @@ local function SpawnStationaryEffect(params)
 			end
 		end
 
-		-- Expansion (MODEL-SAFE + CLAMPED)
-		if expand and expandRate > 0 then
+		if expand and expandRate then
 			local nextScale = currentScale + expandRate * dt
 
 			if maxScale then
-				currentScale = math.min(nextScale, maxScale)
+				if expandRate > 0 then
+					-- growing
+					currentScale = math.min(nextScale, maxScale)
+				else
+					-- shrinking
+					currentScale = math.max(nextScale, maxScale)
+				end
 			else
 				currentScale = nextScale
 			end
 
 			if effect:IsA("BasePart") then
-				effect.Size = effect.Size.Unit * currentScale
+				effect.Size = originalSize * currentScale
 			else
 				ApplyModelScale(effect, scaleData, currentScale)
 			end
@@ -315,32 +329,47 @@ local function SpawnStationaryEffect(params)
 	return effect
 end
 
-local function FindHitboxById(id, character)
-	for _, obj in ipairs(character:GetDescendants()) do
-		if obj:IsA("BasePart") and obj:GetAttribute("VFX_ID") == id then
-			return obj
-		end
-	end
-	return nil
+local function FindHitboxById(vfxId)
+	return VfxRootsById[vfxId]
 end
 
--- 🌟 ATTACHED EFFECT SPAWNER
+local function WeldEffect(effect, attachTo, offset)
+	if effect:IsA("BasePart") then
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = effect
+		weld.Part1 = attachTo
+		weld.Parent = effect
+
+		effect.CFrame = attachTo.CFrame * offset
+	else
+		local root = effect.PrimaryPart
+		root.CFrame = attachTo.CFrame * offset
+
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = root
+		weld.Part1 = attachTo
+		weld.Parent = root
+	end
+end
+
+-- 🌟 ATTACHED EFFECT SPAWNER (WELD-BASED, NO FRAME LOOPS)
 local function SpawnAttachedVFX(template, data)
 	if not template or not data then
-		print("no template or data or attachto found")
+		warn("[VFX] Missing template or data")
 		return
 	end
 
+	-----------------------------------------------------------------
+	-- Resolve attachment target
+	-----------------------------------------------------------------
 	local attachTo = data.attachTo
 
-	-- If attachTo is missing, try resolving by attachId
 	if not attachTo and data.attachId then
 		local startTime = os.clock()
 		local timeout = 2
+
 		repeat
-			local player = Players.LocalPlayer
-			local character = player.Character
-			attachTo = FindHitboxById(data.attachId, character)
+			attachTo = FindHitboxById(data.attachId)
 			task.wait()
 		until attachTo or os.clock() - startTime > timeout
 	end
@@ -350,39 +379,51 @@ local function SpawnAttachedVFX(template, data)
 		return
 	end
 
-	-- Clone effect
+	-----------------------------------------------------------------
+	-- Clone & setup effect
+	-----------------------------------------------------------------
 	local effect = template:Clone()
 	effect.Parent = workspace
 
-	MakeVisualOnly(effect)
-
 	local lifetime = data.lifetime or math.huge
-	local rotationSpeed = data.rotationSpeed or Vector3.zero
 	local transparency = data.transparency
 	local scale = data.scale
 	local initialRotation = data.initialRotation or Vector3.zero
-	local onUpdate = data.onUpdate
 
-	local startTime = os.clock()
-
-	-- Initial offset from attachment part
+	-- Offset from attachment
 	local offset = data.offset or CFrame.identity
 	offset *= CFrame.fromOrientation(initialRotation.X, initialRotation.Y, initialRotation.Z)
 
+	-----------------------------------------------------------------
 	-- Handle BasePart vs Model
+	-----------------------------------------------------------------
+	local rootPart
 	local scaleData
+
 	if effect:IsA("BasePart") then
-		effect.CFrame = attachTo.CFrame * offset
+		rootPart = effect
 	else
 		if not effect.PrimaryPart then
 			effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
 		end
-
-		effect:SetPrimaryPartCFrame(attachTo.CFrame * offset)
+		rootPart = effect.PrimaryPart
 		scaleData = CacheModelScaleData(effect)
 	end
 
+	if not rootPart then
+		warn("[VFX] No valid root part for effect")
+		effect:Destroy()
+		return
+	end
+
+	-----------------------------------------------------------------
+	-- Initial positioning
+	-----------------------------------------------------------------
+	rootPart.CFrame = attachTo.CFrame * offset
+
+	-----------------------------------------------------------------
 	-- Apply visual modifiers
+	-----------------------------------------------------------------
 	if transparency then
 		if effect:IsA("BasePart") then
 			effect.Transparency = transparency
@@ -393,55 +434,29 @@ local function SpawnAttachedVFX(template, data)
 
 	if scale then
 		if effect:IsA("BasePart") then
-			effect.Size *= scale
+			if typeof(scale) == "Vector3" then
+				effect.Size = scale
+			else
+				effect.Size *= scale
+			end
 		else
 			ScaleModel(effect, scale)
 		end
 	end
 
-	local conn
-	conn = RunService.RenderStepped:Connect(function(dt)
-		-- Attachment destroyed → cleanup
-		if not attachTo.Parent then
-			conn:Disconnect()
-			effect:Destroy()
-			return
-		end
+	-----------------------------------------------------------------
+	-- 🔥 WELD (NO RENDERSTEPPED)
+	-----------------------------------------------------------------
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = rootPart
+	weld.Part1 = attachTo
+	weld.Parent = rootPart
 
-		local elapsed = os.clock() - startTime
-		if elapsed >= lifetime then
-			conn:Disconnect()
-			effect:Destroy()
-			return
-		end
-
-		-- Follow attached part
-		local cf = attachTo.CFrame * offset
-
-		-- Optional rotation
-		if rotationSpeed.Magnitude > 0 then
-			offset *= CFrame.fromOrientation(rotationSpeed.X * dt, rotationSpeed.Y * dt, rotationSpeed.Z * dt)
-			cf = attachTo.CFrame * offset
-		end
-
-		if effect:IsA("BasePart") then
-			effect.CFrame = cf
-		else
-			effect:SetPrimaryPartCFrame(cf)
-		end
-
-		-- User hook
-		if onUpdate then
-			onUpdate(effect, dt, elapsed)
-		end
-	end)
-
-	-- Safety: destroy effect if attached part is explicitly destroyed
+	-----------------------------------------------------------------
+	-- Safety: destroy if attachment is removed
+	-----------------------------------------------------------------
 	attachTo.Destroying:Once(function()
-		if conn then
-			conn:Disconnect()
-		end
-		if effect then
+		if effect and effect.Parent then
 			effect:Destroy()
 		end
 	end)
@@ -449,14 +464,108 @@ local function SpawnAttachedVFX(template, data)
 	return effect
 end
 
+local function ShowEmoji(data)
+	local character = data.character
+	if not character then
+		return
+	end
+
+	local head = character:FindFirstChild("Head")
+	if not head then
+		return
+	end
+
+	-- Remove existing emoji on this character
+	if ActiveEmojis[character] then
+		ActiveEmojis[character]:Destroy()
+		ActiveEmojis[character] = nil
+	end
+
+	-- Billboard
+	local billboard = Instance.new("BillboardGui")
+	billboard.Name = "Emoji"
+	billboard.Adornee = head
+	billboard.Size = data.size or UDim2.fromScale(2, 2)
+	billboard.StudsOffset = data.offset or Vector3.new(0, 3, 0)
+	billboard.AlwaysOnTop = true
+	billboard.Parent = head
+
+	-- Head image
+	local headImage = Instance.new("ImageLabel")
+	headImage.Size = UDim2.fromScale(1, 1)
+	headImage.BackgroundTransparency = 1
+	headImage.Image = data.headImage
+	headImage.Parent = billboard
+
+	-- Face image
+	local faceImage = Instance.new("ImageLabel")
+	faceImage.Size = UDim2.fromScale(1, 1)
+	faceImage.BackgroundTransparency = 1
+	faceImage.Image = data.faceImage
+	faceImage.Parent = billboard
+
+	ActiveEmojis[character] = billboard
+
+	-- Optional pop-in animation
+	headImage.ImageTransparency = 1
+	faceImage.ImageTransparency = 1
+
+	TweenService
+		:Create(
+			headImage,
+			TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ ImageTransparency = 0 }
+		)
+		:Play()
+
+	TweenService
+		:Create(
+			faceImage,
+			TweenInfo.new(0.15, Enum.EasingStyle.Back, Enum.EasingDirection.Out),
+			{ ImageTransparency = 0 }
+		)
+		:Play()
+
+	-- Auto cleanup
+	task.delay(data.duration or 2, function()
+		if ActiveEmojis[character] == billboard then
+			billboard:Destroy()
+			ActiveEmojis[character] = nil
+		end
+	end)
+end
+
 SpawnVfx.OnClientEvent:Connect(function(data)
+	print("Spawnvfx called")
 	if data.type == "Projectile" and data.deleteId then
 		DeleteProjectileVFX(data.deleteId)
 		print("Projectile vfx called for deletion!")
 		return
 	end
 
-	if not data or not data.type or not data.effectName then
+	if not data or not data.type then
+		return
+	end
+
+	-- 🔥 BARRAGE HANDLER
+	if data.type == "Barrage" then
+		print("barrageVFX in client manager")
+		if data.action == "Start" then
+			BarrageVfx.barragestart(data.character, data.distance, data.speed, data.rate, data.armCopy)
+			print("starting barrage")
+		elseif data.action == "End" then
+			BarrageVfx.barragend(data.character)
+		end
+		return
+	end
+
+	if data.type == "Emoji" then
+		ShowEmoji(data)
+		return
+	end
+
+	-- All other VFX
+	if not data.effectName then
 		return
 	end
 

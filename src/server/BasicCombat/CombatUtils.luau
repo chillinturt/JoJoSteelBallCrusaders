@@ -30,6 +30,8 @@ local activeVelocities = {}
 local heartbeatConnections = {}
 local baseVelocities = {}
 
+local isDashingState = {} -- [character] = { active = boolean, token = number }
+
 local ActiveStuns = {} -- [character] = { expiresAt = number }
 local STUN_SPEED_MULT = 0.16
 local EPSILON = 0.05
@@ -705,40 +707,41 @@ function CombatUtils.CancelSlide(player, cancelMultiplier)
 end
 
 function CombatUtils.SetIsDashing(character, duration)
-	if not character or not duration then
+	if not character or typeof(duration) ~= "number" then
 		return
 	end
 
-	-- Try to find an existing BoolValue; create one if it doesn't exist
-	local isDashing = character:FindFirstChild("IsDashing")
-	if not isDashing then
-		isDashing = Instance.new("BoolValue")
-		isDashing.Name = "IsDashing"
-		isDashing.Value = true
-		isDashing.Parent = character
-	else
-		isDashing.Value = true
+	local state = isDashingState[character]
+	if not state then
+		state = {
+			active = false,
+			token = 0,
+		}
+		isDashingState[character] = state
 	end
 
-	-- After the dash duration, reset it
+	-- Increment token to invalidate old timers
+	state.token += 1
+	local myToken = state.token
+	state.active = true
+
+	-- Auto-clear after duration
 	task.delay(duration, function()
-		if isDashing and isDashing.Parent then
-			isDashing.Value = false
+		local current = isDashingState[character]
+		if not current then
+			return
+		end
+
+		-- Only clear if this is still the latest dash
+		if current.token == myToken then
+			current.active = false
 		end
 	end)
 end
 
-function CombatUtils.GetIsDashing(character)
-	if not character then
-		return false
-	end
-
-	local isDashing = character:FindFirstChild("IsDashing")
-	if isDashing and isDashing:IsA("BoolValue") then
-		return isDashing.Value
-	end
-
-	return false
+function CombatUtils.IsDashing(character)
+	local state = isDashingState[character]
+	return state and state.active or false
 end
 
 function CombatUtils.StartSlide(player)
@@ -757,7 +760,7 @@ function CombatUtils.StartSlide(player)
 	if slidingPlayers[character] then
 		return false
 	end
-	if CombatUtils.GetIsDashing(character) then
+	if CombatUtils.IsDashing(character) then
 		return false
 	end
 	if CombatUtils.GetStun(character) then
@@ -928,25 +931,74 @@ function CombatUtils.StartSlide(player)
 end
 
 local function sendBarrierUpdate(player, character)
-	local barriers = activeBarriers[character]
-	local total = 0
-	local max = 200
+	local controller = activeBarriers[character]
 
-	if barriers then
-		for _, data in pairs(barriers) do
-			total += data.Current
+	local total = 0
+	local max = 0
+	local barrierList = {}
+
+	if controller then
+		for _, id in ipairs(controller.OrderedIds) do
+			local barrier = controller.Barriers[id]
+			if barrier then
+				total += barrier.Current
+				max += barrier.Max
+
+				table.insert(barrierList, {
+					Id = barrier.Id,
+					Current = barrier.Current,
+					Max = barrier.Max,
+					Priority = barrier.Priority,
+					DecayDelay = barrier.DecayDelay,
+					DecayRate = barrier.DecayRate,
+					LastRefreshed = barrier.LastRefreshed,
+				})
+			end
 		end
 	end
 
 	BarrierStateEvent:FireClient(player, {
-		total = total,
-		max = max,
-		barriers = barriers, -- optional, useful for advanced UI
+		Total = total,
+		Max = max,
+		Barriers = barrierList, -- ordered, safe snapshot
 	})
 end
 
 -- === Add a barrier to a character ===
-function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrierId, maxCap)
+local function sortBarrierOrder(controller)
+	table.sort(controller.OrderedIds, function(a, b)
+		local A = controller.Barriers[a]
+		local B = controller.Barriers[b]
+
+		if A.Priority ~= B.Priority then
+			return A.Priority > B.Priority
+		end
+
+		return A.LastRefreshed < B.LastRefreshed
+	end)
+end
+
+----------------------------------------------------------------
+-- Ensure controller exists
+----------------------------------------------------------------
+local function getController(character)
+	if activeBarriers[character] then
+		return activeBarriers[character]
+	end
+
+	local controller = {
+		Barriers = {},
+		OrderedIds = {},
+	}
+
+	activeBarriers[character] = controller
+	return controller
+end
+
+----------------------------------------------------------------
+-- Add / Refresh Barrier
+----------------------------------------------------------------
+function CombatUtils.AddBarrier(character, params)
 	if not character then
 		return
 	end
@@ -956,136 +1008,120 @@ function CombatUtils.AddBarrier(character, amount, decayRate, decayDelay, barrie
 		return
 	end
 
-	-- Defaults
-	amount = amount or 25
-	decayRate = decayRate or 1
-	decayDelay = decayDelay or 3
-	barrierId = barrierId or "Default"
-	maxCap = maxCap or 200
-
-	-- Ensure character table
-	activeBarriers[character] = activeBarriers[character] or {}
-	local barrierGroup = activeBarriers[character]
-
+	local controller = getController(character)
 	local now = os.clock()
 
-	-- Create or refresh barrier
-	if barrierGroup[barrierId] then
-		local data = barrierGroup[barrierId]
-		data.Max = math.min(data.Max + amount, maxCap)
-		data.Current = math.min(data.Current + amount, data.Max)
-		data.LastRefreshed = now
+	local id = params.Id or "Default"
+	local amount = params.Amount or 25
+	local maxCap = params.MaxCap or 200
+
+	local barrier = controller.Barriers[id]
+
+	if barrier then
+		barrier.Max = math.min(barrier.Max + amount, maxCap)
+		barrier.Current = math.min(barrier.Current + amount, barrier.Max)
+		barrier.LastRefreshed = now
 	else
-		barrierGroup[barrierId] = {
+		controller.Barriers[id] = {
+			Id = id,
+			Priority = params.Priority or 0,
 			Max = math.min(amount, maxCap),
 			Current = math.min(amount, maxCap),
-			DecayRate = decayRate,
-			DecayDelay = decayDelay,
+			DecayRate = params.DecayRate or 1,
+			DecayDelay = params.DecayDelay or 3,
 			LastRefreshed = now,
 		}
+
+		table.insert(controller.OrderedIds, id)
 	end
+
+	sortBarrierOrder(controller)
 
 	local player = Players:GetPlayerFromCharacter(character)
 	if player then
 		sendBarrierUpdate(player, character)
 	end
+end
 
-	-- === Hook damage interception once ===
-	if not humanoid:GetAttribute("BarrierHooked") then
-		humanoid:SetAttribute("BarrierHooked", true)
-
-		local lastHealth = humanoid.Health
-
-		humanoid.HealthChanged:Connect(function(newHealth)
-			local barriers = activeBarriers[character]
-			if not barriers then
-				lastHealth = newHealth
-				return
-			end
-
-			local delta = newHealth - lastHealth
-			if delta < 0 then
-				local damage = -delta
-				local remaining = damage
-
-				-- Absorb damage
-				for id, data in pairs(barriers) do
-					if data.Current > 0 and remaining > 0 then
-						local absorbed = math.min(data.Current, remaining)
-						data.Current -= absorbed
-						remaining -= absorbed
-						data.LastRefreshed = os.clock()
-
-						if data.Current <= 0 then
-							barriers[id] = nil
-						end
-					end
-				end
-
-				-- Apply leftover damage
-				humanoid.Health = lastHealth - remaining
-
-				-- Cleanup if empty
-				if not next(barriers) then
-					activeBarriers[character] = nil
-				end
-
-				if player then
-					sendBarrierUpdate(player, character)
-				end
-			end
-
-			lastHealth = humanoid.Health
-		end)
+-- === Get TOTAL remaining barrier ===
+function CombatUtils.GetTotalBarrier(character)
+	local controller = activeBarriers[character]
+	if not controller then
+		return 0
 	end
 
-	-- === Decay loop per barrier ===
-	task.spawn(function()
-		while true do
-			task.wait(1)
+	local total = 0
+	for _, barrier in pairs(controller.Barriers) do
+		total += barrier.Current
+	end
 
-			local barriers = activeBarriers[character]
-			local data = barriers and barriers[barrierId]
-			if not data then
-				break
-			end
+	return total
+end
 
-			if os.clock() - data.LastRefreshed >= data.DecayDelay then
-				data.Current = math.max(0, data.Current - data.DecayRate)
+-- === Remove ALL barriers from character ===
+function CombatUtils.RemoveAllBarriers(character)
+	activeBarriers[character] = nil
 
-				if data.Current <= 0 then
-					barriers[barrierId] = nil
+	local player = game:GetService("Players"):GetPlayerFromCharacter(character)
+	if player then
+		sendBarrierUpdate(player, character)
+	end
+end
 
-					if not next(barriers) then
-						activeBarriers[character] = nil
-					end
-					break
-				end
-			end
+function CombatUtils.AttachBarrierDamageHook(character)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
 
-			if player then
-				sendBarrierUpdate(player, character)
+	local lastHealth = humanoid.Health
+
+	humanoid.HealthChanged:Connect(function(newHealth)
+		local controller = activeBarriers[character]
+		if not controller then
+			lastHealth = newHealth
+			return
+		end
+
+		local damage = lastHealth - newHealth
+		if damage <= 0 then
+			lastHealth = newHealth
+			return
+		end
+
+		local remaining = damage
+
+		for _, id in ipairs(controller.OrderedIds) do
+			local barrier = controller.Barriers[id]
+			if barrier and barrier.Current > 0 and remaining > 0 then
+				local absorbed = math.min(barrier.Current, remaining)
+				barrier.Current -= absorbed
+				remaining -= absorbed
 			end
 		end
+
+		-- Remove depleted barriers
+		for i = #controller.OrderedIds, 1, -1 do
+			local id = controller.OrderedIds[i]
+			local barrier = controller.Barriers[id]
+			if barrier.Current <= 0 then
+				controller.Barriers[id] = nil
+				table.remove(controller.OrderedIds, i)
+			end
+		end
+
+		humanoid.Health = lastHealth - remaining
+		lastHealth = humanoid.Health
+
+		if not next(controller.Barriers) then
+			activeBarriers[character] = nil
+		end
+
+		local player = Players:GetPlayerFromCharacter(character)
+		if player then
+			sendBarrierUpdate(player, character)
+		end
 	end)
-end
-
--- === Get remaining barrier ===
-function CombatUtils.GetBarrier(character)
-	local data = activeBarriers[character]
-	return data and data.Current or 0
-end
-
--- === Remove barrier manually ===
-function CombatUtils.RemoveBarrier(character)
-	if activeBarriers[character] then
-		activeBarriers[character] = nil
-	end
-
-	local effect = character:FindFirstChild("BarrierEffect")
-	if effect then
-		effect:Destroy()
-	end
 end
 
 -- Add or refresh a stun
@@ -1177,6 +1213,46 @@ RunService.Heartbeat:Connect(function()
 		if not ok then
 			warn("⚠️ CombatUtils stun update error:", err)
 		end
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(1)
+
+		for character, controller in pairs(activeBarriers) do
+			local now = os.clock()
+
+			for i = #controller.OrderedIds, 1, -1 do
+				local id = controller.OrderedIds[i]
+				local barrier = controller.Barriers[id]
+
+				if now - barrier.LastRefreshed >= barrier.DecayDelay then
+					barrier.Current -= barrier.DecayRate
+
+					if barrier.Current <= 0 then
+						controller.Barriers[id] = nil
+						table.remove(controller.OrderedIds, i)
+					end
+				end
+			end
+
+			if not next(controller.Barriers) then
+				activeBarriers[character] = nil
+			end
+
+			local player = Players:GetPlayerFromCharacter(character)
+			if player then
+				sendBarrierUpdate(player, character)
+			end
+		end
+	end
+end)
+
+game:GetService("Players").PlayerRemoving:Connect(function(player)
+	local character = player.Character
+	if character then
+		activeBarriers[character] = nil
 	end
 end)
 

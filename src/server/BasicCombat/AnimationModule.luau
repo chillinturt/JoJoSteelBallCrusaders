@@ -1,6 +1,8 @@
 -- AnimationModule.lua
 local AnimationModule = {}
 
+local IDLE_ANIM_ID = 89452205434139
+
 -- Play an animation on a Humanoid or AnimationController
 function AnimationModule.PlayAnimation(entity, animationId, looped, priority, speed)
 	local humanoid = entity:FindFirstChildOfClass("Humanoid")
@@ -29,6 +31,56 @@ function AnimationModule.PlayAnimation(entity, animationId, looped, priority, sp
 	track:AdjustSpeed(speed or 1) -- ✅ fallback to normal speed if not specified
 	track:Play()
 	track:AdjustSpeed(speed or 1) -- ✅ fallback to normal speed if not specified
+
+	return track
+end
+
+-- Play an animation, then return to idle when it finishes
+function AnimationModule.PlayAnimationThenIdle(entity, animationId, looped, priority, speed)
+	local humanoid = entity:FindFirstChildOfClass("Humanoid")
+	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+
+	-- Fallback to AnimationController (for Stands or non-humanoid rigs)
+	if not animator then
+		local controller = entity:FindFirstChildOfClass("AnimationController")
+		if controller then
+			animator = controller:FindFirstChildOfClass("Animator")
+			if not animator then
+				animator = Instance.new("Animator")
+				animator.Parent = controller
+			end
+		else
+			return nil
+		end
+	end
+
+	-- Load main animation
+	local animation = Instance.new("Animation")
+	animation.AnimationId = "rbxassetid://" .. animationId
+
+	local track = animator:LoadAnimation(animation)
+	track.Looped = looped or false
+	track.Priority = priority or Enum.AnimationPriority.Action
+	track:AdjustSpeed(speed or 1)
+	track:Play()
+
+	-- If the animation is NOT looped, return to idle when it ends
+	if not track.Looped then
+		track.Stopped:Once(function()
+			-- Load idle animation
+			local idleAnim = Instance.new("Animation")
+			idleAnim.AnimationId = "rbxassetid://" .. IDLE_ANIM_ID
+
+			local idleTrack = animator:LoadAnimation(idleAnim)
+			idleTrack.Looped = true
+			idleTrack.Priority = Enum.AnimationPriority.Idle
+			idleTrack:Play()
+
+			-- Cleanup
+			animation:Destroy()
+			idleAnim:Destroy()
+		end)
+	end
 
 	return track
 end

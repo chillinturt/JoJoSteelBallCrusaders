@@ -155,6 +155,31 @@ function CharacterUpgrades.SetStats(player, savedData)
 end
 
 ---------------------------------------------------------------------
+-- RESET UPGRADES
+---------------------------------------------------------------------
+function CharacterUpgrades.ResetPlayer(player)
+	if not player then
+		return
+	end
+
+	-- Clear all upgrade data
+	upgradeData[player.UserId] = {}
+
+	-- Re-apply defaults
+	local data = ensure(player)
+
+	-- Sync UI (treat as failed upgrade with new state)
+	local ap = XPSystem.GetField(player, "AbilityPoints") or 0
+
+	UpgradeSubmitted:FireClient(player, true, {
+		AbilityPoints = ap,
+		HealthLevel = data.Health,
+	})
+
+	print("[CharacterUpgrades] Reset upgrades for", player.Name)
+end
+
+---------------------------------------------------------------------
 -- RETURN MODULE
 ---------------------------------------------------------------------
 return CharacterUpgrades

@@ -21,9 +21,11 @@ AbilityRegistry[1] = {
 	Type = "Press",
 	Cooldown = 6,
 	Execute = function(standModel, player)
+		print("execute entered")
 		local character = standModel.Parent
 		if character then
 			Tusk.NailShot(character)
+			print("Nail shot fired")
 		end
 	end,
 }

@@ -49,6 +49,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
+local ScreenColorVfxEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("ScreenColorVfx")
+
 local function ClientKnives(player, origin, direction)
 	print("local function client knives start")
 	SpawnClientVfx:FireAllClients({
@@ -60,6 +62,94 @@ local function ClientKnives(player, origin, direction)
 		lifetime = THROWKNIVES_DURATION,
 	})
 	print("local function client knives end")
+end
+
+local function timeStopBall(caster)
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "TimeStopBall",
+
+		-- Position
+		cframe = caster.PrimaryPart.CFrame,
+
+		-- Lifetime
+		lifetime = 0.8,
+
+		-- Visual style
+		transparency = 0.5,
+		scale = 0.8, -- starting size
+
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 70,
+		maxScale = 20,
+	})
+
+	task.delay(0.3, function()
+		SpawnClientVfx:FireAllClients({
+			type = "Stationary",
+			effectName = "TimeStopBall",
+
+			-- Position
+			cframe = caster.PrimaryPart.CFrame,
+
+			-- Lifetime
+			lifetime = 0.8,
+
+			-- Visual style
+			transparency = 0.5,
+			scale = 0.8, -- starting size
+
+			-- Optional flags for client expansion logic
+			expand = true,
+			expandRate = 70,
+			maxScale = 20,
+		})
+	end)
+
+	task.delay(0.6, function()
+		SpawnClientVfx:FireAllClients({
+			type = "Stationary",
+			effectName = "TimeStopBall",
+
+			-- Position
+			cframe = caster.PrimaryPart.CFrame,
+
+			-- Lifetime
+			lifetime = 0.6,
+
+			-- Visual style
+			transparency = 0.5,
+			scale = 0.8, -- starting size
+
+			-- Optional flags for client expansion logic
+			expand = true,
+			expandRate = 70,
+			maxScale = 20,
+		})
+	end)
+
+	task.delay(1.2, function()
+		SpawnClientVfx:FireAllClients({
+			type = "Stationary",
+			effectName = "TimeStopBall",
+
+			-- Position
+			cframe = caster.PrimaryPart.CFrame,
+
+			-- Lifetime
+			lifetime = 0.6,
+
+			-- Visual style
+			transparency = 0.5,
+			scale = 20, -- starting size
+
+			-- Optional flags for client expansion logic
+			expand = true,
+			expandRate = -60,
+			maxScale = 0.2,
+		})
+	end)
 end
 
 function TheWorld.ThrowKnives(standModel)
@@ -212,7 +302,7 @@ function TheWorld.BlazingStrike(standModel)
 					rootJoint.C0 = originalC0
 				end
 
-				HitboxSpawner.spawnStationaryHitbox({
+				local hitbox = HitboxSpawner.spawnStationaryHitbox({
 					Position = targetRootPart.CFrame,
 					Stand = standModel,
 					Character = character,
@@ -222,8 +312,35 @@ function TheWorld.BlazingStrike(standModel)
 					Color = BrickColor.new("Bright red"),
 					Duration = 1,
 					StunDuration = 1,
-					Transparency = 0.3,
+					Transparency = 1,
 					Name = "BarrierDamageHitbox",
+				})
+
+				SpawnClientVfx:FireAllClients({
+					type = "Stationary",
+					effectName = "GroundPound",
+
+					-- Position
+					cframe = hitbox.CFrame,
+
+					-- Lifetime
+					lifetime = 1,
+
+					-- Rotation (slow spin)
+					rotationSpeed = Vector3.new(
+						0,
+						math.rad(720), -- Y-axis spin
+						0
+					),
+
+					-- Visual style
+					transparency = 0.5,
+					scale = 1, -- starting size
+
+					-- Optional flags for client expansion logic
+					expand = true,
+					expandRate = 30,
+					maxScale = 1.5,
 				})
 			end)
 		end,
@@ -236,7 +353,7 @@ function TheWorld.KickBarrage(standModel)
 	--CombatUtils.SetActionInProgress(character, TEAR_SPACE_DURATION)
 
 	AnimationModule.StopAllAnimations(standModel)
-	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimationThenIdle(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 
 	SoundModule.PlaySound({
 		Root = standModel.PrimaryPart,
@@ -258,6 +375,8 @@ function TheWorld.TimeStop(caster)
 		return
 	end
 
+	local affectedPlayersVfx = {}
+
 	local standModel = StandUtils.getStandModel(caster)
 
 	print(caster.Name .. " has stopped time!")
@@ -266,39 +385,32 @@ function TheWorld.TimeStop(caster)
 		Root = caster:FindFirstChild("HumanoidRootPart"),
 		soundName = "TimeStopEffects",
 		soundID = "119688469417636",
-		volume = 1.5,
+		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
+		range = 160,
 	})
 
 	SoundModule.PlaySound({
 		Root = caster:FindFirstChild("HumanoidRootPart"),
 		soundName = "TimeStopCall",
 		soundID = "4523066727",
-		volume = 1.5,
+		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
+		range = 160,
 	})
 
-	HitboxSpawner.spawnStationaryHitbox({
-		Position = caster.PrimaryPart.CFrame,
-		Stand = standModel,
-		Character = caster,
-		Damage = 0,
-		Size = Vector3.new(100, 100, 100),
-		Offset = Vector3.new(0, 0, 0),
-		Color = BrickColor.new("White"),
-		Duration = 1,
-		StunDuration = 0,
-		Transparency = 0.8,
-		Name = "TimeStopRangeHitbox",
-	})
+	timeStopBall(caster)
 
 	local casterRoot = caster:FindFirstChild("HumanoidRootPart")
 	if not casterRoot then
 		return
+	end
+
+	local casterPlayer = Players:GetPlayerFromCharacter(caster)
+	if casterPlayer then
+		table.insert(affectedPlayersVfx, casterPlayer)
 	end
 
 	-- Freeze all players except caster
@@ -313,6 +425,8 @@ function TheWorld.TimeStop(caster)
 
 				BlockModule.StopBlocking(char)
 				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
+
+				table.insert(affectedPlayersVfx, player)
 
 				local humanoid = char:FindFirstChildOfClass("Humanoid")
 				if humanoid then
@@ -335,9 +449,18 @@ function TheWorld.TimeStop(caster)
 		end
 	end
 
+	for _, plr in ipairs(affectedPlayersVfx) do
+		ScreenColorVfxEvent:FireClient(plr, "TimeStop.Start", STOP_DURATION)
+	end
+
 	-- Freeze all enemy NPCs
 	for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
-		if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+		if
+			npc:IsA("Model")
+			and npc:FindFirstChild("Humanoid")
+			and npc:FindFirstChild("HumanoidRootPart")
+			and npc ~= caster
+		then
 			local root = npc:FindFirstChild("HumanoidRootPart")
 			local distance = (root.Position - casterRoot.Position).Magnitude
 
@@ -404,6 +527,10 @@ function TheWorld.TimeStop(caster)
 			end
 		end
 
+		for _, plr in ipairs(affectedPlayersVfx) do
+			ScreenColorVfxEvent:FireClient(plr, "TimeStop.End")
+		end
+
 		-- Resume NPCs
 		for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
 			if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
@@ -419,7 +546,7 @@ function TheWorld.TimeStop(caster)
 					local moveSpeed = npc:FindFirstChild("MoveSpeed")
 					-- resume movement
 					if moveSpeed then
-						local baseSpeed = CombatUtils.GetMoveSpeed(npc).Value
+						local baseSpeed = CombatUtils.GetMoveSpeed(npc)
 						local mult = CombatUtils.GetSlowMultiplier(npc)
 						humanoid.WalkSpeed = baseSpeed * mult
 					end

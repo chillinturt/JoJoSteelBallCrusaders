@@ -1,7 +1,8 @@
-local TheWorld = {}
+local KaiserQueen = {}
 
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
@@ -12,8 +13,6 @@ local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("Sou
 local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("BlockModule"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local TandemModule = require(game.ServerScriptService.BasicCombat.StandModules:WaitForChild("TandemMode"))
-
-local ERASE_ENDLAG = 1
 
 local THROWKNIVES_HITBOX_SIZE = Vector3.new(10, 6, 10)
 local THROWKNIVES_DAMAGE = 20
@@ -44,7 +43,10 @@ local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
-function TheWorld.ThrowKnives(standModel)
+local TimeStopVfxEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("TimeStopVfx")
+local affectedPlayersVfx = {}
+
+function KaiserQueen.ThrowKnives(standModel)
 	local character = standModel.Parent
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
@@ -113,7 +115,7 @@ function TheWorld.ThrowKnives(standModel)
 	return true
 end
 
-function TheWorld.BlazingStrike(standModel)
+function KaiserQueen.BlazingStrike(standModel)
 	local character = standModel.Parent
 
 	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
@@ -209,7 +211,7 @@ function TheWorld.BlazingStrike(standModel)
 	})
 end
 
-function TheWorld.KickBarrage(standModel)
+function KaiserQueen.KickBarrage(standModel)
 	local character = standModel.Parent
 
 	--CombatUtils.SetActionInProgress(character, TEAR_SPACE_DURATION)
@@ -232,7 +234,7 @@ function TheWorld.KickBarrage(standModel)
 	TandemModule.ExitTandemMode(character)
 end
 
-function TheWorld.TimeStop(caster)
+function KaiserQueen.TimeStop(caster)
 	if not caster then
 		return
 	end
@@ -243,22 +245,12 @@ function TheWorld.TimeStop(caster)
 
 	SoundModule.PlaySound({
 		Root = caster:FindFirstChild("HumanoidRootPart"),
-		soundName = "TimeStopEffects",
-		soundID = "119688469417636",
+		soundName = "TimeStopSound",
+		soundID = "6969510608",
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
-	})
-
-	SoundModule.PlaySound({
-		Root = caster:FindFirstChild("HumanoidRootPart"),
-		soundName = "TimeStopCall",
-		soundID = "4523066727",
-		volume = 1,
-		playbackSpeed = 1,
-		looped = false,
-		range = 160,
+		range = 240,
 	})
 
 	HitboxSpawner.spawnStationaryHitbox({
@@ -280,6 +272,11 @@ function TheWorld.TimeStop(caster)
 		return
 	end
 
+	local casterPlayer = Players:GetPlayerFromCharacter(caster)
+	if casterPlayer then
+		table.insert(affectedPlayersVfx, casterPlayer)
+	end
+
 	-- Freeze all players except caster
 	for _, player in ipairs(Players:GetPlayers()) do
 		local char = player.Character
@@ -292,6 +289,8 @@ function TheWorld.TimeStop(caster)
 
 				BlockModule.StopBlocking(char)
 				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
+
+				table.insert(affectedPlayersVfx, player)
 
 				local humanoid = char:FindFirstChildOfClass("Humanoid")
 				if humanoid then
@@ -312,6 +311,10 @@ function TheWorld.TimeStop(caster)
 				end
 			end
 		end
+	end
+
+	for _, plr in ipairs(affectedPlayersVfx) do
+		TimeStopVfxEvent:FireClient(plr, "Start", STOP_DURATION)
 	end
 
 	-- Freeze all enemy NPCs
@@ -383,6 +386,10 @@ function TheWorld.TimeStop(caster)
 			end
 		end
 
+		for _, plr in ipairs(affectedPlayersVfx) do
+			TimeStopVfxEvent:FireClient(plr, "End")
+		end
+
 		-- Resume NPCs
 		for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
 			if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
@@ -398,7 +405,7 @@ function TheWorld.TimeStop(caster)
 					local moveSpeed = npc:FindFirstChild("MoveSpeed")
 					-- resume movement
 					if moveSpeed then
-						local baseSpeed = CombatUtils.GetMoveSpeed(npc).Value
+						local baseSpeed = CombatUtils.GetMoveSpeed(npc)
 						local mult = CombatUtils.GetSlowMultiplier(npc)
 						humanoid.WalkSpeed = baseSpeed * mult
 					end
@@ -421,4 +428,4 @@ function TheWorld.TimeStop(caster)
 	end)
 end
 
-return TheWorld
+return KaiserQueen

@@ -66,6 +66,7 @@ local function handleInputBegan(abilityId)
 
 	if abilityType == "Press" then
 		FireAbility(abilityId, nil)
+		print("Press ability fired from client...")
 	elseif abilityType == "Toggle" then
 		FireAbility(abilityId, "Toggle")
 	elseif abilityType == "Hold" then

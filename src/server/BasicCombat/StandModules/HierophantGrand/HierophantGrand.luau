@@ -60,6 +60,27 @@ local function FireEmerald(player, origin, direction)
 	})
 end
 
+local function SpawnBarrierVfx(origin, startingSize, maxSize, life)
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "EmeraldBarrier",
+
+		-- Position
+		cframe = CFrame.new(origin),
+
+		-- Lifetime
+		lifetime = life,
+
+		-- Visual style
+		scale = startingSize, -- starting size
+
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 100,
+		maxScale = maxSize,
+	})
+end
+
 local CooldownUpdateEvent = ReplicatedStorage:WaitForChild("Shared")
 	:WaitForChild("BasicCombat")
 	:WaitForChild("UI")
@@ -230,7 +251,7 @@ function HierophantModule.StopSplash(character)
 	splashingFlags[character] = nil
 
 	if not standModel then
-		actionFlag.Value = false
+		combatUtils.ResetActionInProgress(character)
 		return true
 	end
 
@@ -266,7 +287,7 @@ function HierophantModule.ActivateBarrier(standModel)
 		placement_position = standModel.PrimaryPart.CFrame
 	end
 
-	hitboxSpawner.SpawnStationarySlowingField({
+	local slowingField = hitboxSpawner.SpawnStationarySlowingField({
 		StandModel = standModel,
 		Size = BARRIER_SIZE,
 		Duration = BARRIER_DURATION,
@@ -274,7 +295,20 @@ function HierophantModule.ActivateBarrier(standModel)
 		Offset = hitBoxOffset,
 		Caster = character,
 		Position = placement_position,
+		Transparency = 1,
 	})
+
+	SoundUtils.PlaySound({
+		Root = standModel.PrimaryPart,
+		soundName = "EmeraldBarrierCall",
+		soundID = "125158491947057",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 180,
+	})
+
+	SpawnBarrierVfx(slowingField.Position, 0.3, 1, BARRIER_DURATION)
 
 	task.wait(BARRIER_DAMAGE_DELAY)
 
@@ -287,7 +321,7 @@ function HierophantModule.ActivateBarrier(standModel)
 		Color = BrickColor.new("Bright red"),
 		Duration = 1,
 		StunDuration = 2,
-		Transparency = 0.3,
+		Transparency = 1,
 		Name = "BarragePunchHitbox",
 	})
 end
@@ -352,7 +386,7 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 	end
 
 	-- Spawn the slowing field (lasts full duration)
-	hitboxSpawner.SpawnStationarySlowingField({
+	local slowingField = hitboxSpawner.SpawnStationarySlowingField({
 		StandModel = standModel,
 		Size = TWENTY_METER_BARRIER_SIZE,
 		Duration = TWENTY_METER_BARRIER_DURATION,
@@ -360,7 +394,10 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 		Offset = hitBoxOffset,
 		Caster = character,
 		Position = placement_position,
+		Transparency = 1,
 	})
+
+	SpawnBarrierVfx(slowingField.Position, 1, 2, TWENTY_METER_BARRIER_DURATION)
 
 	-- Damage loop
 	task.spawn(function()
@@ -378,7 +415,7 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 				Color = BrickColor.new("Bright red"),
 				Duration = 1,
 				StunDuration = TWENTY_METER_BARRIER_STUN,
-				Transparency = 0.3,
+				Transparency = 1,
 				Name = "BarrierDamageHitbox",
 			})
 

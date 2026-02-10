@@ -95,7 +95,7 @@ AbilityRegistry[3] = {
 		if CombatUtils.GetStun(character) then
 			return
 		end
-		if CombatUtils.GetActionInProgress(character).Value then
+		if CombatUtils.GetActionInProgress(character) then
 			return
 		end
 
@@ -125,7 +125,7 @@ AbilityRegistry[3] = {
 AbilityRegistry[4] = {
 	Name = "CarnivorousTrap",
 	Type = "Press",
-	Cooldown = 36,
+	Cooldown = 23,
 	Execute = function(standModel, player)
 		local char = standModel.Parent
 		if char then

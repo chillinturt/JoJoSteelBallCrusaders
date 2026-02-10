@@ -299,7 +299,6 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	paramsFilter.FilterDescendantsInstances = { character, hitbox }
 
 	local hitPlayers = {}
-	local hitConfirmed = false
 	local startTime = tick()
 
 	local conn
@@ -350,7 +349,6 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 						end
 
 						hitPlayers[targetChar] = true
-						hitConfirmed = true
 
 						-- Apply damage with canBlock support
 						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
@@ -409,7 +407,7 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	end)
 
 	Debris:AddItem(hitbox, duration)
-	return hitConfirmed
+	return hitbox
 end
 
 function HitboxSpawner.spawnProjectile(params)

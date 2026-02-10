@@ -15,14 +15,15 @@ local specialtyValue = heroData.Specialty
 local raceValue = heroData.Race
 
 -- Initial load (defaults + specialty)
-UIManager.LoadUI(playerGui, specialtyValue.Value, raceValue.Value)
+UIManager.LoadUI(playerGui, specialtyValue, raceValue)
 
 -- Reload when specialty changes
 PowerChangedEvent.OnClientEvent:Connect(function(fieldName, newValue)
 	local heroData = GetHeroData:InvokeServer()
 	local specialtyValue = heroData.Specialty
 	local raceValue = heroData.Race
+	local heroValue = heroData.Hero
 
 	print("Power updated:", fieldName, "=", newValue)
-	UIManager.LoadUI(playerGui, specialtyValue.Value, raceValue.Value)
+	UIManager.LoadUI(playerGui, specialtyValue, raceValue, heroValue)
 end)

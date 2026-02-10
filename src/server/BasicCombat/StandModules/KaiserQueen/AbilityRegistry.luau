@@ -1,4 +1,4 @@
-local TheWorld = require(script.Parent:WaitForChild("TheWorld"))
+local KaiserQueen = require(script.Parent:WaitForChild("KaiserQueen"))
 
 local AbilityRegistry = {}
 
@@ -21,7 +21,7 @@ AbilityRegistry[1] = {
 	Type = "Press",
 	Cooldown = 7,
 	Execute = function(standModel, player)
-		TheWorld.ThrowKnives(standModel)
+		KaiserQueen.ThrowKnives(standModel)
 	end,
 }
 
@@ -33,7 +33,7 @@ AbilityRegistry[2] = {
 	Type = "Press",
 	Cooldown = 9,
 	Execute = function(standModel, player)
-		TheWorld.BlazingStrike(standModel)
+		KaiserQueen.BlazingStrike(standModel)
 	end,
 }
 
@@ -45,7 +45,7 @@ AbilityRegistry[3] = {
 	Type = "Press",
 	Cooldown = 15,
 	Execute = function(standModel, player)
-		TheWorld.KickBarrage(standModel)
+		KaiserQueen.KickBarrage(standModel)
 	end,
 }
 
@@ -59,7 +59,7 @@ AbilityRegistry[4] = {
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then
-			TheWorld.TimeStop(character)
+			KaiserQueen.TimeStop(character)
 		end
 	end,
 }

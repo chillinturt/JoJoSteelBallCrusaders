@@ -1,6 +1,5 @@
 local MagiciansRed = {}
 
-local CoreGui = game:GetService("CoreGui")
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -417,6 +416,7 @@ function MagiciansRed.RedBind(standModel)
 		effectName = "RedBind",
 		attachId = vfxId,
 		offset = CFrame.new(0, 0, -3),
+		attachTo = hitbox,
 	})
 	print("Event passed")
 end
@@ -608,7 +608,7 @@ function MagiciansRed.Hellfire(character)
 		OnHit = function(targetChar, newDamage)
 			local hitHumanoid = targetChar:FindFirstChild("Humanoid")
 
-			if not CombatUtils.IsBlocking(targetChar).Value then
+			if not CombatUtils.IsBlocking(targetChar) then
 				-- Apply a burn stack (damage over time)
 				MagiciansRed.ApplyBurnStack(
 					hitHumanoid, -- The humanoid being hit

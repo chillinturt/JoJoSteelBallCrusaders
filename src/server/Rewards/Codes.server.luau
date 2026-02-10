@@ -1,7 +1,10 @@
 local EncodingService = game:GetService("EncodingService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
 
+local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
+local CharacterUpdgrades = require(ServerScriptService.DataSaving.Upgrades.CharacterUpdgrades)
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local InventoryManager = require(game.ServerScriptService.DataSaving:WaitForChild("InventoryManager"))
 local PlayerData = require(game.ServerScriptService.DataSaving:WaitForChild("PlayerData"))
@@ -68,7 +71,7 @@ local MODERATOR_LIST = {
 	[4735500462] = true, -- zeke (zadar)
 	[412043782] = true, -- NotAndrew1234
 	[7150098622] = true, -- Vyl1t
-	--4155032061] = true, -- diego
+	[4155032061] = true, -- diego
 	[31053701] = true, -- DREpiclass
 }
 
@@ -153,6 +156,15 @@ local function TeleportPlayerToPart(player, part)
 	if hrp and part then
 		hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
 	end
+end
+
+local function getDefaultXPData()
+	return {
+		Level = 1,
+		XP = 0,
+		MaxXP = nil, -- will be recalculated in SetStats
+		AbilityPoints = 0,
+	}
 end
 
 -- When the player enters a code
@@ -300,6 +312,26 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 			return
 		end
 		XPSystem.AddXP(player, 99999999)
+	end
+
+	if typedCode == "resetmyprogress" then
+		if not IsModerator(player) then
+			return
+		end
+
+		-- Reset hero-related data
+		HeroManager.SetField(player, "Hero", "None")
+		HeroManager.SetField(player, "Specialty", "None")
+		HeroManager.SetField(player, "Race", "Human")
+
+		-- Reset XP / progression
+		local resetXPData = getDefaultXPData()
+		XPSystem.SetStats(player, resetXPData)
+		QuestManager.ResetQuestline(player)
+		CharacterUpdgrades.ResetPlayer(player)
+		InventoryManager.SetInventory(player, {})
+
+		print("[Admin] Progress reset for", player.Name)
 	end
 
 	-- ❌ Invalid Code

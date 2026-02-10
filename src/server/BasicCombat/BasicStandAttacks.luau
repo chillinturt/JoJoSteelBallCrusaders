@@ -1,6 +1,8 @@
 local BasicStandAttacks = {}
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local IDLE_ANIM_ID = 89452205434139
 --local PUNCH_ANIMATIONS = {"93085018014908", "103624770697086", "134941790648824"}  -- Animation IDs
@@ -49,6 +51,19 @@ local PUNCH_DAMAGE = {
 	["StoneFree"] = 5,
 }
 
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
+local function resetStandRig(standModel)
+	local motor = standModel.PrimaryPart:FindFirstChild("StandMotor", true)
+	if not motor then
+		return
+	end
+
+	-- Reset offsets
+	motor.Transform = CFrame.identity
+	motor.C0 = motor:GetAttribute("DefaultC0") or motor.C0
+end
+
 function BasicStandAttacks.BasicPunch(standModel)
 	print("Basic punch in module")
 	local primaryPart = standModel.PrimaryPart
@@ -59,6 +74,10 @@ function BasicStandAttacks.BasicPunch(standModel)
 
 	if CombatUtils.IsBlocking(character) then
 		print("isblocking")
+		return
+	end
+
+	if CombatUtils.GetStun(character) then
 		return
 	end
 
@@ -120,7 +139,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 			rotation = CFrame.Angles(0, math.rad(90), 0)
 			hitboxOffset = CFrame.new(2, 0, 0)
 		else
-			AnimationModule.PlayAnimation(
+			AnimationModule.PlayAnimationThenIdle(
 				standModel,
 				PUNCH_ANIMATIONS[index],
 				false,
@@ -171,7 +190,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 	end
 	comboResetTimers[character] = task.delay(3, function()
 		comboIndices[character] = 1
-		AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
+		--AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
 	end)
 
 	return true
@@ -226,22 +245,29 @@ function BasicStandAttacks.StartBarrage(character)
 		if player then
 			if heroValue then
 				HeroManager.SetField(player, "Hero", "TuskAct4")
+				heroValue = HeroManager.GetField(player, "Hero")
 				print(player.Name .. " is now Tusk Act 4!")
 			end
 
 			StandUtils.RemoveStand(character)
-			standModel = StandUtils.SummonStand(character, heroValue)
+			standModel = StandUtils.SummonStand(character, "TuskAct4")
 
-			-- Wait for the new Motor6D to exist
-			local newPrimary = standModel:WaitForChild("HumanoidRootPart")
-			motor = newPrimary:WaitForChild("StandMotor", 2)
+			-- Wait one frame for joints + animator
+			task.wait()
+
+			-- Reset rig state completely
+			resetStandRig(standModel)
+
+			-- Stop ANY lingering animations
+			AnimationModule.StopAllAnimations(standModel)
+
+			motor = standModel.PrimaryPart:WaitForChild("StandMotor", 2)
 		end
 	end
 
 	-- Cache original motor position
-	if not originalC0s[standModel] then
-		originalC0s[standModel] = motor.C0
-	end
+	local defaultC0 = motor:GetAttribute("DefaultC0") or motor.C0
+	motor:SetAttribute("DefaultC0", defaultC0)
 
 	local STAND_BARRAGE_ANIMID = 103626308901658
 	local AnimSpeed = 1.5
@@ -256,9 +282,9 @@ function BasicStandAttacks.StartBarrage(character)
 		--PilotModule.SetPoseOffset(character, CFrame.new(1.5, 0, 0))
 	else
 		if heroValue == "NuclearRain" then
-			motor.C0 = originalC0s[standModel] * CFrame.new(0, 0, 0)
+			motor:SetAttribute("DefaultC0", defaultC0)
 		else
-			motor.C0 = originalC0s[standModel] * CFrame.new(2, 0, 0)
+			motor.C0 = defaultC0 * CFrame.new(2, 0, 0)
 		end
 	end
 
@@ -309,10 +335,25 @@ function BasicStandAttacks.StartBarrage(character)
 				Transparency = 1,
 				Name = "BarragePunchHitbox",
 				Rotation = rotation,
+				RemoveOnStun = false,
 			})
 			task.wait(BARRAGE_INTERVAL)
 		end
 	end)
+
+	local distance = 15
+	local speed = 8
+	local rate = 0.05 --delay between punches
+
+	SpawnClientVfx:FireAllClients({
+		type = "Barrage",
+		action = "Start",
+		character = standModel,
+		distance = distance,
+		speed = speed,
+		rate = rate,
+		armCopy = true,
+	})
 
 	print("this is where I expect it to  fail")
 
@@ -344,8 +385,12 @@ function BasicStandAttacks.StopBarrage(character)
 	end
 
 	local motor = standModel:FindFirstChild("StandMotor", true)
-	if motor and motor:IsA("Motor6D") and originalC0s[standModel] then
-		motor.C0 = originalC0s[standModel]
+	if motor and motor:IsA("Motor6D") then
+		local defaultC0 = motor:GetAttribute("DefaultC0")
+		if defaultC0 then
+			motor.C0 = defaultC0
+		end
+		motor.Transform = CFrame.identity
 	end
 
 	-- Clear barrage flag
@@ -368,12 +413,15 @@ function BasicStandAttacks.StopBarrage(character)
 	else
 		AnimationModule.StopAllAnimations(standModel)
 	end
-	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
-
-	-- Optional: clear cache if stand is despawned frequently
-	originalC0s[standModel] = nil
+	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Idle, 1)
 
 	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageEffects")
+	SpawnClientVfx:FireAllClients({
+		type = "Barrage",
+		action = "End",
+		character = standModel,
+	})
+
 	return true
 end
 

@@ -96,6 +96,17 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		return
 	end
 
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	-- ❌ Block abilities while dead
+	if humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead then
+		print("Ability blocked: player is dead")
+		return
+	end
+
 	if CombatUtils.IsBlocking(character) then
 		print("isblocking")
 		return

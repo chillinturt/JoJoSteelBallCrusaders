@@ -1,4 +1,5 @@
 -- AbilityHandler ModuleScript
+local HeapProfilerService = game:GetService("HeapProfilerService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -8,6 +9,7 @@ local AbilityHandler = {}
 local StandUtils = require(ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
+local HeroGroups = require(ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("HeroGroups"))
 
 -- Where all stand modules live
 local StandModules = ServerScriptService.BasicCombat.StandModules
@@ -17,6 +19,10 @@ local cooldowns = {}
 
 -- Track active hold abilities: activeHolds[player][abilityId] = true/false
 local activeHolds = {}
+
+local function getHeroGroup(heroName)
+	return HeroGroups[heroName] or heroName
+end
 
 ---------------------------------------------------------------------
 -- Load a stand's AbilityRegistry
@@ -96,8 +102,20 @@ end
 --    state: string or nil ("Start", "Stop", "Toggle", nil)
 ---------------------------------------------------------------------
 function AbilityHandler.ExecuteAbility(player, abilityId, state)
+	print("execute ability in handler started...")
 	local character = player.Character
 	if not character then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	-- ❌ Block abilities while dead
+	if humanoid.Health <= 0 or humanoid:GetState() == Enum.HumanoidStateType.Dead then
+		print("Ability blocked: player is dead")
 		return
 	end
 
@@ -112,18 +130,29 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		return
 	end
 
+	-- Normalize hero (TuskActX → Tusk)
+	local heroGroup = getHeroGroup(heroValue)
+
 	local standModel = StandUtils.getStandModel(character)
 	if not standModel then
 		return
 	end
 
 	local standTag = standModel:FindFirstChild("StandTag")
-	if not standTag or standTag.Value ~= heroValue then
+	if not standTag then
+		return
+	end
+
+	-- Normalize stand tag too
+	local standHeroGroup = getHeroGroup(standTag.Value)
+
+	if standHeroGroup ~= heroGroup then
+		print("Ability blocked: stand mismatch")
 		return
 	end
 
 	-- Load registry
-	local registry = loadAbilityRegistry(standTag.Value)
+	local registry = loadAbilityRegistry(heroGroup)
 	if not registry then
 		return
 	end

@@ -60,11 +60,12 @@ function Tusk.NailShot(character)
 		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
 			HeroManager.SetField(player, "Hero", "TuskAct1")
+			heroValue = HeroManager.GetField(player, "Hero")
 			print(player.Name .. " is now TuskAct1!")
 		end
 
 		StandUtils.RemoveStand(character)
-		StandUtils.SummonStand(character, heroValue.Value)
+		StandUtils.SummonStand(character, heroValue)
 	end
 
 	SoundModule.PlaySound({
@@ -138,11 +139,12 @@ function Tusk.GuidedNail(character)
 		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
 			HeroManager.SetField(player, "Hero", "TuskAct2")
+			heroValue = HeroManager.GetField(player, "Hero")
 			print(player.Name .. " is now TuskAct2!")
 		end
 
 		StandUtils.RemoveStand(character)
-		StandUtils.SummonStand(character, heroValue.Value)
+		StandUtils.SummonStand(character, heroValue)
 	end
 
 	SoundModule.PlaySound({
@@ -237,11 +239,12 @@ function Tusk.SpinWormhole(character)
 		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
 			HeroManager.SetField(player, "Hero", "TuskAct3")
+			heroValue = HeroManager.GetField(player, "Hero")
 			print(player.Name .. " is now TuskAct3!")
 		end
 
 		StandUtils.RemoveStand(character)
-		StandUtils.SummonStand(character, heroValue.Value)
+		StandUtils.SummonStand(character, heroValue)
 	end
 
 	SoundModule.PlaySound({
@@ -335,11 +338,12 @@ function Tusk.InfiniteRotation(character)
 		local heroValue = HeroManager.GetField(player, "Hero")
 		if heroValue then
 			HeroManager.SetField(player, "Hero", "TuskAct4")
+			heroValue = HeroManager.GetField(player, "Hero")
 			print(player.Name .. " is now TuskAct4!")
 		end
 
 		StandUtils.RemoveStand(character)
-		StandUtils.SummonStand(character, heroValue.Value)
+		StandUtils.SummonStand(character, heroValue)
 	end
 
 	SoundModule.PlaySound({

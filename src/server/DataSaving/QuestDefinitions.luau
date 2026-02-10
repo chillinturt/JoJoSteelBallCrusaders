@@ -603,7 +603,7 @@ QuestDefinitions.DefeatEscapedConvicts1 = {
 	RewardXP = 15000,
 	RewardCash = 400,
 	TurnInNpc = nil, -- Auto-completes on defeating the 8th convict
-	NextQuest = nil, -- End of this segment or link to Jolyne breakout quest later
+	NextQuest = "TalkToWarden1", -- End of this segment or link to Jolyne breakout quest later
 	Dialog = {
 		Offer = {
 			"The convicts are armed and crazy! They've escaped from the prison.",
@@ -620,6 +620,38 @@ QuestDefinitions.DefeatEscapedConvicts1 = {
 			"You got them all! The path is clear now.",
 			"Thank you... Jolyne-san will be so happy.",
 			"Next, we break her out for real!",
+		},
+	},
+}
+
+QuestDefinitions.TalkToWarden1 = {
+	Name = "Talk to the Warden",
+	Description = "Speak with the Warden to advance Jolyne's breakout plan.",
+	Giver = "Emporio",
+	Objectives = {
+		{ Type = "Talk", Target = "Warden", Completed = false },
+	},
+	RewardXP = 10000,
+	RewardCash = 150,
+	RewardItems = {},
+	TurnInNpc = nil, -- Auto-completes on talk
+	NextQuest = nil, -- Leads to Jolyne breakout quest or end of segment
+	Dialog = {
+		Offer = {
+			"Y-You did it! The convicts are gone... the yard is safe now!",
+			"The warden holds the keys – and maybe more secrets.",
+			"Talk to him in his office. Convince him... or distract him!",
+			"We need his help to free Jolyne-san!",
+			"(Breakout quest coming soon)",
+		},
+		InProgress = {
+			"This never triggers",
+		},
+		TurnIn = nil,
+		Completed = {
+			"You spoke to the warden... Great job!",
+			"Jolyne-san's freedom is within reach now.",
+			"(Breakout quest will release soon)",
 		},
 	},
 }
@@ -834,7 +866,7 @@ QuestDefinitions.DefeatJotaro1 = {
 	},
 	RewardXP = 15000,
 	RewardCash = 10000,
-	RewardItems = { "Rokakaka" }, -- Unique JoJo-themed item
+	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
 	TurnInNpc = nil, -- Auto-completes on defeat
 	NextQuest = "TalkToFunnyValentine1", -- End of this branch or link to more (e.g., "TalkToDio1")
 	Dialog = {
@@ -869,7 +901,7 @@ QuestDefinitions.TalkToFunnyValentine1 = {
 	TurnInNpc = "FunnyValentine", -- Auto-completes on talk
 	RewardItems = {},
 	RewardCash = 10000,
-	NextQuest = nil, -- Set to your next quest in the Steel Ball Run / D4C branch when ready (e.g., "DefeatGyro1" or "CollectCorpseParts1")
+	NextQuest = "DefeatGiorno1", -- Set to your next quest in the Steel Ball Run / D4C branch when ready (e.g., "DefeatGyro1" or "CollectCorpseParts1")
 	Dialog = {
 		Offer = {
 			"You stand before the President of the United States, Funny Valentine.",
@@ -890,8 +922,132 @@ QuestDefinitions.TalkToFunnyValentine1 = {
 	},
 }
 
---end of new quests
+QuestDefinitions.DefeatGiorno1 = {
+	Name = "Defeat Giorno Giovanna",
+	Description = "Defeat Giorno in combat to pave the way for Heaven.",
+	Objectives = {
+		{ Type = "Defeat", Target = "Giorno", Required = 1, Progress = 0, Completed = false },
+	},
+	RewardXP = 15000,
+	RewardCash = 10000,
+	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
+	TurnInNpc = "FunnyValentine", -- Auto-completes on defeat
+	NextQuest = "FindFreddy1", -- End of this branch or link to more (e.g., "TalkToDio1")
+	Dialog = {
+		Offer = {
+			"Giorno Giovanna... Dio's son, wielder of Gold Experience.",
+			"He stands in our way, but he is a good kid. His life-giving power means nothing before true destiny.",
+			"Strike him down, but do not eliminate him. He may be of use later.",
+		},
+		InProgress = {
+			"Giorno's Requiem resets reality itself. Endure and impose Heaven's order!",
+		},
+		-- No TurnIn dialog (auto-complete)
+		Completed = {
+			"Giorno has been defeated... Excellent.",
+			"You are one step closer to the ultimate destiny.",
+			"Return if you seek further enlightenment.",
+		},
+	},
+}
 
+QuestDefinitions.FindFreddy1 = {
+	Name = "Find Freddy",
+	Giver = "FunnyValentine",
+	Objectives = {
+		{ Type = "Interact", Target = "Freddy", Required = 1, Progress = 0, Completed = false },
+	},
+	RewardXP = 16000,
+	RewardCash = 1000,
+	TurnInNpc = "FunnyValentine",
+	NextQuest = "ValentinesGold1",
+	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
+	Dialog = {
+		Offer = {
+			"This bar... Freddy's Bar. Its name troubles me.",
+			"I suspect a secret reason behind it. A hidden truth.",
+			"Find Freddy. Uncover why this place bears his name.",
+		},
+		InProgress = {
+			"Freddy hides within his own bar. Search every corner.",
+			"The truth awaits in the shadows of Freddy's domain.",
+		},
+		TurnIn = {
+			"You've found him... Good. But this revelation stirs more questions.",
+			"Freddy knows of my gold. It must be recovered.",
+		},
+		Completed = {
+			"Freddy's secret is yours. But my gold remains lost.",
+		},
+	},
+}
+
+QuestDefinitions.ValentinesGold1 = {
+	Name = "Valentine's Gold",
+	Giver = "FunnyValentine",
+	Objectives = {
+		{ Type = "Interact", Target = "ValentinesGold", Required = 1, Progress = 0, Completed = false },
+	},
+	RewardXP = 20000,
+	RewardCash = 20000,
+	TurnInNpc = "FunnyValentine",
+	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
+	NextQuest = "DefeatPolice1", -- End of chain or link to next
+	Dialog = {
+		Offer = {
+			"Freddy's words confirm it – my gold is hidden nearby.",
+			"The spoils of Heaven's path cannot be left to thieves.",
+			"Retrieve my gold. Bring it to me at once.",
+		},
+		InProgress = {
+			"The gold gleams with destiny's light. It calls to the worthy.",
+			"Search the bar's depths. Claim what is mine.",
+		},
+		TurnIn = {
+			"The gold... returned to its rightful owner.",
+			"Excellent work. You serve the path to Heaven well.",
+		},
+		Completed = {
+			"My gold is secure. Your service is noted.",
+		},
+	},
+}
+
+QuestDefinitions.DefeatPolice1 = {
+	Name = "Purge the Police",
+	Description = "Defeat 8 police at Shanty Town to eliminate threats after recovering the gold.",
+	Giver = "FunnyValentine",
+	Objectives = {
+		{ Type = "Defeat", Target = "Police", Required = 8, Progress = 0, Completed = false },
+	},
+	RewardXP = 17000,
+	RewardCash = 800,
+	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
+	TurnInNpc = "FunnyValentine", -- Auto-completes on defeat
+	NextQuest = nil, -- End of chain or link to next
+	Dialog = {
+		Offer = {
+			"These Shanty Town police... corrupt dogs of a false justice.",
+			"They hunt the gold I've reclaimed – my own private property!",
+			"The founders of this great nation would scorn these theives!",
+			"Hunt them down and defeat eight. By the hand of fate you will shatter their badges.",
+			"Their false law crumbles before true patriotism.",
+			"Go now. America will see true justice!",
+		},
+		InProgress = {
+			"The police wield guns and false authority. Crush them beneath your Stand!",
+			"Two more remain... Do not falter on the path to Heaven.",
+		},
+		-- No TurnIn dialog (auto-complete)
+		Completed = {
+			"The corrupt police lie broken in Shanty Town... Excellent.",
+			"Their corrupt light fades, securing the gold for destiny.",
+			"You serve America well. Greater trials await.",
+		},
+	},
+}
+
+--end of new quests
 QuestDefinitions.DefeatThugsRepeatable = {
 	Name = "Stop the Thugs",
 	Description = "Defeat 5 thugs at the Motor Store.",
@@ -993,6 +1149,41 @@ QuestDefinitions.DefeatVampiresRepeatable = {
 
 		Completed = {
 			"Ready for more work? These vampires always come back!",
+		},
+	},
+}
+
+QuestDefinitions.DefeatHamonUsersRepeatable = {
+	Name = "Defeat Hamon Users",
+	Description = "Defeat 3 Hamon Users",
+
+	Repeatable = true, -- 🔹 NEW
+
+	Giver = "Esidisi",
+	RewardCash = 5000,
+	RewardXP = 3000,
+
+	Objectives = {
+		{ Type = "Defeat", Target = "HamonUser", Required = 3, Progress = 0, Completed = false },
+	},
+
+	--TurnInNpc = "Caesar",
+
+	Dialog = {
+		Offer = {
+			"We have to destroy these Hamon Users! Help me get 3 of them.",
+		},
+
+		InProgress = {
+			"We have to destroy these Hamon Users! Help me get 3 of them.",
+		},
+
+		TurnIn = {
+			"You got them! Well done indeed!",
+		},
+
+		Completed = {
+			"Ready for more work?",
 		},
 	},
 }

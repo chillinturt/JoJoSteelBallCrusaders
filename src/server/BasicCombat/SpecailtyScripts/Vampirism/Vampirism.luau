@@ -2,6 +2,8 @@
 local VampirismModule = {}
 
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local HitboxSpawner = require(game.ServerScriptService.BasicCombat.HitboxSpawner)
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
@@ -47,13 +49,15 @@ local BLOOD_RUSH_METER = 1
 local BLOOD_RUSH_BARRIER_DECAY = 1
 local BLOOD_RUSH_BARRIER_DELAY = 8
 
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
 function VampirismModule.DivineDrink(character)
 	AnimationModule.PlayAnimation(character, DIVINE_DRINK_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, DIVINE_DRINK_ENDLAG)
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
-	HitboxSpawner.spawnStandOffHitbox({
+	local hitbox = HitboxSpawner.spawnStandOffHitbox({
 		Character = character,
 		Damage = DIVINE_DRINK_DAMAGE,
 		Size = DIVINE_DRINK_SIZE,
@@ -90,6 +94,18 @@ function VampirismModule.DivineDrink(character)
 		looped = false,
 		range = 160,
 	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "DivineDrink",
+		attachId = vfxId,
+		offset = CFrame.new(DIVINE_DRINK_OFFSET),
+		scale = DIVINE_DRINK_SIZE,
+		attachTo = hitbox,
+	})
 end
 
 function VampirismModule.VaporizationFreeze(character)
@@ -98,7 +114,7 @@ function VampirismModule.VaporizationFreeze(character)
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
-	HitboxSpawner.spawnStandOffHitbox({
+	local hitbox = HitboxSpawner.spawnStandOffHitbox({
 		Character = character,
 		Damage = VAPORIZATION_FREEZE_DAMAGE,
 		Size = VAPORIZATION_FREEZE_SIZE,
@@ -132,6 +148,18 @@ function VampirismModule.VaporizationFreeze(character)
 		playbackSpeed = 1,
 		looped = false,
 		range = 160,
+	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	hitbox:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "Snowflakes",
+		attachId = vfxId,
+		offset = CFrame.new(VAPORIZATION_FREEZE_OFFSET),
+		scale = VAPORIZATION_FREEZE_SIZE,
+		attachTo = hitbox,
 	})
 end
 
@@ -227,7 +255,16 @@ function VampirismModule.BloodRush(character)
 	local surplus = (currentHealth + healAmount) - maxHealth
 	if surplus > 0 then
 		-- Grant the overheal as a temporary barrier
-		CombatUtils.AddBarrier(character, surplus, BLOOD_RUSH_BARRIER_DECAY, BLOOD_RUSH_BARRIER_DELAY)
+		CombatUtils.AddBarrier(character, {
+			Id = "RainBarrier",
+			Amount = surplus,
+			MaxCap = 200,
+
+			DecayRate = BLOOD_RUSH_BARRIER_DECAY,
+			DecayDelay = BLOOD_RUSH_BARRIER_DELAY,
+
+			Priority = 10, -- example priority (tune as needed)
+		})
 	end
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")

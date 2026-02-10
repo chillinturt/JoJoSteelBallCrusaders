@@ -5,15 +5,16 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
+local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 
-local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("BlockModule"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local AbilityHandler =
 	require(game.ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("AbilityHandler"))
+local TransparencyService = require(game.ServerScriptService.BasicCombat.Managers:WaitForChild("TransparencyService"))
 
 local MAX_TELEPORT_DISTANCE = 60 -- studs
 
@@ -39,8 +40,11 @@ local SPLATTER_STUN = 1.5
 local SPLATTER_SPEED = 200
 
 local activeTimeErase = {}
+local timeEraseVisibilityCache = {} -- [player] = transparencyCache
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+local ScreenColorVfxEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("ScreenColorVfx")
+local standAurasEvent = ReplicatedStorage.Shared.Events:WaitForChild("StandAurasEvent")
 
 function KingCarmine.Teleport(character)
 	print("Teleport called on module")
@@ -239,6 +243,42 @@ function KingCarmine.Splatter(standModel)
 	return true
 end
 
+local function CleanupTimeErase(player, character, standModel)
+	-- Hurtboxes
+	if character then
+		local hurtbox = character:FindFirstChild("Hurtbox")
+		if hurtbox then
+			hurtbox.CanQuery = true
+		end
+	end
+
+	if standModel then
+		local standHurtbox = standModel:FindFirstChild("Hurtbox")
+		if standHurtbox then
+			standHurtbox.CanQuery = true
+		end
+	end
+
+	-- Sounds
+	if standModel and standModel.PrimaryPart then
+		SoundModule.StopSound(standModel.PrimaryPart, "TimeEraseEffect")
+		SoundModule.StopSound(standModel.PrimaryPart, "TimeEraseCall")
+	end
+
+	-- Visibility (THIS IS THE IMPORTANT PART)
+	local cache = timeEraseVisibilityCache[player]
+	if cache and character then
+		TransparencyService.Restore(character, cache)
+	end
+	timeEraseVisibilityCache[player] = nil
+	standAurasEvent:FireAllClients(character, "KingCarmine", true)
+
+	CombatUtils.ResetActionInProgress(character)
+
+	activeTimeErase[player] = nil
+	ScreenColorVfxEvent:FireClient(player, "TimeErase.End")
+end
+
 function KingCarmine.TimeErase(standModel)
 	local character = standModel.Parent
 	if not character then
@@ -252,6 +292,10 @@ function KingCarmine.TimeErase(standModel)
 
 	local token = {}
 	activeTimeErase[player] = token
+
+	-- Invisibility
+	local transparencyCache = TransparencyService.SetInvisible(character)
+	timeEraseVisibilityCache[player] = transparencyCache
 
 	-- (hurtboxes, sounds, cooldown resets...)
 	local characterHurtbox = character:FindFirstChild("Hurtbox")
@@ -291,6 +335,9 @@ function KingCarmine.TimeErase(standModel)
 	AbilityHandler.ResetCooldown(player, 2)
 	AbilityHandler.ResetCooldown(player, 3)
 
+	ScreenColorVfxEvent:FireClient(player, "TimeErase.Start", TIME_ERASE_DURATION)
+	standAurasEvent:FireAllClients(character, "KingCarmine", false)
+
 	local start = tick()
 	while tick() - start < TIME_ERASE_DURATION do
 		if activeTimeErase[player] ~= token then
@@ -300,20 +347,7 @@ function KingCarmine.TimeErase(standModel)
 	end
 
 	-- Cleanup (shared exit path)
-	if characterHurtbox then
-		characterHurtbox.CanQuery = true
-	end
-	if standHurtbox then
-		standHurtbox.CanQuery = true
-	end
-
-	SoundModule.StopSound(standModel.PrimaryPart, "TimeEraseEffect")
-	SoundModule.StopSound(standModel.PrimaryPart, "TimeEraseCall")
-
-	CombatUtils.SetActionInProgress(character, 0.1)
-
-	-- cleanup
-	activeTimeErase[player] = nil
+	CleanupTimeErase(player, character, standModel)
 end
 
 function KingCarmine.CancelTimeErase(character)
@@ -322,7 +356,8 @@ function KingCarmine.CancelTimeErase(character)
 		return
 	end
 
-	activeTimeErase[player] = nil
+	local standModel = StandUtils.getStandModel(character)
+	CleanupTimeErase(player, character, standModel)
 	print("Time Erase canceled")
 end
 

@@ -92,7 +92,17 @@ local function applyBlockingState(character)
 
 	local track
 	if standModel then
-		track = AnimationModule.PlayAnimation(entity, STAND_BLOCK_ANIMATION, false, Enum.AnimationPriority.Action)
+		local standTag = StandUtils.getStandTag(character).Value
+		if
+			standTag and standTag == "TuskAct1"
+			or standTag == "TuskAct2"
+			or standTag == "TuskAct3"
+			or standTag == "NuclearRain"
+		then
+			track = AnimationModule.PlayAnimation(character, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
+		else
+			track = AnimationModule.PlayAnimation(entity, STAND_BLOCK_ANIMATION, false, Enum.AnimationPriority.Action)
+		end
 	else
 		track = AnimationModule.PlayAnimation(character, BLOCK_ANIMATION_ID, false, Enum.AnimationPriority.Action)
 	end

@@ -64,7 +64,7 @@ AbilityRegistry[2] = {
 		-- ❌ GLOBAL LOCKS
 		----------------------------------------------------------
 
-		if CombatUtils.GetActionInProgress(character).Value then
+		if CombatUtils.GetActionInProgress(character) then
 			return
 		end
 

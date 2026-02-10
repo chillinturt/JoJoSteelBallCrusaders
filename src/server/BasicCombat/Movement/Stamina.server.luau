@@ -107,6 +107,10 @@ local function onDashRequested(player, dirLabel)
 		print("isblocking")
 		return
 	end
+	if CombatUtils.IsDashing(character) then
+		print("movement ability in progress...")
+		return
+	end
 
 	local data = dashData[player]
 	if not data then
@@ -175,7 +179,7 @@ local function onDashRequested(player, dirLabel)
 		startRecharge(player)
 	end
 
-	CombatUtils.SetIsDashing(character, 0.5)
+	CombatUtils.SetIsDashing(character, DASH_DURATION)
 	print("dash finished!")
 end
 
@@ -422,6 +426,10 @@ local function onJumpRequest(player)
 		print("no dashinfo")
 		return
 	end
+	if CombatUtils.IsDashing(character) then
+		print("movement ability in progress...")
+		return
+	end
 
 	-- Determine jump type
 	local jumpType = nil
@@ -474,6 +482,7 @@ local function onJumpRequest(player)
 	if consumeStamina and dashInfo.charges < MAX_CHARGES then
 		startRecharge(player)
 	end
+	CombatUtils.SetIsDashing(character, DOUBLE_JUMP_DURATION)
 end
 
 local function initCharacter(player, character)
