@@ -135,6 +135,49 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 	local player = Players:GetPlayerFromCharacter(entity)
 	if player then
 		print("player summoned stand...")
+
+		local StandSummonSounds = {
+			["StarPurple"] = "5371606324",
+			["HierophantGrand"] = "6191514689",
+			["KingCarmine"] = "6995205240",
+			["GoldExperiment"] = "4959222677",
+			["KaiserQueen"] = "2652080817",
+			["CrazedDiamond"] = "6678129999",
+			["ThatHand"] = "98271580708859",
+			["NuclearRain"] = "5978825194",
+			["HeavyDoor"] = "7280545782",
+			["WhiteSake"] = "72453705794819",
+			["TuskAct1"] = "80705495242732",
+			["TuskAct2"] = "74671451151873",
+			["TuskAct3"] = "107555169108202",
+			["TuskAct4"] = "118239480297657",
+			["Tusk"] = "5024213083",
+			["MagiciansRed"] = "4732804275",
+			["TheWorld"] = "4580055091",
+			["Metallica"] = "101898166770177",
+			["Cream"] = "7897536914",
+			["StoneFree"] = "86796685861992",
+		}
+		local vol = 1
+
+		if standTag == "KingCarmine" then
+			vol = 3
+		elseif standTag == "KaiserQueen" then
+			vol = 3
+		elseif standTag == "HierophantGrand" then
+			vol = 0.75
+		end
+
+		SoundUtils.PlaySound({
+			Root = standModel.PrimaryPart,
+			soundName = "Summon Sound",
+			soundID = StandSummonSounds[standTag],
+			volume = vol,
+			playbackSpeed = 1,
+			looped = false,
+			range = 100,
+		})
+
 		if standTag == "TuskAct1" or standTag == "TuskAct2" or standTag == "TuskAct3" or standTag == "TuskAct4" then
 			standTag = "Tusk"
 		end
@@ -184,48 +227,6 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 	activeStands[entity] = standModel
 
 	CreateStandHurtbox(standModel)
-
-	local StandSummonSounds = {
-		["StarPurple"] = "5371606324",
-		["HierophantGrand"] = "6191514689",
-		["KingCarmine"] = "6995205240",
-		["GoldExperiment"] = "4959222677",
-		["KaiserQueen"] = "2652080817",
-		["CrazedDiamond"] = "6678129999",
-		["ThatHand"] = "98271580708859",
-		["NuclearRain"] = "5978825194",
-		["HeavyDoor"] = "7280545782",
-		["WhiteSake"] = "72453705794819",
-		["TuskAct1"] = "5024213083",
-		["TuskAct2"] = "5024213083",
-		["TuskAct3"] = "5024213083",
-		["TuskAct4"] = "5024213083",
-		["Tusk"] = "5024213083",
-		["MagiciansRed"] = "4732804275",
-		["TheWorld"] = "4580055091",
-		["Metallica"] = "101898166770177",
-		["Cream"] = "7897536914",
-		["StoneFree"] = "86796685861992",
-	}
-	local vol = 1
-
-	if standTag == "KingCarmine" then
-		vol = 3
-	elseif standTag == "KaiserQueen" then
-		vol = 3
-	elseif standTag == "HierophantGrand" then
-		vol = 0.75
-	end
-
-	SoundUtils.PlaySound({
-		Root = standModel.PrimaryPart,
-		soundName = "Summon Sound",
-		soundID = StandSummonSounds[standTag],
-		volume = vol,
-		playbackSpeed = 1,
-		looped = false,
-		range = 100,
-	})
 
 	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action)
 

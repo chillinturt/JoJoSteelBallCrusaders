@@ -6,6 +6,9 @@ local InventoryUpdatedEvent = Instance.new("RemoteEvent")
 InventoryUpdatedEvent.Name = "InventoryUpdated"
 InventoryUpdatedEvent.Parent = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
 
+local ExclamationPointEvent =
+	ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents"):WaitForChild("ExclamationPointEvent")
+
 local InventoryManager = {}
 
 ---------------------------------------------------------------------
@@ -120,6 +123,7 @@ function InventoryManager.AddItem(player, itemName, amount)
 	end
 
 	InventoryUpdatedEvent:FireClient(player, InventoryManager.GetInventory(player))
+	ExclamationPointEvent:FireClient(player)
 end
 
 function InventoryManager.RemoveItem(player, itemName, amount)

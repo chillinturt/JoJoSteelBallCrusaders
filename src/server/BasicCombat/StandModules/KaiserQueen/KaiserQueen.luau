@@ -14,12 +14,16 @@ local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("B
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local TandemModule = require(game.ServerScriptService.BasicCombat.StandModules:WaitForChild("TandemMode"))
 
-local THROWKNIVES_HITBOX_SIZE = Vector3.new(10, 6, 10)
-local THROWKNIVES_DAMAGE = 20
-local THROWKNIVES_DURATION = 3
-local THROWKNIVES_OFFSET = Vector3.new(0, 0, 8)
-local THROWKNIVES_ENDLAG = 0.8
-local THROWKNIVES_STUN = 1.5
+local MACH_ORA_SIZE = Vector3.new(10, 6, 10)
+local PLANT_BOMB_DAMAGE = 15
+local PLANT_BOMB_OFFSET = Vector3.new(2, 0, -8)
+local PLANT_BOMB_ENDLAG = 0.8
+local PLANT_BOMB_STUN = 1.5
+local PLANT_BOMB_DURATION = 1
+local BOMB_STUN = 1.5
+
+local BOMB_DAMAGE = 30
+local BOMB_SIZE = Vector3.new(20, 20, 20)
 
 local BLAZINGSTRIKE_DAMAGE = 15
 local BLAZINGSTRIKE_SIZE = Vector3.new(5, 7, 18)
@@ -36,6 +40,14 @@ local BLAZINGSTRIKE_KOCKBACK_DAMAGE = 15
 local BLAZINGSTRIKE_KOCKBACK_SIZE = Vector3.new(20, 20, 20)
 local BLAZINGSTRIKE_KOCKBACK_OFFSET = Vector3.new(0, 0, 0)
 
+local STARYCATBUBBLE_HITBOX_SIZE = Vector3.new(10, 6, 10)
+local STARYCATBUBBLE_DAMAGE = 20
+local STARYCATBUBBLE_DURATION = 3
+local STARYCATBUBBLE_OFFSET = Vector3.new(0, 0, 8)
+local STARYCATBUBBLE_ENDLAG = 0.8
+local STARYCATBUBBLE_STUN = 1.5
+local STARYCATBUBBLE_SPEED = 200
+
 local STOP_DURATION = 3 -- seconds
 local IMMOBILE_ANCHOR_NAME = "TheWorldTimeStopAnchor"
 local TIME_STOP_DAMAGE_MULT = 1.25
@@ -43,19 +55,96 @@ local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
-local TimeStopVfxEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("TimeStopVfx")
 local affectedPlayersVfx = {}
 
-function KaiserQueen.ThrowKnives(standModel)
+local function getBombFolder(character)
+	local folder = character:FindFirstChild("ActiveBombs")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "ActiveBombs"
+		folder.Parent = character
+	end
+	return folder
+end
+
+local function createBomb(character, position, attachedTo)
+	local bombFolder = getBombFolder(character)
+
+	local bomb = Instance.new("Part")
+	bomb.Name = "KQ_Bomb"
+	bomb.Size = Vector3.new(0.6, 0.6, 0.6)
+	bomb.Transparency = 1
+	bomb.Anchored = true
+	bomb.CanCollide = false
+	bomb.Position = position
+	bomb.Parent = bombFolder
+
+	-- If attached to a target, weld it
+	if attachedTo then
+		bomb.Anchored = false
+		local weld = Instance.new("WeldConstraint")
+		weld.Part0 = bomb
+		weld.Part1 = attachedTo
+		weld.Parent = bomb
+	end
+
+	return bomb
+end
+
+function KaiserQueen.DetonateBombs(standModel)
 	local character = standModel.Parent
+	local bombFolder = character:FindFirstChild("ActiveBombs")
+	if not bombFolder then
+		return false
+	end
+
+	local bombs = bombFolder:GetChildren()
+	if #bombs == 0 then
+		return false
+	end
+
+	for _, bomb in ipairs(bombs) do
+		if bomb:IsA("BasePart") then
+			local pos = bomb.Position
+
+			-- Spawn explosion hitbox
+			HitboxSpawner.spawnStationaryHitbox({
+				Position = pos,
+				Character = character,
+				Damage = BOMB_DAMAGE or 25,
+				Size = BOMB_SIZE or Vector3.new(10, 10, 10),
+				Offset = CFrame.new(),
+				Color = BrickColor.new("Bright red"),
+				Duration = 0.25,
+				StunDuration = BOMB_STUN or 2,
+				Transparency = 0.5,
+				Name = "KQ_BombExplosion",
+			})
+
+			bomb:Destroy()
+		end
+	end
+
+	return true
+end
+
+function KaiserQueen.PlantBomb(standModel)
+	local character = standModel.Parent
+
+	-- If bombs exist → detonate instead
+	local bombFolder = character:FindFirstChild("ActiveBombs")
+	if bombFolder and #bombFolder:GetChildren() > 0 then
+		return KaiserQueen.DetonateBombs(standModel)
+	end
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
 	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
-	CombatUtils.SetActionInProgress(character, THROWKNIVES_ENDLAG)
+	--CombatUtils.SetActionInProgress(character, THROWKNIVES_ENDLAG)
 
+	-- sfx
 	SoundModule.PlaySound({
 		Root = standModel.PrimaryPart,
-		soundName = "KnifeThrowCall",
+		soundName = "PlantBombCall",
 		soundID = "6665704220",
 		volume = 2,
 		playbackSpeed = 1,
@@ -65,57 +154,78 @@ function KaiserQueen.ThrowKnives(standModel)
 
 	SoundModule.PlaySound({
 		Root = standModel.PrimaryPart,
-		soundName = "KnifeThrowEffect",
-		soundID = "5789211405",
+		soundName = "PlantBombEffect",
+		soundID = "6665704220",
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
 		range = 160,
 	})
 
-	-- this will help determiune the direction of the projectile
-	local direction
-	local startPos = hrp.Position
-	local player = Players:GetPlayerFromCharacter(character)
+	local hitbox = HitboxSpawner.spawnHitbox({
+		Character = character,
+		Damage = PLANT_BOMB_DAMAGE or 0.1,
+		Size = MACH_ORA_SIZE,
+		Offset = CFrame.new(PLANT_BOMB_OFFSET),
+		Color = BrickColor.new("Bright red"),
+		Duration = PLANT_BOMB_DURATION,
+		StunDuration = PLANT_BOMB_STUN,
+		Transparency = 0.5,
+		Name = "BasicPunchHitbox",
+		RemoveOnStun = false,
 
-	if player then
-		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
-		if isClose then
-			direction = hrp:GetPivot().LookVector
-		else
-			local maxDistance = 1500
-			local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)
-			if not targetPoint then
-				warn("No target point found")
-				return false
+		OnHit = function(targetChar)
+			local bombPosition
+			local attachedPart = nil
+
+			if targetChar and targetChar:FindFirstChild("HumanoidRootPart") then
+				-- 🎯 Attach bomb to target
+				local targetHRP = targetChar.HumanoidRootPart
+				bombPosition = targetHRP.Position
+				attachedPart = targetHRP
+			else
+				-- 💣 Missed → place bomb in front of caster
+				local forwardOffset = hrp.CFrame.LookVector * 5
+				bombPosition = hrp.Position + forwardOffset
 			end
 
-			-- Determine direction to target
-			direction = (targetPoint - startPos).Unit
-		end
-	else
-		direction = hrp:GetPivot().LookVector
-	end
+			local bomb = createBomb(character, bombPosition, attachedPart)
 
-	HitboxSpawner.spawnProjectile({
-		Stand = standModel,
-		Character = character,
-		Damage = THROWKNIVES_DAMAGE,
-		Size = THROWKNIVES_HITBOX_SIZE,
-		Offset = THROWKNIVES_OFFSET,
-		Color = BrickColor.new("Bright red"),
-		Duration = THROWKNIVES_DURATION,
-		StunDuration = THROWKNIVES_STUN,
-		Transparency = 0.3,
-		Name = "BarragePunchHitbox",
-		Speed = 200,
-		Direction = direction,
-		Origin = startPos,
+			-- Optional debug
+			print("Bomb planted:", bomb, attachedPart and "ON TARGET" or "ON GROUND")
+		end,
+
+		task.delay(PLANT_BOMB_DURATION, function()
+			local bombFolder = character:FindFirstChild("ActiveBombs")
+			if not bombFolder or #bombFolder:GetChildren() == 0 then
+				-- No hits occurred → plant fallback bomb
+				local forwardOffset = hrp.CFrame.LookVector * 5
+				local fallbackPos = hrp.Position + forwardOffset
+				createBomb(character, fallbackPos, nil)
+			end
+		end),
 	})
+
+	--allow for a second input to detonate the bomb if there is at least one bomb active
+	--[[
+	hitboxSpawner.spawnStationaryHitbox({
+		Position = bombposition,
+		Character = character,
+		Damage = BARRIER_DAMAGE,
+		Size = BARRIER_SIZE,
+		Offset = hitBoxOffset,
+		Color = BrickColor.new("Bright red"),
+		Duration = 1,
+		StunDuration = 2,
+		Transparency = 1,
+		Name = "BarragePunchHitbox",
+	})
+	]]
+
 	return true
 end
 
-function KaiserQueen.BlazingStrike(standModel)
+function KaiserQueen.SheerHeartAttack(standModel)
 	local character = standModel.Parent
 
 	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
@@ -211,30 +321,55 @@ function KaiserQueen.BlazingStrike(standModel)
 	})
 end
 
-function KaiserQueen.KickBarrage(standModel)
+function KaiserQueen.StrayCatBubble(standModel)
 	local character = standModel.Parent
+	local hrp = character:FindFirstChild("HumanoidRootPart")
 
-	--CombatUtils.SetActionInProgress(character, TEAR_SPACE_DURATION)
+	CombatUtils.SetActionInProgress(character, STARYCATBUBBLE_ENDLAG)
 
-	AnimationModule.StopAllAnimations(standModel)
-	AnimationModule.PlayAnimation(standModel, ERASE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
+	-- this will help determiune the direction of the projectile
+	local direction
+	local startPos = hrp.Position
+	local player = Players:GetPlayerFromCharacter(character)
 
-	SoundModule.PlaySound({
-		Root = standModel.PrimaryPart,
-		soundName = "KickBarrageCall",
-		soundID = "2553980292",
-		volume = 2,
-		playbackSpeed = 1,
-		looped = false,
-		range = 160,
+	if player then
+		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
+		if isClose then
+			direction = hrp:GetPivot().LookVector
+		else
+			local maxDistance = 1500
+			local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)
+			if not targetPoint then
+				warn("No target point found")
+				return false
+			end
+
+			-- Determine direction to target
+			direction = (targetPoint - startPos).Unit
+		end
+	else
+		direction = hrp:GetPivot().LookVector
+	end
+
+	HitboxSpawner.spawnProjectile({
+		Stand = standModel,
+		Character = character,
+		Damage = STARYCATBUBBLE_DAMAGE,
+		Size = STARYCATBUBBLE_HITBOX_SIZE,
+		Offset = STARYCATBUBBLE_OFFSET,
+		Color = BrickColor.new("Bright red"),
+		Duration = STARYCATBUBBLE_DURATION,
+		StunDuration = STARYCATBUBBLE_STUN,
+		Transparency = 1,
+		Name = "StrayCatBubble",
+		Speed = STARYCATBUBBLE_SPEED,
+		Direction = direction,
+		Origin = startPos,
 	})
-
-	TandemModule.EnterTandemMode(character, standModel)
-	wait(3)
-	TandemModule.ExitTandemMode(character)
+	return true
 end
 
-function KaiserQueen.TimeStop(caster)
+function KaiserQueen.BitesTheDust(caster)
 	if not caster then
 		return
 	end
@@ -314,7 +449,7 @@ function KaiserQueen.TimeStop(caster)
 	end
 
 	for _, plr in ipairs(affectedPlayersVfx) do
-		TimeStopVfxEvent:FireClient(plr, "Start", STOP_DURATION)
+		--TimeStopVfxEvent:FireClient(plr, "Start", STOP_DURATION)
 	end
 
 	-- Freeze all enemy NPCs
@@ -387,7 +522,7 @@ function KaiserQueen.TimeStop(caster)
 		end
 
 		for _, plr in ipairs(affectedPlayersVfx) do
-			TimeStopVfxEvent:FireClient(plr, "End")
+			--TimeStopVfxEvent:FireClient(plr, "End")
 		end
 
 		-- Resume NPCs

@@ -66,7 +66,9 @@ end
 local function cloneFolderUIs(folder, playerGui)
 	for _, ui in ipairs(folder:GetChildren()) do
 		if ui:IsA("ScreenGui") and not playerGui:FindFirstChild(ui.Name) then
-			ui:Clone().Parent = playerGui
+			local clone = ui:Clone()
+			clone.Enabled = ui.Enabled -- 🔒 Force original enabled state
+			clone.Parent = playerGui
 		end
 	end
 end
@@ -98,6 +100,16 @@ local function ensureDefaultUIs(playerGui)
 	local comms = playerGui:FindFirstChild("CommsWheel")
 	if comms then
 		comms.Enabled = false
+	end
+
+	local DialogGui = playerGui:FindFirstChild("DialogGui")
+	if DialogGui then
+		DialogGui.Enabled = false
+	end
+
+	local teleportGui = playerGui:FindFirstChild("TeleportGui")
+	if teleportGui then
+		teleportGui.Enabled = false
 	end
 end
 
@@ -236,7 +248,13 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	else
 		-- Menu is not active; ensure gameplay UIs are visible
 		for _, ui in ipairs(playerGui:GetChildren()) do
-			if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" and ui.Name ~= "CommsWheel" then
+			if
+				ui:IsA("ScreenGui")
+				and ui.Name ~= "MainMenu"
+				and ui.Name ~= "CommsWheel"
+				and ui.Name ~= "DialogGui"
+				and ui.Name ~= "TeleportGui"
+			then
 				ui.Enabled = true
 			end
 		end
@@ -246,6 +264,11 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	local comms = playerGui:FindFirstChild("CommsWheel")
 	if comms then
 		comms.Enabled = false
+	end
+
+	local teleportGui = playerGui:FindFirstChild("TeleportGui")
+	if teleportGui then
+		teleportGui.Enabled = false
 	end
 end
 

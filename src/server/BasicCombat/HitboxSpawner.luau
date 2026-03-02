@@ -17,6 +17,7 @@ local GuidedProjectileManager =
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
 local SlowingFieldRegistry = require(game.ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
+local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
 local Debris = game:GetService("Debris")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -85,6 +86,8 @@ function HitboxSpawner.spawnHitbox(params)
 	local shape = params.Shape or Enum.PartType.Block
 	local rotation = params.Rotation or CFrame.Angles(0, 0, 0)
 	local removeOnStun = params.RemoveOnStun ~= false
+	local detectSurface = params.DetectSurface or false
+	local onSurfaceHit = params.OnSurfaceHit
 
 	if not character then
 		return
@@ -136,6 +139,8 @@ function HitboxSpawner.spawnHitbox(params)
 
 	local hitPlayers = {}
 	local startTime = tick()
+
+	local destroyed = false
 
 	local conn
 	conn = RunService.Heartbeat:Connect(function()
@@ -238,6 +243,43 @@ function HitboxSpawner.spawnHitbox(params)
 						end
 					end
 				end
+			end
+		end
+
+		---------------------------------------------------
+		-- Optional Surface Detection
+		---------------------------------------------------
+		if detectSurface and not destroyed then
+			local hitDetected, hitResult = RaycastModule.CheckForNearbySurface(hitbox, 1)
+
+			if hitDetected then
+				destroyed = true -- prevent double trigger
+
+				-- Calculate horizontal direction similar to ArcProjectileManager
+				local lookVector = standRoot.CFrame.LookVector
+				local horizontalDirection = Vector3.new(lookVector.X, 0, lookVector.Z)
+
+				if horizontalDirection.Magnitude > 0 then
+					horizontalDirection = horizontalDirection.Unit
+				else
+					horizontalDirection = Vector3.new(0, 0, -1)
+				end
+
+				-- Callback
+				if onSurfaceHit then
+					task.spawn(function()
+						onSurfaceHit(hitbox, hitResult, horizontalDirection)
+					end)
+				end
+
+				-- Cleanup safely
+				task.defer(function()
+					if hitbox and hitbox.Parent then
+						hitbox:Destroy()
+					end
+				end)
+
+				return
 			end
 		end
 	end)

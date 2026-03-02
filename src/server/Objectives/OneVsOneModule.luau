@@ -2,6 +2,15 @@
 
 local OneVsOneModule = {}
 
+local DataStoreService = game:GetService("DataStoreService")
+local MessagingService = game:GetService("MessagingService")
+local Players = game:GetService("Players")
+
+local winsStore = DataStoreService:GetDataStore("OneVsOne_Wins_V1")
+local orderedStore = DataStoreService:GetOrderedDataStore("OneVsOne_Wins_Ordered_V1")
+
+local UPDATE_TOPIC = "OneVsOneLeaderboardUpdate"
+
 local FootstepSystem = require(game.ServerScriptService.Utilities.FootstepSystem)
 
 -- Internal state
@@ -15,6 +24,39 @@ local Arena1 = workspace:WaitForChild("Arena1")
 local Model = Arena1:WaitForChild("Model")
 local Spawn1 = Model:WaitForChild("1v1Spawn1")
 local Spawn2 = Model:WaitForChild("1v1Spawn2")
+
+-- 🔔 Internal: handles persistence + global update
+function OneVsOneModule:_OnWinsUpdated(player)
+	local userId = player.UserId
+	local wins = self.Wins[player] or 0
+
+	-- Save to normal DataStore
+	task.spawn(function()
+		pcall(function()
+			winsStore:SetAsync(userId, wins)
+		end)
+	end)
+
+	-- Update OrderedDataStore (global leaderboard)
+	task.spawn(function()
+		pcall(function()
+			orderedStore:SetAsync(userId, wins)
+		end)
+	end)
+
+	-- Fire BindableEvent (local server UI refresh)
+	local event = game.ReplicatedStorage.UIs.RemoteEvents:FindFirstChild("GetOneVsOneData")
+	if event then
+		event:Fire()
+	end
+
+	-- Publish cross-server update
+	task.spawn(function()
+		pcall(function()
+			MessagingService:PublishAsync(UPDATE_TOPIC, "Update")
+		end)
+	end)
+end
 
 -- Function to queue a player
 function OneVsOneModule:QueuePlayer(player)
@@ -98,6 +140,7 @@ function OneVsOneModule:EndGame(winner, loser)
 	-- Award win
 	if self.Wins[winner] then
 		self.Wins[winner] += 1
+		self:_OnWinsUpdated(winner)
 	end
 
 	-- Reset state
@@ -118,6 +161,22 @@ function OneVsOneModule:GetWins(player)
 	return self.Wins[player] or 0
 end
 
+-- Returns leaderboard sorted by wins (highest first)
+function OneVsOneModule:GetGlobalLeaderboard(limit)
+	limit = limit or 25
+
+	local success, pages = pcall(function()
+		return orderedStore:GetSortedAsync(false, limit)
+	end)
+
+	if not success then
+		warn("Failed to retrieve global leaderboard")
+		return {}
+	end
+
+	return pages:GetCurrentPage()
+end
+
 -- Function to remove a player from queue (e.g., if they leave)
 function OneVsOneModule:DequeuePlayer(player)
 	local index = table.find(self.Queue, player)
@@ -128,5 +187,30 @@ end
 
 OneVsOneModule.Spawn1 = Spawn1
 OneVsOneModule.Spawn2 = Spawn2
+
+-- 📥 Load wins when player joins
+Players.PlayerAdded:Connect(function(player)
+	local success, data = pcall(function()
+		return winsStore:GetAsync(player.UserId)
+	end)
+
+	if success and data then
+		OneVsOneModule.Wins[player] = data
+	else
+		OneVsOneModule.Wins[player] = 0
+	end
+
+	-- Ensure OrderedDataStore has correct value
+	task.spawn(function()
+		pcall(function()
+			orderedStore:SetAsync(player.UserId, OneVsOneModule.Wins[player])
+		end)
+	end)
+end)
+
+-- 🧹 Cleanup when leaving
+Players.PlayerRemoving:Connect(function(player)
+	OneVsOneModule.Wins[player] = nil
+end)
 
 return OneVsOneModule

@@ -17,11 +17,11 @@ AbilityRegistry.AbilityTypes = {
 -- Ability 1 - Erase
 --------------------------------------------------------------------
 AbilityRegistry[1] = {
-	Name = "ThrowKnives",
+	Name = "PlantBomb",
 	Type = "Press",
-	Cooldown = 7,
+	Cooldown = 1,
 	Execute = function(standModel, player)
-		KaiserQueen.ThrowKnives(standModel)
+		KaiserQueen.PlantBomb(standModel)
 	end,
 }
 
@@ -29,11 +29,11 @@ AbilityRegistry[1] = {
 -- Ability 2 - VoidShielding
 --------------------------------------------------------------------
 AbilityRegistry[2] = {
-	Name = "BlazingStrike",
+	Name = "SheerHeartAttack",
 	Type = "Press",
 	Cooldown = 9,
 	Execute = function(standModel, player)
-		KaiserQueen.BlazingStrike(standModel)
+		KaiserQueen.SheerHeartAttack(standModel)
 	end,
 }
 
@@ -41,11 +41,11 @@ AbilityRegistry[2] = {
 -- Ability 3 - TearSpace
 --------------------------------------------------------------------
 AbilityRegistry[3] = {
-	Name = "KickBarrage",
+	Name = "StrayCatBubble",
 	Type = "Press",
 	Cooldown = 15,
 	Execute = function(standModel, player)
-		KaiserQueen.KickBarrage(standModel)
+		KaiserQueen.StrayCatBubble(standModel)
 	end,
 }
 
@@ -53,13 +53,13 @@ AbilityRegistry[3] = {
 -- Ability 4 - LastStand
 --------------------------------------------------------------------
 AbilityRegistry[4] = {
-	Name = "TimeStop",
+	Name = "BitesTheDust",
 	Type = "Press",
-	Cooldown = 35,
+	Cooldown = 2,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then
-			KaiserQueen.TimeStop(character)
+			KaiserQueen.BitesTheDust(character)
 		end
 	end,
 }

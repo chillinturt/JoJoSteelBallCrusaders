@@ -417,7 +417,6 @@ local function onJumpRequest(player)
 
 	-- Must be airborne for wall/double jumps
 	if not isAirborne(hrp) then
-		print("not airborne")
 		return
 	end
 

@@ -3,7 +3,7 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Path to stand modules
-local StandModules = ReplicatedStorage:WaitForChild("BasicCombat"):WaitForChild("StandModules")
+local StandModules = ReplicatedStorage:WaitForChild("StandModules")
 
 local registry = {
 	["Hierophant Grand"] = StandModules:WaitForChild("HierophantGrandModule"),

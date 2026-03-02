@@ -166,6 +166,16 @@ function HierophantModule.StartSplash(character)
 
 	SoundUtils.PlaySound({
 		Root = standModel.PrimaryPart,
+		soundName = "EmeraldSplashEffects",
+		soundID = "6929304398",
+		volume = 1,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	SoundUtils.PlaySound({
+		Root = standModel.PrimaryPart,
 		soundName = "EmeraldSplashCall",
 		soundID = "5786101618",
 		volume = 2,
@@ -266,7 +276,7 @@ function HierophantModule.StopSplash(character)
 
 	-- Reset animation
 	AnimationModule.StopAllAnimations(standModel)
-	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, false, Enum.AnimationPriority.Idle, 1)
 
 	-- Optional: clear cache if stand is despawned frequently
 	originalC0s[standModel] = nil
@@ -336,7 +346,7 @@ function HierophantModule.PuppetMaster(standModel)
 		PUPPETMASTER_OFFSET = Vector3.new(0, 0, -5)
 	end
 
-	AnimationModule.PlayAnimation(standModel, animID, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimationThenIdle(standModel, animID, false, Enum.AnimationPriority.Action, 1)
 	combatUtils.SetActionInProgress(character, PUPPETMASTER_ENDLAG)
 
 	SoundUtils.PlaySound({

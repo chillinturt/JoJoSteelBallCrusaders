@@ -31,16 +31,14 @@ local GROUND_POUND_OFFSET = Vector3.new(2, 0, -10)
 local GROUND_POUND_ENDLAG = 0.5
 local GROUNDPOUND_DURATION = 1
 
-local GROUNDPOUND_ANIM_ID = 90498591949232
+local GROUNDPOUND_ANIM_ID = 123871739409470
 
 local STARFINGER_DAMAGE = 15
 local STARFINGER_SIZE = Vector3.new(5, 7, 18)
 local STARFINGER_OFFSET = Vector3.new(2, 0, -14)
 local STARFINGER_ENDLAG = 1
 local STARFINGER_STUN = 1.5
-
-local HIT_SOUND_ID = 8255306220
-local BLOCK_SOUND_ID = 132615624053575
+local STARFINGER_ANIM_ID = 90498591949232
 
 -- CONFIG
 local STOP_DURATION = 3 -- seconds
@@ -450,7 +448,7 @@ end
 function StarPurple.StarFinger(standModel)
 	local character = standModel.Parent
 
-	AnimationModule.PlayAnimation(standModel, GROUNDPOUND_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
+	AnimationModule.PlayAnimation(standModel, STARFINGER_ANIM_ID, false, Enum.AnimationPriority.Action, 1)
 	CombatUtils.SetActionInProgress(character, STARFINGER_ENDLAG)
 
 	local hitbox = HitboxSpawner.spawnHitbox({

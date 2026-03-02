@@ -1,8 +1,10 @@
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
+local replicatedStorage = game:GetService("ReplicatedStorage")
 
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 
 local TandemMode = {}
 
@@ -14,10 +16,17 @@ local TANDEM_SPEED = 45
 local CLOSE_DISTANCE = 10
 local MAX_DISTANCE = 1500
 
+local CameraEvent = replicatedStorage.Shared:WaitForChild("BasicCombat"):WaitForChild("PilotCameraEvent")
+local RequestCameraDirection = replicatedStorage.Shared.BasicCombat:FindFirstChild("RequestCameraDirection")
+
 ---------------------------------------------------
 -- ENTER TANDEM MODE
 ---------------------------------------------------
-function TandemMode.EnterTandemMode(character, stand)
+function TandemMode.EnterTandemMode(character, stand, followCamera, directionMethod, disableMovement)
+	followCamera = followCamera or false -- ✅ default to false
+	directionMethod = directionMethod or "Raycast" -- default
+	disableMovement = disableMovement or false
+
 	local canTandem = stand:FindFirstChild("CanTandemMode")
 	if not canTandem then
 		return
@@ -51,14 +60,12 @@ function TandemMode.EnterTandemMode(character, stand)
 		standRoot = standRoot,
 		standTag = stand:FindFirstChild("StandTag").Value,
 		tandemMode = true,
-		targetCF = standRoot.CFrame, -- IMPORTANT
+		targetCF = standRoot.CFrame,
+		disableMovement = disableMovement, -- ✅ store option
 	}
 
 	-- Detach stand
 	motor.Part0 = stand:FindFirstChild("Collision")
-
-	-- Server owns physics
-	standRoot:SetNetworkOwner(nil)
 
 	-- Disable collisions
 	for _, part in ipairs(stand:GetDescendants()) do
@@ -72,6 +79,24 @@ function TandemMode.EnterTandemMode(character, stand)
 			part.CanTouch = false
 			part.CanQuery = true
 		end
+	end
+
+	-- Anchor ONLY the root
+	standRoot.Anchored = true
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+	if disableMovement and humanoid then
+		humanoid.WalkSpeed = 0
+		humanoid.JumpPower = 0
+	end
+
+	local player = Players:GetPlayerFromCharacter(character)
+	local pilotCameraOrigin = stand:FindFirstChild("PilotCameraOrigin")
+
+	-- ✅ Camera follow now optional
+	if followCamera and player and pilotCameraOrigin then
+		CameraEvent:FireClient(player, "follow", pilotCameraOrigin)
 	end
 
 	---------------------------------------------------
@@ -88,7 +113,14 @@ function TandemMode.EnterTandemMode(character, stand)
 			return
 		end
 
-		-- Safety reapply (same as PilotMode)
+		local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+		if data.disableMovement and humanoid then
+			humanoid.WalkSpeed = 0
+			humanoid.JumpPower = 0
+		end
+
+		-- Safety reapply
 		for _, part in ipairs(data.stand:GetDescendants()) do
 			if part:IsA("BasePart") then
 				part.CanCollide = false
@@ -98,35 +130,53 @@ function TandemMode.EnterTandemMode(character, stand)
 		end
 
 		---------------------------------------------------
-		-- Determine direction (your raycast logic)
+		-- Determine direction
 		---------------------------------------------------
-		local direction
-		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
 
-		if isClose then
-			direction = hrp:GetPivot().LookVector
-		else
-			local targetPoint = RaycastModule.ReturnFacingPoint(character, 1500)
-			if targetPoint then
-				direction = (targetPoint - data.standRoot.Position).Unit
+		local direction
+
+		if directionMethod == "Screen" then
+			-- Screen direction method
+			local player = Players:GetPlayerFromCharacter(character)
+
+			if player then
+				local camDir = RequestCameraDirection:InvokeClient(player)
+
+				if typeof(camDir) == "Vector3" then
+					direction = camDir.Unit
+				else
+					direction = hrp:GetPivot().LookVector
+				end
 			else
 				direction = hrp:GetPivot().LookVector
+			end
+		else
+			-- Default: Raycast method
+			local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
+
+			if isClose then
+				direction = hrp:GetPivot().LookVector
+			else
+				local targetPoint = RaycastModule.ReturnFacingPoint(character, 1500)
+				if targetPoint then
+					direction = (targetPoint - data.standRoot.Position).Unit
+				else
+					direction = hrp:GetPivot().LookVector
+				end
 			end
 		end
 
 		---------------------------------------------------
-		-- Move targetCF (NOT physics!)
+		-- Move targetCF
 		---------------------------------------------------
 		local speed = TANDEM_SPEED
 		local moveDelta = direction * speed * dt
 
 		data.targetCF = data.targetCF + moveDelta
-
-		-- Face movement direction
 		data.targetCF = CFrame.lookAt(data.targetCF.Position, data.targetCF.Position + direction)
 
 		---------------------------------------------------
-		-- FORCE POSITION (gravity-proof)
+		-- Force position
 		---------------------------------------------------
 		data.stand:PivotTo(data.targetCF)
 	end)
@@ -151,7 +201,21 @@ function TandemMode.ExitTandemMode(character)
 	StandUtils.RemoveStand(character)
 	StandUtils.SummonStand(character, data.standTag)
 
+	-- Restore movement if it was disabled
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid and data.disableMovement then
+		humanoid.WalkSpeed = CombatUtils.GetMoveSpeed(character)
+		humanoid.JumpPower = CombatUtils.GetJumpHeight(character)
+	end
+
 	tandemData[character] = nil
+
+	--restore cam
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		-- Tell client camera to follow stand
+		CameraEvent:FireClient(player, "reset")
+	end
 end
 
 return TandemMode

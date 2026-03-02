@@ -366,7 +366,7 @@ function TheWorld.KickBarrage(standModel)
 	})
 
 	TandemModule.EnterTandemMode(character, standModel)
-	wait(3)
+	task.wait(3)
 	TandemModule.ExitTandemMode(character)
 end
 

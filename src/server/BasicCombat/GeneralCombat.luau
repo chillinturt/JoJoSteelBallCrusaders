@@ -46,7 +46,6 @@ function GeneralCombat.StandOffPunch(character)
 
 	local hitboxOffset = CFrame.new(0, 0, -3)
 	-- Stop idle and play punch animation
-	AnimationModule.StopAllAnimations(character)
 	AnimationModule.PlayAnimation(character, PILOT_PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
 
 	-- Advance combo index or finish combo

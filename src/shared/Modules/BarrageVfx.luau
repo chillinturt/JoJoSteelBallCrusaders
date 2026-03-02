@@ -1,6 +1,7 @@
 local BarrageVfx = {}
 
 local RunService = game:GetService("RunService")
+local Debris = game:GetService("Debris")
 
 if not RunService:IsClient() then
 	error("BarrageVfx must only be executed on the client")
@@ -263,6 +264,8 @@ function BarrageVfx.barragestart(char, distance, speed, rate, armCopy)
 		local check = Instance.new("IntValue")
 		check.Parent = char
 		check.Name = "InBarrage"
+
+		Debris:AddItem(check, 5)
 
 		local light = Instance.new("PointLight")
 		light.Parent = char.HumanoidRootPart

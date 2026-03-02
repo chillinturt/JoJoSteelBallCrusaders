@@ -18,6 +18,9 @@ local PUNCH_COMBO_COOLDOWN = 2.5
 local originalC0s = {}
 local barragingFlags = {}
 
+local CrazedDiamond = require(ServerScriptService.BasicCombat.StandModules.CrazedDiamond.CrazedDiamond)
+local KaiserQueen = require(ServerScriptService.BasicCombat.StandModules.KaiserQueen.KaiserQueen)
+local StandRegistry = require(script.Parent.StandRegistry)
 local StandUtils = require(script.Parent.StandUtils)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local hitboxSpawner = require(game.ServerScriptService.BasicCombat:WaitForChild("HitboxSpawner"))
@@ -49,6 +52,16 @@ local PUNCH_DAMAGE = {
 	["Metallica"] = 4,
 	["Cream"] = 4.5,
 	["StoneFree"] = 5,
+}
+
+local BarrageCallSounds = {
+	HierophantGrand = "9057816324",
+	ThatHand = "112427142415678",
+	StarPurple = "5712021815",
+	TheWorld = "127227906993008",
+	TuskAct4 = "9057749505",
+	CrazedDiamond = "6995124948",
+	KaiserQueen = "5522363173",
 }
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
@@ -112,6 +125,28 @@ function BasicStandAttacks.BasicPunch(standModel)
 	else
 		powersFolder = character:FindFirstChild("Powers")
 		heroValue = powersFolder:FindFirstChild("Hero").Value
+	end
+
+	if standTag.Value == "TuskAct1" or standTag.Value == "TuskAct2" or standTag.Value == "TuskAct3" then
+		if player then
+			if heroValue then
+				HeroManager.SetField(player, "Hero", "TuskAct4")
+				heroValue = HeroManager.GetField(player, "Hero")
+				print(player.Name .. " is now Tusk Act 4!")
+			end
+
+			StandUtils.RemoveStand(character)
+			standModel = StandUtils.SummonStand(character, "TuskAct4")
+
+			-- Wait one frame for joints + animator
+			task.wait()
+
+			-- Reset rig state completely
+			resetStandRig(standModel)
+
+			-- Stop ANY lingering animations
+			AnimationModule.StopAllAnimations(standModel)
+		end
 	end
 
 	local hitboxOffset = CFrame.new(2, 0, -8)
@@ -241,7 +276,7 @@ function BasicStandAttacks.StartBarrage(character)
 		heroValue = powersFolder:FindFirstChild("Hero").Value
 	end
 
-	if heroValue == "TuskAct1" or heroValue == "TuskAct2" or heroValue == "TuskAct3" then
+	if standTag.Value == "TuskAct1" or standTag.Value == "TuskAct2" or standTag.Value == "TuskAct3" then
 		if player then
 			if heroValue then
 				HeroManager.SetField(player, "Hero", "TuskAct4")
@@ -320,6 +355,21 @@ function BasicStandAttacks.StartBarrage(character)
 		looped = false,
 		range = 160,
 	})
+
+	--check if the heroValue has a valid barrage call in the table. if so, then play it using the call below:
+	--if heroValue is in the table, then:
+	local callSoundId = BarrageCallSounds[heroValue]
+	if callSoundId then
+		SoundUtils.PlaySound({
+			Root = standModel.PrimaryPart,
+			soundName = "BarrageCall",
+			soundID = callSoundId,
+			volume = 1,
+			playbackSpeed = 1,
+			looped = false,
+			range = 160,
+		})
+	end
 
 	-- Start spawning hitboxes
 	task.spawn(function()
@@ -415,6 +465,7 @@ function BasicStandAttacks.StopBarrage(character)
 	end
 	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Idle, 1)
 
+	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageCall")
 	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageEffects")
 	SpawnClientVfx:FireAllClients({
 		type = "Barrage",

@@ -66,7 +66,7 @@ AbilityRegistry[3] = {
 AbilityRegistry[4] = {
 	Name = "InfiniteRotation",
 	Type = "Press",
-	Cooldown = 28,
+	Cooldown = 23,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then

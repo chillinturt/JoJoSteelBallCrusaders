@@ -85,6 +85,7 @@ function ThatHand.Erase(standModel)
 		StunDuration = ERASE_STUN,
 		Transparency = 1,
 		Name = "EraseHitbox",
+		RemoveOnStun = false,
 	})
 
 	local vfxId = HttpService:GenerateGUID(false)
@@ -233,6 +234,7 @@ function ThatHand.LastStand(standModel)
 				Duration = LAST_STAND_HITBOX_DURATION,
 				Transparency = 1,
 				Name = "LastStandHitbox",
+				RemoveOnStun = false,
 			})
 
 			local vfxId = HttpService:GenerateGUID(false)
