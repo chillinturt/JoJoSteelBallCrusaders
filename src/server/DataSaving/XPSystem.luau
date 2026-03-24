@@ -30,6 +30,14 @@ if not SkillTreeUpdateEvent then
 	SkillTreeUpdateEvent.Parent = remoteFolder
 end
 
+local MusicEvents = ReplicatedStorage:WaitForChild("MusicEvents")
+local PlaySoundEvent = MusicEvents:FindFirstChild("PlaySoundEvent")
+if not PlaySoundEvent then
+	PlaySoundEvent = Instance.new("RemoteEvent")
+	PlaySoundEvent.Name = "PlaySoundEvent"
+	PlaySoundEvent.Parent = MusicEvents
+end
+
 ---------------------------------------------------------------------
 -- MODULE
 ---------------------------------------------------------------------
@@ -157,6 +165,13 @@ function XPSystem.AddXP(player, amount)
 		data.AbilityPoints += ABILITY_POINTS_PER_LEVEL
 		data.MaxXP = getXPRequirement(data.Level)
 		SkillTreeUpdateEvent:FireClient(player, XPSystem.GetStats(player))
+
+		--sfx
+		PlaySoundEvent:FireClient(player, {
+			id = "rbxassetid://114390175182916",
+			volume = 1,
+			pitch = 1,
+		})
 	end
 
 	-- Hard cap if just hit max level
@@ -166,6 +181,13 @@ function XPSystem.AddXP(player, amount)
 
 	-- sync UI
 	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+
+	--sfx
+	PlaySoundEvent:FireClient(player, {
+		id = "rbxassetid://88387457337661",
+		volume = 1,
+		pitch = 1,
+	})
 end
 
 ---------------------------------------------------------------------

@@ -41,10 +41,6 @@ local BlockUpdateEvent = game.ReplicatedStorage.UIs.RemoteEvents:WaitForChild("B
 --  Helper Functions
 --=============================================================
 
-local function sendBlockUpdate(player, value)
-	BlockUpdateEvent:FireClient(player, value)
-end
-
 local function stopBlockingAnimation(character)
 	if activeAnimations[character] then
 		activeAnimations[character]:Stop()
@@ -370,7 +366,7 @@ function BlockModule.TryStartEmergencyBlock(character)
 
 	local player = Players:GetPlayerFromCharacter(character)
 	if player then
-		sendBlockUpdate(player, blockHP)
+		CombatUtils.SyncBlockUI(player, blockHP, CombatUtils.GetBlockMaxHP(character))
 	end
 
 	emergencyBlockCooldown[character] = now + EMERGENCY_BLOCK_COOLDOWN

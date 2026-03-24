@@ -16,6 +16,13 @@ if not CashUpdateEvent then
 	CashUpdateEvent.Parent = MusicEvents
 end
 
+local PlaySoundEvent = MusicEvents:FindFirstChild("PlaySoundEvent")
+if not PlaySoundEvent then
+	PlaySoundEvent = Instance.new("RemoteEvent")
+	PlaySoundEvent.Name = "PlaySoundEvent"
+	PlaySoundEvent.Parent = MusicEvents
+end
+
 -- Memory table to store cash for each player
 local playerCash = {}
 
@@ -47,6 +54,12 @@ function CashSystem.AddCash(player, amount)
 
 	-- Fire RemoteEvent for UI update
 	CashUpdateEvent:FireClient(player, newValue)
+
+	PlaySoundEvent:FireClient(player, {
+		id = "rbxassetid://7112275565",
+		volume = 1,
+		pitch = 1,
+	})
 end
 
 ---------------------------------------------------------------------

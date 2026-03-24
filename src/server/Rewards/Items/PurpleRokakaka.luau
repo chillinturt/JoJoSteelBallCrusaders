@@ -2,6 +2,7 @@
 local InventoryManager = require(game.ServerScriptService.DataSaving.InventoryManager)
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local StandUtils = require(game.ServerScriptService.BasicCombat.StandUtils)
+local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 
 local PurpleRokakaka = {}
 PurpleRokakaka.Cooldown = 3
@@ -40,8 +41,8 @@ function PurpleRokakaka.Use(player)
 	InventoryManager.RemoveItem(player, "PurpleRokakaka", 1)
 
 	HeroManager.SetField(player, "Hero", "None")
-
 	StandUtils.RemoveStand(char, player)
+	TalentsModule.ResetPlayer(player)
 
 	print("PurpleRokakaka used, reset stand")
 

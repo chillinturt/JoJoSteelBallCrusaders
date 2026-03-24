@@ -14,8 +14,6 @@ local function removeAura(character)
 end
 
 standAurasEvent.OnClientEvent:Connect(function(character, standTag, enabled)
-	print("[AuraClient] Event received:", character, standTag, enabled)
-
 	if not character or not character:IsA("Model") then
 		return
 	end

@@ -27,7 +27,7 @@ end
 -- Also detect if the player's specialty changes (in case it updates mid-session)
 -- 🔥 Run when server signals a power change
 PowerChangedEvent.OnClientEvent:Connect(function(fieldName, newValue)
-	print("Power updated:", fieldName, "=", newValue)
+	--print("Power updated:", fieldName, "=", newValue)
 	loadAllUI()
 end)
 

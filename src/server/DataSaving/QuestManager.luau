@@ -368,4 +368,12 @@ QuestDataEvent.OnServerInvoke = function(player)
 	return QuestManager.GetQuests(player)
 end
 
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		task.delay(5, function()
+			QuestManager.Sync(player)
+		end)
+	end)
+end)
+
 return QuestManager

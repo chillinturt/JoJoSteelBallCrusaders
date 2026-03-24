@@ -15,12 +15,12 @@ local MAX_BARRAGE_DURATION = 3 -- seconds
 
 local PUNCH_COMBO_COOLDOWN = 2.5
 
-local originalC0s = {}
+local BASE_PUNCH_COOLDOWN = 0.4
+local DEX_SPEED_PER_POINT = 0.05
+local BASE_COMBO = 3
+
 local barragingFlags = {}
 
-local CrazedDiamond = require(ServerScriptService.BasicCombat.StandModules.CrazedDiamond.CrazedDiamond)
-local KaiserQueen = require(ServerScriptService.BasicCombat.StandModules.KaiserQueen.KaiserQueen)
-local StandRegistry = require(script.Parent.StandRegistry)
 local StandUtils = require(script.Parent.StandUtils)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local hitboxSpawner = require(game.ServerScriptService.BasicCombat:WaitForChild("HitboxSpawner"))
@@ -28,6 +28,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local PilotModule = require(game.ServerScriptService.BasicCombat:WaitForChild("PilotModule"))
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
+local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 
 -- Track combo index per stand
 local comboIndices = {}
@@ -104,11 +105,29 @@ function BasicStandAttacks.BasicPunch(standModel)
 		return false -- Still in combo cooldown
 	end
 
+	local player = Players:GetPlayerFromCharacter(character)
+
+	local dexterity = 0
+	if player then
+		local stats = TalentsModule.GetStats(player)
+
+		if stats and stats.Talents then
+			dexterity = stats.Talents.Dexterity or 0
+		end
+	end
+
+	print("Dexterity:", dexterity)
+	print("Max combo:", BASE_COMBO + dexterity)
+
 	-- Check cooldown
 	if punchCooldowns[standModel] and tick() < punchCooldowns[standModel] then
 		return false -- Still on cooldown
 	end
-	punchCooldowns[standModel] = tick() + 0.4 -- Set new cooldown
+	local cooldownMultiplier = 1 - (dexterity * DEX_SPEED_PER_POINT)
+	cooldownMultiplier = math.clamp(cooldownMultiplier, 0.3, 1) -- prevent absurd speed
+
+	local punchCooldown = BASE_PUNCH_COOLDOWN * cooldownMultiplier
+	punchCooldowns[standModel] = tick() + punchCooldown -- Set new cooldown
 
 	-- Initialize combo index if needed
 	if not comboIndices[character] then
@@ -116,7 +135,12 @@ function BasicStandAttacks.BasicPunch(standModel)
 	end
 	local index = comboIndices[character]
 
-	local player = Players:GetPlayerFromCharacter(character)
+	local animIndex = index
+
+	if index > 3 then
+		animIndex = (index % 2 == 0) and 2 or 3
+	end
+
 	local powersFolder
 	local heroValue
 	if player then
@@ -156,7 +180,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 	if PilotModule.GetBoolPilotMode(character) then
 		AnimationModule.PlayAnimation(
 			standModel,
-			PILOT_PUNCH_ANIMATIONS[index],
+			PILOT_PUNCH_ANIMATIONS[animIndex],
 			false,
 			Enum.AnimationPriority.Action,
 			1.5
@@ -166,7 +190,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 		if heroValue == "NuclearRain" then
 			AnimationModule.PlayAnimation(
 				character,
-				PILOT_PUNCH_ANIMATIONS[index],
+				PILOT_PUNCH_ANIMATIONS[animIndex],
 				false,
 				Enum.AnimationPriority.Action,
 				1.5
@@ -176,7 +200,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 		else
 			AnimationModule.PlayAnimationThenIdle(
 				standModel,
-				PUNCH_ANIMATIONS[index],
+				PUNCH_ANIMATIONS[animIndex],
 				false,
 				Enum.AnimationPriority.Action,
 				1.5
@@ -184,16 +208,18 @@ function BasicStandAttacks.BasicPunch(standModel)
 		end
 	end
 
+	local maxCombo = BASE_COMBO + dexterity
+
 	-- Advance combo index or finish combo
-	if index == 3 then
+	if index >= maxCombo then
 		comboIndices[character] = 1
-		comboCooldowns[character] = tick() + PUNCH_COMBO_COOLDOWN -- sec cooldown after full combo
+		comboCooldowns[character] = tick() + PUNCH_COMBO_COOLDOWN
 	else
 		comboIndices[character] = index + 1
 	end
 
 	-- Prepare for next combo punch
-	comboIndices[character] = index % 3 + 1
+	--comboIndices[character] = index % 3 + 1
 
 	--play sound
 	SoundUtils.PlaySound({
@@ -209,6 +235,11 @@ function BasicStandAttacks.BasicPunch(standModel)
 	hitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = PUNCH_DAMAGE[standTag.Value] or 0.1,
+
+		StatScaling = {
+			Power = 0.1,
+		},
+
 		Size = HITBOX_SIZE,
 		Offset = hitboxOffset,
 		Color = BrickColor.new("Bright red"),
@@ -273,7 +304,8 @@ function BasicStandAttacks.StartBarrage(character)
 		heroValue = HeroManager.GetField(player, "Hero")
 	else
 		powersFolder = character:FindFirstChild("Powers")
-		heroValue = powersFolder:FindFirstChild("Hero").Value
+		local heroObj = powersFolder and powersFolder:FindFirstChild("Hero")
+		heroValue = heroObj and heroObj.Value
 	end
 
 	if standTag.Value == "TuskAct1" or standTag.Value == "TuskAct2" or standTag.Value == "TuskAct3" then
@@ -377,6 +409,11 @@ function BasicStandAttacks.StartBarrage(character)
 			hitboxSpawner.spawnHitbox({
 				Character = character,
 				Damage = PUNCH_DAMAGE[heroValue] / 4.5,
+
+				StatScaling = {
+					Power = 0.05,
+				},
+
 				Size = HITBOX_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),

@@ -27,7 +27,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- events
 local MusicEvents = ReplicatedStorage:WaitForChild("MusicEvents")
 local MusicSettingsEvent = MusicEvents:WaitForChild("MusicSettingsEvent")
-local CashGainedEvent = MusicEvents:WaitForChild("CashGainedEvent")
+local PlaySoundEvent = MusicEvents:WaitForChild("PlaySoundEvent")
 
 -- ✅ Match your hierarchy
 local regionsFolder = workspace:WaitForChild("Audio"):WaitForChild("MusicRegions")
@@ -58,14 +58,40 @@ local switchCooldown = 1.5
 local lastSwitchTime = 0
 local HYSTERESIS_BUFFER = 10 -- must be this much closer before switching regions
 
--- Create sound object (cha-ching)
+--[[ Create sound object (cha-ching)
 local cashSound = Instance.new("Sound")
 cashSound.SoundId = "rbxassetid://7112275565" -- replace with your cha-ching sound ID
 cashSound.Volume = 1
 cashSound.Parent = player:WaitForChild("PlayerGui") -- attach to GUI for local playback
 
-CashGainedEvent.OnClientEvent:Connect(function()
-	cashSound:Play()
+]]
+
+-- Optional: cache sounds so they don’t recreate every time
+local soundCache = {}
+
+local function playLocalSound(soundId: string, volume: number?, pitch: number?)
+	if not soundId or soundId == "" then
+		return
+	end
+
+	local sound = soundCache[soundId]
+
+	if not sound then
+		sound = Instance.new("Sound")
+		sound.SoundId = soundId
+		sound.Parent = player:WaitForChild("PlayerGui")
+		soundCache[soundId] = sound
+	end
+
+	sound.Volume = volume or 1
+	sound.PlaybackSpeed = pitch or 1
+	sound.TimePosition = 0 -- restart cleanly
+	sound:Play()
+end
+
+PlaySoundEvent.OnClientEvent:Connect(function(data)
+	-- data = { id = "...", volume = 1, pitch = 1 }
+	playLocalSound(data.id, data.volume, data.pitch)
 end)
 
 -- === Helper Functions ===

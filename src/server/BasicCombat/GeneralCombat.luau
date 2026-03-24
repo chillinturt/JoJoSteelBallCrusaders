@@ -73,6 +73,11 @@ function GeneralCombat.StandOffPunch(character)
 	hitboxSpawner.spawnStandOffHitbox({
 		Character = character,
 		Damage = STAND_OFF_PUNCH_DAMAGE,
+
+		StatScaling = {
+			Strength = 0.1,
+		},
+
 		Size = HITBOX_SIZE,
 		Offset = hitboxOffset,
 		Color = BrickColor.new("Bright red"),

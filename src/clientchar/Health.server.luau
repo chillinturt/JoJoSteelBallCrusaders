@@ -1,6 +1,6 @@
 -- Gradually regenerates the Humanoid's Health over time.
 
-local REGEN_RATE = 1 / 500 -- Regenerate this fraction of MaxHealth per second.
+local REGEN_RATE = 0 / 500 -- Regenerate this fraction of MaxHealth per second.
 local REGEN_STEP = 1 -- Wait this long between each regeneration step.
 
 --------------------------------------------------------------------------------

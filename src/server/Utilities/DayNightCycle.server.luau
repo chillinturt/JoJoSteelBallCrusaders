@@ -52,7 +52,7 @@ repeat
 		end
 
 		-- Midnight should be brighter than 18:00
-		local maxExtraBoost = 1.5 -- increase for brighter midnight
+		local maxExtraBoost = 0.5 -- increase for brighter midnight
 
 		-- Exposure starts at 1 and scales upward
 		lighting.ExposureCompensation = 1 + (nightProgress * maxExtraBoost)

@@ -174,5 +174,3 @@ Players.PlayerRemoving:Connect(function(player)
 		PlayerSpawns = {}
 	end
 end)
-
-print("1v1 Manager loaded and ready!")

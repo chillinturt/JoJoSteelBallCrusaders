@@ -9,6 +9,14 @@ InventoryUpdatedEvent.Parent = ReplicatedStorage:WaitForChild("UIs"):WaitForChil
 local ExclamationPointEvent =
 	ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents"):WaitForChild("ExclamationPointEvent")
 
+local MusicEvents = ReplicatedStorage:WaitForChild("MusicEvents")
+local PlaySoundEvent = MusicEvents:FindFirstChild("PlaySoundEvent")
+if not PlaySoundEvent then
+	PlaySoundEvent = Instance.new("RemoteEvent")
+	PlaySoundEvent.Name = "PlaySoundEvent"
+	PlaySoundEvent.Parent = MusicEvents
+end
+
 local InventoryManager = {}
 
 ---------------------------------------------------------------------
@@ -124,6 +132,12 @@ function InventoryManager.AddItem(player, itemName, amount)
 
 	InventoryUpdatedEvent:FireClient(player, InventoryManager.GetInventory(player))
 	ExclamationPointEvent:FireClient(player)
+
+	PlaySoundEvent:FireClient(player, {
+		id = "rbxassetid://550208601",
+		volume = 3,
+		pitch = 1,
+	})
 end
 
 function InventoryManager.RemoveItem(player, itemName, amount)

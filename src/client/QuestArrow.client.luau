@@ -4,6 +4,8 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local player = Players.LocalPlayer
 
+local MenuState = require(player.PlayerScripts.MenuState)
+
 -- Remotes
 local QuestEventsFolder = ReplicatedStorage:WaitForChild("QuestEvents")
 local QuestUpdatedEvent = QuestEventsFolder:WaitForChild("QuestUpdated")
@@ -11,6 +13,7 @@ local ArrowVisible = QuestEventsFolder:WaitForChild("QuestArrowVisible")
 
 -- Arrow asset
 local ArrowTemplate = ReplicatedStorage.Effects.QuestEffects:WaitForChild("ArrowModel")
+local QuestDataEvent = QuestEventsFolder:WaitForChild("GetQuestData")
 
 -- State
 local arrow
@@ -19,7 +22,7 @@ local currentTarget -- BasePart or Model.PrimaryPart
 
 local function setArrowVisible(state)
 	for _, obj in ipairs(arrow:GetDescendants()) do
-		if obj:IsA("BasePart") then
+		if obj:IsA("BasePart") and obj.Name ~= "MainPart" then
 			obj.Transparency = state and 0 or 1
 		elseif obj:IsA("BillboardGui") then
 			obj.Enabled = state
@@ -141,6 +144,9 @@ local function attachArrow(character)
 
 	makeModelNonPhysical(arrow)
 
+	-- 🔥 Hide initially
+	setArrowVisible(false)
+
 	connection = RunService.RenderStepped:Connect(function()
 		if not arrow or not arrow.PrimaryPart then
 			return
@@ -152,12 +158,12 @@ local function attachArrow(character)
 		local offset = Vector3.new(0, 0, 0)
 		local arrowPosition = hrp.Position + offset
 
-		if currentTarget then
-			-- Follow player AND point to target
+		if currentTarget and currentTarget.Parent then
 			arrow:SetPrimaryPartCFrame(CFrame.lookAt(arrowPosition, currentTarget.Position))
 		else
-			-- Follow player only (no rotation target yet)
-			arrow:SetPrimaryPartCFrame(CFrame.new(arrowPosition))
+			-- 🔥 Just follow position WITHOUT resetting rotation
+			local currentCFrame = arrow.PrimaryPart.CFrame
+			arrow:SetPrimaryPartCFrame(CFrame.new(arrowPosition) * (currentCFrame - currentCFrame.Position))
 		end
 	end)
 end
@@ -170,6 +176,13 @@ QuestUpdatedEvent.OnClientEvent:Connect(function(quests)
 		return
 	end
 	currentTarget = chooseQuestTarget(quests, player.Character)
+
+	-- 🔥 Only show if we have a valid target
+	if currentTarget then
+		setArrowVisible(true)
+	else
+		setArrowVisible(false)
+	end
 end)
 
 ArrowVisible.Event:Connect(function(visible)
@@ -183,4 +196,19 @@ if player.Character then
 	attachArrow(player.Character)
 end
 
-player.CharacterAdded:Connect(attachArrow)
+player.CharacterAdded:Connect(function(character)
+	attachArrow(character)
+
+	-- 🔥 IMMEDIATELY request quest data
+	local success, quests = pcall(function()
+		return QuestDataEvent:InvokeServer()
+	end)
+
+	if success and quests then
+		currentTarget = chooseQuestTarget(quests, character)
+	end
+
+	task.wait(3)
+	local questUIOpen = MenuState:IsOpen("QuestGUI")
+	setArrowVisible(questUIOpen)
+end)

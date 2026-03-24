@@ -1,6 +1,9 @@
--- ServerScriptService/BasicCombat/DashHandler.lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-------------------------------------------------
+-- REMOTES
+-------------------------------------------------
 
 local dashEvent = Instance.new("RemoteEvent")
 dashEvent.Name = "DashEvent"
@@ -20,27 +23,33 @@ wallJumpEvent.Parent = ReplicatedStorage.Shared.BasicCombat
 
 local StaminaService = require(script.Parent.StaminaService)
 
--- Per-player dash state
-local dashData = {}
-local playerJumpData = {}
+-------------------------------------------------
+-- PLAYER SETUP
+-------------------------------------------------
 
 -- Existing players (THIS FIXES YOUR BUG)
 for _, player in ipairs(Players:GetPlayers()) do
 	StaminaService.InitPlayer(player)
 end
 
--- New players
+--joining players
 Players.PlayerAdded:Connect(function(player)
 	StaminaService.InitPlayer(player)
 end)
 
 Players.PlayerRemoving:Connect(function(player)
-	dashData[player] = nil
-	playerJumpData[player] = nil
+	StaminaService.RemovePlayer(player)
 end)
 
--- Listen for dash requests
+-------------------------------------------------
+-- NETWORK EVENTS
+-------------------------------------------------
+
 dashEvent.OnServerEvent:Connect(function(player, dir)
+	if typeof(dir) ~= "string" then
+		dir = "Forward"
+	end
+
 	StaminaService.OnDashRequest(player, dir)
 end)
 

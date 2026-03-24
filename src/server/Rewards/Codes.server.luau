@@ -4,11 +4,12 @@ local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
-local CharacterUpdgrades = require(ServerScriptService.DataSaving.Upgrades.CharacterUpdgrades)
+local TalentsModule = require(ServerScriptService.DataSaving.Upgrades.TalentsModule)
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local InventoryManager = require(game.ServerScriptService.DataSaving:WaitForChild("InventoryManager"))
 local PlayerData = require(game.ServerScriptService.DataSaving:WaitForChild("PlayerData"))
 local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
+local StaminaService = require(ServerScriptService.BasicCombat.Movement.StaminaService)
 
 local TP_AREAS = {
 	["1v1Spawn1"] = game.Workspace.Arena1.Model:WaitForChild("1v1Spawn1"),
@@ -312,6 +313,8 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 			return
 		end
 		XPSystem.AddXP(player, 99999999)
+
+		codeEvent:FireClient(player, true, typedCode)
 	end
 
 	if typedCode == "resetmyprogress" then
@@ -328,8 +331,13 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 		local resetXPData = getDefaultXPData()
 		XPSystem.SetStats(player, resetXPData)
 		QuestManager.ResetQuestline(player)
-		CharacterUpdgrades.ResetPlayer(player)
+		TalentsModule.ResetPlayer(player)
 		InventoryManager.SetInventory(player, {})
+
+		codeEvent:FireClient(player, true, typedCode)
+
+		StaminaService.SetStamina(player, 0)
+		StaminaService.RefreshStamina(player)
 
 		print("[Admin] Progress reset for", player.Name)
 	end

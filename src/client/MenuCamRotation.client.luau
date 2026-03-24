@@ -130,9 +130,7 @@ end)
 -- Open menu handler
 -------------------------------------------------
 openMenuEvent.Event:Connect(function()
-	print("Open menu event received")
 	if MenuState.MenuOpen then
-		print("Menu is already open!")
 		return
 	end
 

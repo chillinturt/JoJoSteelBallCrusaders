@@ -1,6 +1,7 @@
 -- ServerScriptService.DataSaving.ItemUse.BlueRokakaka.lua
 local InventoryManager = require(game.ServerScriptService.DataSaving.InventoryManager)
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
+local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 
 local BlueRokakaka = {}
 BlueRokakaka.Cooldown = 3
@@ -41,6 +42,7 @@ function BlueRokakaka.Use(player)
 
 	HeroManager.SetField(player, "Race", "Human")
 	HeroManager.SetField(player, "Specialty", "None")
+	TalentsModule.ResetPlayer(player)
 
 	print("BlueRokakaka used, became a human with no spec")
 

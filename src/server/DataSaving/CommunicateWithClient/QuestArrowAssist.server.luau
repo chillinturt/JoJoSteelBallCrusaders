@@ -10,10 +10,9 @@ arrowVisible.Parent = QuestEventsFolder
 
 Players.PlayerAdded:Connect(function(player)
 	-- Wait for character to load
-	local char = player.Character or player.CharacterAdded:Wait()
-
-	-- Optional: wait a short moment to ensure client scripts ran
-	task.wait(5)
-
-	QuestManager.Sync(player)
+	player.CharacterAdded:Connect(function()
+		task.delay(3, function()
+			QuestManager.Sync(player)
+		end)
+	end)
 end)

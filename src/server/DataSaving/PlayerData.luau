@@ -11,7 +11,7 @@ local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 local QuestSerializer = require(ServerScriptService.DataSaving.QuestSerializer)
 local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
 local XPSystem = require(ServerScriptService.DataSaving.XPSystem)
-local CharacterUpgrades = require(ServerScriptService.DataSaving.Upgrades:WaitForChild("CharacterUpdgrades"))
+local TalentsModule = require(ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 local CashSystem = require(ServerScriptService.DataSaving:WaitForChild("CashSystem"))
 local SlotManager = require(ServerScriptService.DataSaving:WaitForChild("SlotManager"))
 
@@ -103,7 +103,7 @@ function Local.LoadProfile(player: Player)
 
 	CashSystem.SetCash(player, activeData.Cash)
 
-	CharacterUpgrades.SetStats(player, activeData.CharacterUpgrades)
+	TalentsModule.SetStats(player, activeData.Talents)
 
 	return true
 end
@@ -138,7 +138,7 @@ function Local.RemoveProfile(player: Player)
 	slotData.MaxXP = XPSystem.GetField(player, "MaxXP")
 	slotData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
 	slotData.Cash = CashSystem.GetCash(player)
-	slotData.CharacterUpgrades = CharacterUpgrades.GetStats(player)
+	slotData.Talents = TalentsModule.GetStats(player)
 
 	------------------------------------------------------------------
 	-- WRITE SLOT STATE BACK TO PROFILESTORE
@@ -181,7 +181,7 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 	currentData.MaxXP = XPSystem.GetField(player, "MaxXP")
 	currentData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
 	currentData.Cash = CashSystem.GetCash(player)
-	currentData.CharacterUpgrades = CharacterUpgrades.GetStats(player)
+	currentData.Talents = TalentsModule.GetStats(player)
 
 	------------------------------------------------------------------
 	-- STEP 2: SWITCH SLOT (creates if missing)
@@ -214,7 +214,7 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 	XPSystem.SetField(player, "AbilityPoints", newSlotData.AbilityPoints)
 
 	CashSystem.SetCash(player, newSlotData.Cash)
-	CharacterUpgrades.SetStats(player, newSlotData.CharacterUpgrades)
+	TalentsModule.SetStats(player, newSlotData.Talents)
 
 	local char = player.Character
 	local hum = char:FindFirstChild("Humanoid")

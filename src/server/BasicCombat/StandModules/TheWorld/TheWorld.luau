@@ -38,7 +38,8 @@ local BLAZINGSTRIKE_KOCKBACK_DAMAGE = 15
 local BLAZINGSTRIKE_KOCKBACK_SIZE = Vector3.new(20, 20, 20)
 local BLAZINGSTRIKE_KOCKBACK_OFFSET = Vector3.new(0, 0, 0)
 
-local STOP_DURATION = 3 -- seconds
+local TIME_STOP_BASE_DURATION = 3 -- seconds
+local TIME_STOP_DURATION_SCALING = 0.1
 local IMMOBILE_ANCHOR_NAME = "TheWorldTimeStopAnchor"
 local TIME_STOP_DAMAGE_MULT = 1.25
 local TIME_STOP_RANGE = 50
@@ -413,6 +414,12 @@ function TheWorld.TimeStop(caster)
 		table.insert(affectedPlayersVfx, casterPlayer)
 	end
 
+	local power = CombatUtils.GetPower(casterPlayer)
+	local amplifiedDuration = TIME_STOP_BASE_DURATION
+	if power > 0 then
+		amplifiedDuration = power * TIME_STOP_DURATION_SCALING + TIME_STOP_BASE_DURATION
+	end
+
 	-- Freeze all players except caster
 	for _, player in ipairs(Players:GetPlayers()) do
 		local char = player.Character
@@ -421,10 +428,10 @@ function TheWorld.TimeStop(caster)
 			local distance = (root.Position - casterRoot.Position).Magnitude
 
 			if distance <= TIME_STOP_RANGE then
-				CombatUtils.applyStun(char, STOP_DURATION)
+				CombatUtils.applyStun(char, amplifiedDuration)
 
 				BlockModule.StopBlocking(char)
-				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, STOP_DURATION)
+				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, amplifiedDuration)
 
 				table.insert(affectedPlayersVfx, player)
 
@@ -450,7 +457,7 @@ function TheWorld.TimeStop(caster)
 	end
 
 	for _, plr in ipairs(affectedPlayersVfx) do
-		ScreenColorVfxEvent:FireClient(plr, "TimeStop.Start", STOP_DURATION)
+		ScreenColorVfxEvent:FireClient(plr, "TimeStop.Start", amplifiedDuration)
 	end
 
 	-- Freeze all enemy NPCs
@@ -479,15 +486,15 @@ function TheWorld.TimeStop(caster)
 				root.Anchored = true
 				root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
 
-				CombatUtils.applyStun(npc, STOP_DURATION)
+				CombatUtils.applyStun(npc, amplifiedDuration)
 
-				CombatUtils.ApplyDamageMult(npc, 2, STOP_DURATION)
+				CombatUtils.ApplyDamageMult(npc, 2, amplifiedDuration)
 			end
 		end
 	end
 
 	-- Resume everything after STOP_DURATION
-	task.delay(STOP_DURATION, function()
+	task.delay(amplifiedDuration, function()
 		print("⏰ Time resumes for everyone.")
 
 		-- Resume players

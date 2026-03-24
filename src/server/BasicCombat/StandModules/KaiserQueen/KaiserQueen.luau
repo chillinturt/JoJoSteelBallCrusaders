@@ -3,6 +3,7 @@ local KaiserQueen = {}
 local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local HttpService = game:GetService("HttpService")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
 local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
@@ -54,6 +55,8 @@ local TIME_STOP_DAMAGE_MULT = 1.25
 local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
 local affectedPlayersVfx = {}
 
@@ -321,21 +324,28 @@ function KaiserQueen.SheerHeartAttack(standModel)
 	})
 end
 
-function KaiserQueen.StrayCatBubble(standModel)
-	local character = standModel.Parent
+function KaiserQueen.StrayCatBubble(character)
 	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return false
+	end
 
 	CombatUtils.SetActionInProgress(character, STARYCATBUBBLE_ENDLAG)
 
-	-- this will help determiune the direction of the projectile
+	-- this will elp determiune the direction of the projectile
 	local direction
 	local startPos = hrp.Position
+
 	local player = Players:GetPlayerFromCharacter(character)
+
+	local remote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("RequestCameraDirection")
+	local camDirection = remote:InvokeClient(player)
 
 	if player then
 		local isClose = RaycastModule.CheckIfTargetIsClose(character, 10)
 		if isClose then
-			direction = hrp:GetPivot().LookVector
+			--direction = hrp:GetPivot().LookVector
+			direction = camDirection
 		else
 			local maxDistance = 1500
 			local targetPoint = RaycastModule.ReturnFacingPoint(character, maxDistance)
@@ -351,21 +361,82 @@ function KaiserQueen.StrayCatBubble(standModel)
 		direction = hrp:GetPivot().LookVector
 	end
 
-	HitboxSpawner.spawnProjectile({
-		Stand = standModel,
+	SoundModule.PlaySound({
+		Root = hrp,
+		soundName = "GuidedNailEffect",
+		soundID = "89805684001014",
+		volume = 2,
+		playbackSpeed = 1,
+		looped = false,
+		range = 160,
+	})
+
+	local projectile = HitboxSpawner.spawnGuidedProjectile({
 		Character = character,
-		Damage = STARYCATBUBBLE_DAMAGE,
 		Size = STARYCATBUBBLE_HITBOX_SIZE,
-		Offset = STARYCATBUBBLE_OFFSET,
-		Color = BrickColor.new("Bright red"),
-		Duration = STARYCATBUBBLE_DURATION,
-		StunDuration = STARYCATBUBBLE_STUN,
-		Transparency = 1,
-		Name = "StrayCatBubble",
+		Damage = 25,
+		Duration = 5,
 		Speed = STARYCATBUBBLE_SPEED,
 		Direction = direction,
 		Origin = startPos,
+		Offset = STARYCATBUBBLE_OFFSET,
+		Color = BrickColor.new("Bright yellow"),
+		Gravity = Vector3.new(0, 0, 0), -- optional tweak
+		DetectSurface = true,
+		CanBlock = false,
+		Transparency = 1,
+
+		OnSurfaceHit = function(projectile, hitResult, horizontalDirection)
+			print("[GoldExperimentModule!!!] Projectile hit surface:", hitResult.Instance.Name)
+
+			local hitBoxOffset = Vector3.new(0, 3, 0)
+
+			-- Determine stationary hitbox position
+			local hitPosition = hitResult.Position
+
+			-- Spawn a stationary damage hitbox
+			local explosion = HitboxSpawner.spawnStationaryHitbox({
+				Position = hitPosition,
+				Character = character,
+				Size = STARYCATBUBBLE_HITBOX_SIZE,
+				Damage = STARYCATBUBBLE_DAMAGE,
+				Offset = hitBoxOffset,
+				Color = BrickColor.new("Bright red"),
+				Duration = 1,
+				StunDuration = 0,
+				Transparency = 1,
+				Name = "GuidedNailAOEHitbox",
+				Rotation = horizontalDirection, -- ensures horizontal facing of projectile
+				Shape = Enum.PartType.Ball,
+			})
+
+			SpawnClientVfx:FireAllClients({
+				type = "Stationary",
+				effectName = "GuidedNailExplosion",
+
+				-- Position
+				cframe = CFrame.new(explosion.Position),
+
+				-- Lifetime
+				lifetime = 1,
+
+				-- Visual style
+				scale = 1, -- starting size
+			})
+		end,
 	})
+
+	local vfxId = HttpService:GenerateGUID(false)
+	projectile:SetAttribute("VFX_ID", vfxId)
+
+	SpawnClientVfx:FireAllClients({
+		type = "Attached",
+		effectName = "GuidedNail",
+		attachId = vfxId,
+		scale = STARYCATBUBBLE_HITBOX_SIZE,
+		attachTo = projectile,
+	})
+
 	return true
 end
 

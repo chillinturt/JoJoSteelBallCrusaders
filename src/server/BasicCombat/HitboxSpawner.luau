@@ -71,6 +71,7 @@ end
 function HitboxSpawner.spawnHitbox(params)
 	local character = params.Character
 	local damage = params.Damage or 10
+	local statScaling = params.StatScaling or { Power = 1 }
 	local size = params.Size or Vector3.new(4, 4, 7)
 	local offset = params.Offset or CFrame.new(2, 0, -8)
 	local color = params.Color or BrickColor.new("Bright yellow")
@@ -192,8 +193,16 @@ function HitboxSpawner.spawnHitbox(params)
 						end
 
 						hitPlayers[targetChar] = true
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
+						local finalDamage = damage
+
+						if statScaling then
+							finalDamage = CombatUtils.ApplyStatScaling(character, damage, statScaling)
+						end
+
+						local newDamage = CombatUtils.ReturnDamage(targetChar, finalDamage, canBlock, character)
+
 						humanoid:TakeDamage(newDamage)
+
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
@@ -298,6 +307,7 @@ end
 function HitboxSpawner.spawnStandOffHitbox(params)
 	local character = params.Character
 	local damage = params.Damage or 10
+	local statScaling = params.StatScaling or { Strength = 1 }
 	local size = params.Size or Vector3.new(4, 4, 7)
 	local offset = params.Offset or CFrame.new(2, 0, -8)
 	local color = params.Color or BrickColor.new("Bright yellow")
@@ -393,8 +403,20 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 						hitPlayers[targetChar] = true
 
 						-- Apply damage with canBlock support
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
+						local finalDamage = damage
+
+						if statScaling then
+							finalDamage = CombatUtils.ApplyStatScaling(character, damage, statScaling)
+						end
+
+						local newDamage = CombatUtils.ReturnDamage(targetChar, finalDamage, canBlock, character)
+
 						humanoid:TakeDamage(newDamage)
+
+						if params.OnHit then
+							params.OnHit(targetChar, newDamage)
+						end
+
 						VampireModule.addBlood(character, newDamage / VAMP_BLOOD_GAIN_RATE)
 
 						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
@@ -832,6 +854,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	local size = params.Size or Vector3.new(6, 6, 6)
 	local duration = params.Duration or 0.5
 	local damage = params.Damage
+	local statScaling = params.StatScaling or { Power = 1 }
 	local stunDuration = params.StunDuration or 0
 	local transparency = params.Transparency or 0.5
 	local color = params.Color or BrickColor.new("Bright red")
@@ -959,7 +982,14 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 						end
 
 						hitPlayers[targetChar] = true
-						local newDamage = CombatUtils.ReturnDamage(targetChar, damage, canBlock, character)
+						local finalDamage = damage
+
+						if statScaling then
+							finalDamage = CombatUtils.ApplyStatScaling(character, damage, statScaling)
+						end
+
+						local newDamage = CombatUtils.ReturnDamage(targetChar, finalDamage, canBlock, character)
+
 						humanoid:TakeDamage(newDamage)
 
 						if params.OnHit then
@@ -1054,7 +1084,7 @@ function HitboxSpawner.SpawnSlowingField(params)
 			return
 		end
 
-		local baseSpeedObj = character:FindFirstChild("MoveSpeed")
+		local baseSpeedObj = CombatUtils.GetMoveSpeed(character)
 		if not baseSpeedObj then
 			return
 		end

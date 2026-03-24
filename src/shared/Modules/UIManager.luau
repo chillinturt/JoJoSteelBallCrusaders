@@ -56,7 +56,7 @@ local function loadMainMenu(playerGui)
 	if menuGui then
 		local clone = menuGui:Clone()
 		clone.Parent = playerGui
-		clone.Enabled = MenuState.MenuOpen
+		clone.Enabled = MenuState:IsOpen("MainMenu")
 	end
 end
 
@@ -241,7 +241,7 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	end
 
 	-- 8) Show main menu and hide all other UIs
-	if MenuState.MenuOpen then
+	if MenuState:IsOpen("MainMenu") then
 		-- Menu is active, so load and show menu, hide gameplay UIs
 		loadMainMenu(playerGui)
 		disableAllGameplayUIs(playerGui)
@@ -257,6 +257,13 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 			then
 				ui.Enabled = true
 			end
+		end
+	end
+
+	-- ✅ NEW: Restore all UI states (QuestGUI, etc.)
+	for _, ui in ipairs(playerGui:GetChildren()) do
+		if ui.Name == "QuestGUI" then
+			ui.QuestLogFrame.Visible = MenuState:IsOpen(ui.Name)
 		end
 	end
 

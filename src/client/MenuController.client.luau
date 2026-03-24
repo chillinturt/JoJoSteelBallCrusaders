@@ -36,9 +36,9 @@ local function applyState()
 		return -- could optionally wait or retry
 	end
 
-	mainMenu.Enabled = MenuState.MenuOpen
+	mainMenu.Enabled = MenuState:IsOpen("MainMenu")
 
-	if MenuState.MenuOpen then
+	if MenuState:IsOpen("MainMenu") then
 		hideGameplayUIs()
 		OpenMenuEvent:Fire()
 	else
@@ -80,13 +80,13 @@ local function bindButtons()
 	-- Connect buttons if they exist
 	if openButton then
 		openButtonConnection = openButton.MouseButton1Click:Connect(function()
-			MenuState:SetOpen(true)
+			MenuState:SetOpen("MainMenu", true)
 		end)
 	end
 
 	if closeButton then
 		closeButtonConnection = closeButton.MouseButton1Click:Connect(function()
-			MenuState:SetOpen(false)
+			MenuState:SetOpen("MainMenu", false)
 		end)
 	end
 end
@@ -115,7 +115,7 @@ local function bindOpenMenuButton()
 	end
 
 	openButtonConnection = openButton.MouseButton1Click:Connect(function()
-		MenuState:SetOpen(true)
+		MenuState:SetOpen("MainMenu", true)
 	end)
 end
 
@@ -137,11 +137,10 @@ end)
 
 -- Apply state on respawn
 player.CharacterAdded:Connect(function()
-	MenuState:SetOpen(true)
 	task.defer(applyState)
 end)
 
 -- Initial setup
 bindButtons()
 bindOpenMenuButton()
-MenuState:SetOpen(true) -- start menu closed
+applyState() -- start menu closed
