@@ -15,10 +15,21 @@ local AbilityTypes = Instance.new("RemoteEvent")
 AbilityTypes.Name = "StandAbilityTypes"
 AbilityTypes.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
 
+local UnlockMessageEvent = ReplicatedStorage.UIs.RemoteEvents:FindFirstChild("UnlockMessageEvent")
+if not UnlockMessageEvent then
+	UnlockMessageEvent = Instance.new("RemoteEvent")
+	UnlockMessageEvent.Name = "UnlockMessageEvent"
+	UnlockMessageEvent.Parent = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
+end
+
 local AbilityHandler = require(ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("AbilityHandler"))
 
 -- Client calls: AbilityFunction:InvokeServer(abilityId, state)
 AbilityFunction.OnServerInvoke = function(player, abilityId, state)
+	if not AbilityHandler.IsAbilityUnlocked(player, abilityId) then
+		return AbilityHandler.TryUnlockAbility(player, abilityId)
+	end
+
 	AbilityHandler.ExecuteAbility(player, abilityId, state)
-	return true -- optional: success feedback
+	return true, "Used"
 end

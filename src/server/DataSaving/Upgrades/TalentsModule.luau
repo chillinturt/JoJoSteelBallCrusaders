@@ -169,10 +169,10 @@ end
 
 local function buildClientData(player)
 	local data = ensure(player)
-	local ap = XPSystem.GetField(player, "AbilityPoints") or 0
+	local ap = XPSystem.GetField(player, "TalentPoints") or 0
 
 	return {
-		AbilityPoints = ap,
+		TalentPoints = ap,
 		Talents = data.Talents,
 	}
 end
@@ -208,7 +208,7 @@ end
 
 function TalentsModule.ApplyUpgrade(player, talentName)
 	local data = ensure(player)
-	local ap = XPSystem.GetField(player, "AbilityPoints") or 0
+	local ap = XPSystem.GetField(player, "TalentPoints") or 0
 
 	print("Player AP:", ap)
 
@@ -232,7 +232,7 @@ function TalentsModule.ApplyUpgrade(player, talentName)
 	end
 
 	-- Spend ability point
-	XPSystem.SetField(player, "AbilityPoints", ap - 1)
+	XPSystem.SetField(player, "TalentPoints", ap - 1)
 
 	-- Apply upgrade
 	data.Talents[talentName] = currentLevel + 1
@@ -246,6 +246,11 @@ end
 ---------------------------------------------------------------------
 function TalentsModule.ApplyAllEffects(player)
 	local data = ensure(player)
+
+	if not data or not data.Talents then
+		warn("Talents not ready for", player)
+		return
+	end
 
 	for talentName, level in pairs(data.Talents) do
 		if level > 0 then
@@ -294,7 +299,7 @@ function TalentsModule.ResetPlayer(player)
 	local stats = XPSystem.GetStats(player)
 
 	if stats then
-		stats.AbilityPoints = (stats.Level - 1) * 2
+		stats.TalentPoints = (stats.Level - 1) * 2
 		XPSystem.SetStats(player, stats)
 	end
 end

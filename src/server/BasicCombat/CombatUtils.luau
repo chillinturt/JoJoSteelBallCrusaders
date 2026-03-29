@@ -24,6 +24,10 @@ CombatUtils.ActionEnded = Instance.new("BindableEvent")
 
 local BlockUpdateEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("BlockUpdateEvent")
 
+local BlockRequestFunction = Instance.new("RemoteFunction")
+BlockRequestFunction.Name = "BlockRequestFunction"
+BlockRequestFunction.Parent = ReplicatedStorage.UIs.RemoteEvents
+
 local slidingPlayers = {}
 
 local activeVelocities = {}
@@ -123,6 +127,18 @@ function CombatUtils.SyncBlockUI(player, value, max)
 	BlockUpdateEvent:FireClient(player, value, max)
 end
 
+function CombatUtils.SyncBlock(character)
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return
+	end
+
+	local current = CombatUtils.GetBlockHP(character)
+	local max = CombatUtils.GetBlockMaxHP(character)
+
+	CombatUtils.SyncBlockUI(player, current, max)
+end
+
 -- Function to return modified damage based on blocking state
 function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	local isBlocking = CombatUtils.IsBlocking(character)
@@ -152,32 +168,21 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	end
 
 	-- If blocking is allowed
-	if canBlock and isBlocking and isBlocking == true and blockHP > 0 then
+	if canBlock and isBlocking and blockHP > 0 then
 		-- Calculate the reduced damage that the block tries to absorb
 		local reducedDamage = newDamage * (1 - BLOCK_DAMAGE_REDUCTION)
 
-		-- If block HP can fully absorb the reduced damage
 		if blockHP >= reducedDamage then
 			CombatUtils.SpendBlockHP(character, reducedDamage)
-			blockHP -= reducedDamage
-			local player = Players:GetPlayerFromCharacter(character)
-			if player then
-				CombatUtils.SyncBlockUI(player, blockHP, blockMaxHPByCharacter[character])
-			end
-			newDamage = newDamage * BLOCK_DAMAGE_REDUCTION -- player only takes reduced damage
+			newDamage = newDamage * BLOCK_DAMAGE_REDUCTION
 		else
-			-- Block HP runs out; calculate leftover damage
 			local remainingDamage = reducedDamage - blockHP
-			blockHP = 0
+			CombatUtils.SpendBlockHP(character, blockHP)
 
-			local player = Players:GetPlayerFromCharacter(character)
-			if player then
-				CombatUtils.SyncBlockUI(player, blockHP, blockMaxHPByCharacter[character])
-			end
-
-			-- The leftover goes through at full damage rate (since block is broken)
 			newDamage = (newDamage * BLOCK_DAMAGE_REDUCTION) + remainingDamage
 		end
+
+		CombatUtils.SyncBlock(character)
 	end
 
 	return newDamage
@@ -260,6 +265,25 @@ end
 
 function CombatUtils.ResetActionInProgress(character)
 	actionInProgress[character] = nil
+	CombatUtils.ApplyMoveSpeedMultiplier(character, 1)
+end
+
+function CombatUtils.UpdateMovement(character)
+	if not character then
+		return
+	end
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local base = CombatUtils.GetMoveSpeed(character)
+	local mult = moveSpeedMultiplierByCharacter[character] or 1
+	local slowMult = SlowingFieldRegistry.GetFinalMultiplier(character)
+
+	local finalSpeed = base * mult * slowMult
+	humanoid.WalkSpeed = finalSpeed
 end
 
 function CombatUtils.applyStun(character, duration)
@@ -358,13 +382,8 @@ function CombatUtils.GetBlockHP(character)
 	end
 
 	if blockHPByCharacter[character] == nil then
-		local maxHP = blockMaxHPByCharacter[character] or BLOCK_MAX_HP
+		local maxHP = CombatUtils.GetBlockMaxHP(character)
 		blockHPByCharacter[character] = maxHP
-	end
-
-	local player = Players:GetPlayerFromCharacter(character)
-	if player then
-		CombatUtils.SyncBlockUI(player, blockHPByCharacter[character], blockMaxHPByCharacter[character])
 	end
 
 	return blockHPByCharacter[character]
@@ -401,10 +420,12 @@ function CombatUtils.SpendBlockHP(character, hp)
 	blockHPByCharacter[character] = current - hp
 	CombatUtils.NotifyBlockDamage(character)
 
-	local player = Players:GetPlayerFromCharacter(character)
-	if player then
-		CombatUtils.SyncBlockUI(player, current - hp, blockMaxHPByCharacter[character])
+	local state = blockRegenState[character]
+	if state then
+		state.lastDamageTime = os.clock()
 	end
+
+	CombatUtils.SyncBlock(character)
 
 	return true
 end
@@ -427,12 +448,7 @@ function CombatUtils.SetMoveSpeed(character, value)
 	end
 
 	moveSpeedByCharacter[character] = value or DEFAULT_MOVE_SPEED
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		local multiplier = moveSpeedMultiplierByCharacter[character] or 1
-		humanoid.WalkSpeed = moveSpeedByCharacter[character] * multiplier
-	end
+	CombatUtils.UpdateMovement(character)
 end
 
 function CombatUtils.ApplyMoveSpeedMultiplier(character, multiplier)
@@ -441,12 +457,7 @@ function CombatUtils.ApplyMoveSpeedMultiplier(character, multiplier)
 	end
 
 	moveSpeedMultiplierByCharacter[character] = multiplier or 1
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		local base = CombatUtils.GetMoveSpeed(character)
-		humanoid.WalkSpeed = base * moveSpeedMultiplierByCharacter[character]
-	end
+	CombatUtils.UpdateMovement(character)
 end
 
 function CombatUtils.GetJumpHeight(character)
@@ -516,10 +527,7 @@ function CombatUtils.StartBlockRegen(character)
 					local regenAmount = BLOCK_REGEN_RATE * 0.1
 					local newHP = math.min(maxHP, current + regenAmount)
 					blockHPByCharacter[character] = newHP
-					local player = Players:GetPlayerFromCharacter(character)
-					if player then
-						CombatUtils.SyncBlockUI(player, newHP, maxHP)
-					end
+					CombatUtils.SyncBlock(character)
 				end
 			end
 		end
@@ -532,6 +540,11 @@ local function cleanupCharacter(character)
 	blockHPByCharacter[character] = nil
 	blockRegenState[character] = nil
 	actionInProgress[character] = nil
+
+	local state = blockRegenState[character]
+	if state then
+		state.regenRunning = false
+	end
 end
 
 game.Players.PlayerAdded:Connect(function(player)
@@ -541,6 +554,8 @@ game.Players.PlayerAdded:Connect(function(player)
 		CombatUtils.SetMoveSpeed(character)
 		CombatUtils.GetJumpHeight(character)
 		CombatUtils.SetJumpHeight(character)
+
+		CombatUtils.SyncBlock(character)
 
 		local humanoid = character:WaitForChild("Humanoid")
 
@@ -1277,9 +1292,7 @@ function CombatUtils.RegisterStun(character, duration)
 		SlowingFieldRegistry.SetSlow(character, "Stun", STUN_SPEED_MULT)
 
 		-- Apply slowed walk speed (memory-based)
-		local baseSpeed = CombatUtils.GetMoveSpeed(character)
-		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
-		humanoid.WalkSpeed = baseSpeed * mult
+		CombatUtils.UpdateMovement(character)
 
 		-- Disable jumping
 		humanoid.JumpPower = 0
@@ -1301,9 +1314,7 @@ function CombatUtils.UnregisterStun(character)
 		SlowingFieldRegistry.ClearSlow(character, "Stun")
 
 		-- Restore movement
-		local baseSpeed = CombatUtils.GetMoveSpeed(character)
-		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
-		humanoid.WalkSpeed = baseSpeed * mult
+		CombatUtils.UpdateMovement(character)
 
 		-- Restore jump
 		humanoid.JumpPower = CombatUtils.GetJumpHeight(character)
@@ -1381,5 +1392,17 @@ game:GetService("Players").PlayerRemoving:Connect(function(player)
 		blockMaxHPByCharacter[character] = nil
 	end
 end)
+
+BlockRequestFunction.OnServerInvoke = function(player)
+	local character = player.Character
+	if not character then
+		return 0, 1
+	end
+
+	local current = CombatUtils.GetBlockHP(character)
+	local max = CombatUtils.GetBlockMaxHP(character)
+
+	return current, max
+end
 
 return CombatUtils

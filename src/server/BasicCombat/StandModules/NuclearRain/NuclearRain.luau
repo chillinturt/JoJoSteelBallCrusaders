@@ -4,17 +4,16 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local HttpService = game:GetService("HttpService")
-local RunService = game:GetService("RunService")
 local PhysicsService = game:GetService("PhysicsService")
 
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
-local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local BlockModule = require(ServerScriptService.BasicCombat.BlockModule)
+local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 
 local RAIN_REGEN = 2
 local REGEN_INTERVAL = 1
@@ -82,18 +81,9 @@ end
 function NuclearRain.initRainForPlayer(player)
 	-- When the character spawns, ensure it has a HamonMeter
 	player.CharacterAdded:Connect(function(character)
-		local humanoid = character:WaitForChild("Humanoid") -- wait until the character is fully loaded
-
-		-- ✅ Safe access to Powers folder
-		local powersFolder = player:WaitForChild("Powers")
-		if not powersFolder then
-			warn("⚠ NuclearRain: Powers folder missing for player", player.Name)
-			return
-		end
-
 		-- ✅ Safe access to Hero value
-		local heroValue = powersFolder:FindFirstChild("Hero")
-		if heroValue and heroValue.Value == "NuclearRain" then
+		local heroValue = HeroManager.GetField(player, "Hero")
+		if heroValue == "NuclearRain" then
 			NuclearRain.getRainValue(character)
 			NuclearRain.StartRainRegen(character)
 		end

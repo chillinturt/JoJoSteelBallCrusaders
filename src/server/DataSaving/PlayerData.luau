@@ -1,8 +1,6 @@
-local EncodingService = game:GetService("EncodingService")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local SerializationService = game:GetService("SerializationService")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local PlayerDataTemplate = require(ReplicatedStorage.Shared.Modules.PlayerData)
@@ -27,6 +25,8 @@ local Profiles: { [Player]: any } = {}
 
 local Local = {}
 local PlayerData = {}
+
+local AbilityUnlocksEvent = ReplicatedStorage.UIs:WaitForChild("RemoteEvents"):WaitForChild("AbilityUnlocksEvent")
 
 ---------------------------------------------------------------------
 -- STARTUP
@@ -75,6 +75,20 @@ function Local.LoadProfile(player: Player)
 
 	-- Get active slot data
 	local activeData = SlotManager.GetActiveSlotData(player)
+	activeData.XP = activeData.XP or 0
+	activeData.Level = activeData.Level or 1
+	activeData.MaxXP = activeData.MaxXP or 100
+	activeData.TalentPoints = activeData.TalentPoints or 0
+	activeData.AbilityPoints = activeData.AbilityPoints or 0
+	activeData.Cash = activeData.Cash or 0
+	activeData.Talents = activeData.Talents or {}
+	activeData.UnlockedAbilities = activeData.UnlockedAbilities
+		or {
+			[1] = false,
+			[2] = false,
+			[3] = false,
+			[4] = false,
+		}
 	assert(activeData, "Active slot data missing after InitPlayer")
 
 	--------------------------------------------------------
@@ -99,11 +113,29 @@ function Local.LoadProfile(player: Player)
 	XPSystem.SetField(player, "XP", activeData.XP)
 	XPSystem.SetField(player, "Level", activeData.Level)
 	XPSystem.SetField(player, "MaxXP", activeData.MaxXP)
-	XPSystem.SetField(player, "AbilityPoints", activeData.AbilityPoints)
+	XPSystem.SetField(player, "TalentPoints", activeData.TalentPoints)
+	XPSystem.SetField(player, "AbilityPoints", activeData.AbilityPoints or 0)
+
+	print("xp is ", activeData.XP)
 
 	CashSystem.SetCash(player, activeData.Cash)
 
 	TalentsModule.SetStats(player, activeData.Talents)
+	TalentsModule.ApplyAllEffects(player)
+
+	-- Load unlocked abilities (with fallback)
+	local unlocked = activeData.UnlockedAbilities or {
+		[1] = false,
+		[2] = false,
+		[3] = false,
+		[4] = false,
+	}
+
+	HeroManager.SetField(player, "UnlockedAbilities", unlocked)
+
+	local unlockedTable = HeroManager.GetField(player, "UnlockedAbilities")
+
+	AbilityUnlocksEvent:FireClient(player, unlockedTable)
 
 	return true
 end
@@ -136,9 +168,11 @@ function Local.RemoveProfile(player: Player)
 	slotData.XP = XPSystem.GetField(player, "XP")
 	slotData.Level = XPSystem.GetField(player, "Level")
 	slotData.MaxXP = XPSystem.GetField(player, "MaxXP")
-	slotData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
+	slotData.TalentPoints = XPSystem.GetField(player, "TalentPoints")
 	slotData.Cash = CashSystem.GetCash(player)
 	slotData.Talents = TalentsModule.GetStats(player)
+	slotData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
+	slotData.UnlockedAbilities = HeroManager.GetField(player, "UnlockedAbilities")
 
 	------------------------------------------------------------------
 	-- WRITE SLOT STATE BACK TO PROFILESTORE
@@ -179,9 +213,12 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 	currentData.XP = XPSystem.GetField(player, "XP")
 	currentData.Level = XPSystem.GetField(player, "Level")
 	currentData.MaxXP = XPSystem.GetField(player, "MaxXP")
-	currentData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
+	currentData.TalentPoints = XPSystem.GetField(player, "TalentPoints")
 	currentData.Cash = CashSystem.GetCash(player)
 	currentData.Talents = TalentsModule.GetStats(player)
+
+	currentData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
+	currentData.UnlockedAbilities = HeroManager.GetField(player, "UnlockedAbilities")
 
 	------------------------------------------------------------------
 	-- STEP 2: SWITCH SLOT (creates if missing)
@@ -211,10 +248,12 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 	XPSystem.SetField(player, "XP", newSlotData.XP)
 	XPSystem.SetField(player, "Level", newSlotData.Level)
 	XPSystem.SetField(player, "MaxXP", newSlotData.MaxXP)
-	XPSystem.SetField(player, "AbilityPoints", newSlotData.AbilityPoints)
+	XPSystem.SetField(player, "TalentPoints", newSlotData.TalentPoints)
+	XPSystem.SetField(player, "AbilityPoints", newSlotData.AbilityPoints or 0)
 
 	CashSystem.SetCash(player, newSlotData.Cash)
 	TalentsModule.SetStats(player, newSlotData.Talents)
+	TalentsModule.ApplyAllEffects(player)
 
 	local char = player.Character
 	local hum = char:FindFirstChild("Humanoid")
@@ -222,6 +261,16 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 	if hum then
 		hum.Health = 0
 	end
+
+	local unlocked = newSlotData.UnlockedAbilities or {
+		[1] = false,
+		[2] = false,
+		[3] = false,
+		[4] = false,
+	}
+
+	HeroManager.SetField(player, "UnlockedAbilities", unlocked)
+	AbilityUnlocksEvent:FireClient(player, unlocked)
 
 	return true
 end

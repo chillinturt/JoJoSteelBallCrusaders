@@ -8,7 +8,7 @@ local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitF
 
 local remoteFolder = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
 local upgradeEvent = remoteFolder:WaitForChild("UpgradeSubmitted")
-local updateEvent = remoteFolder:WaitForChild("SkillTreeUpdateEvent")
+local TalentUpdateEvent = remoteFolder:WaitForChild("SkillTreeUpdateEvent")
 
 --------------------------------------------------------
 -- 🟩 CLIENT → SERVER UPGRADE REQUEST
@@ -21,27 +21,27 @@ upgradeEvent.OnServerEvent:Connect(function(player, skillName)
 	local upgrades = TalentsModule.GetStats(player)
 
 	local payload = {
-		AbilityPoints = stats.AbilityPoints,
+		TalentPoints = stats.TalentPoints,
 		Talents = upgrades.Talents,
 	}
 
 	if not success then
-		updateEvent:FireClient(player, payload)
+		TalentUpdateEvent:FireClient(player, payload)
 		return upgradeEvent:FireClient(player, false, msg)
 	end
 
-	updateEvent:FireClient(player, payload)
+	TalentUpdateEvent:FireClient(player, payload)
 	upgradeEvent:FireClient(player, true, payload)
 end)
 
 -- Server-side example
-updateEvent.OnServerEvent:Connect(function(player, request)
+TalentUpdateEvent.OnServerEvent:Connect(function(player, request)
 	if request == "RequestFullSync" then
-		local ap = XPSystem.GetField(player, "AbilityPoints") or 0
+		local ap = XPSystem.GetField(player, "TalentPoints") or 0
 		local stats = TalentsModule.GetStats(player)
 
-		updateEvent:FireClient(player, {
-			AbilityPoints = ap,
+		TalentUpdateEvent:FireClient(player, {
+			TalentPoints = ap,
 			Talents = stats.Talents,
 		})
 	end
@@ -50,22 +50,55 @@ end)
 ---------------------------------------------------------------------
 -- CLEANUP ON PLAYER JOIN
 ---------------------------------------------------------------------
-Players.PlayerAdded:Connect(function(player)
-	-- Ensure folder exists
+local function setupPlayer(player)
 	TalentsModule.InitPlayer(player)
-	player.CharacterAdded:Connect(function()
-		task.wait(3)
 
-		-- Reapply all talent effects
-		TalentsModule.ApplyAllEffects(player)
+	player.CharacterAdded:Connect(function(character)
+		print("CharacterAdded fired for", player.Name)
 
-		local ap = XPSystem.GetField(player, "AbilityPoints") or 0
-		local stats = TalentsModule.GetStats(player)
+		task.defer(function()
+			print("Attempting to apply talents...")
 
-		updateEvent:FireClient(player, {
-			AbilityPoints = ap,
-			Talents = stats.Talents,
-		})
-		print("updating skill tree text")
+			TalentsModule.ApplyAllEffects(player)
+
+			local ap = XPSystem.GetField(player, "TalentPoints") or 0
+			local stats = TalentsModule.GetStats(player)
+
+			TalentUpdateEvent:FireClient(player, {
+				TalentPoints = ap,
+				Talents = stats.Talents,
+			})
+
+			print("updating skill tree text")
+		end)
 	end)
-end)
+
+	-- 🔥 IMPORTANT: handle already spawned character
+	if player.Character then
+		print("Character already exists for", player.Name)
+
+		task.defer(function()
+			print("Attempting to apply talents (existing character)...")
+
+			TalentsModule.ApplyAllEffects(player)
+
+			local ap = XPSystem.GetField(player, "TalentPoints") or 0
+			local stats = TalentsModule.GetStats(player)
+
+			TalentUpdateEvent:FireClient(player, {
+				TalentPoints = ap,
+				Talents = stats.Talents,
+			})
+
+			print("updating skill tree text (existing character)")
+		end)
+	end
+end
+
+-- Existing players
+for _, player in Players:GetPlayers() do
+	setupPlayer(player)
+end
+
+-- Future players
+Players.PlayerAdded:Connect(setupPlayer)

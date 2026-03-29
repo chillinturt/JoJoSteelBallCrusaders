@@ -48,6 +48,13 @@ local XPSystem = {}
 ---------------------------------------------------------------------
 local MAX_LEVEL = 50
 
+local ABILITY_UNLOCK_LEVELS = {
+	[10] = true,
+	[25] = true,
+	[40] = true,
+	[50] = true,
+}
+
 local function getXPRequirement(level)
 	return 100 + 20 * ((level - 1) ^ 2)
 end
@@ -62,7 +69,7 @@ end
 --   Level = 1,
 --   XP = 0,
 --   MaxXP = 100,
---   AbilityPoints = 0
+--   TalentPoints = 0
 -- }
 ---------------------------------------------------------------------
 
@@ -94,7 +101,7 @@ function XPSystem.InitPlayer(player)
 			Level = 1,
 			XP = 0,
 			MaxXP = getXPRequirement(1),
-			AbilityPoints = 0,
+			TalentPoints = 0,
 		}
 end
 
@@ -121,11 +128,23 @@ end
 
 -- Load from ProfileStore data
 function XPSystem.SetStats(player, savedData)
+	local level = savedData.Level or 1
+
 	xpData[player.UserId] = {
-		Level = savedData.Level or 1,
+		Level = level,
 		XP = savedData.XP or 0,
-		MaxXP = savedData.MaxXP or getXPRequirement(savedData.Level or 1),
+		MaxXP = savedData.MaxXP or getXPRequirement(level),
+		TalentPoints = savedData.TalentPoints or 0,
+
+		-- ✅ New data points
 		AbilityPoints = savedData.AbilityPoints or 0,
+
+		UnlockedAbilities = savedData.UnlockedAbilities or {
+			[1] = false,
+			[2] = false,
+			[3] = false,
+			[4] = false,
+		},
 	}
 
 	-- sync UI
@@ -137,7 +156,7 @@ end
 ---------------------------------------------------------------------
 
 function XPSystem.AddXP(player, amount)
-	local ABILITY_POINTS_PER_LEVEL = 2
+	local TALENT_POINTS_PER_LEVEL = 2
 
 	local data = get(player)
 	if not data then
@@ -162,7 +181,22 @@ function XPSystem.AddXP(player, amount)
 		end
 		data.XP -= data.MaxXP
 		data.Level += 1
-		data.AbilityPoints += ABILITY_POINTS_PER_LEVEL
+		data.TalentPoints += TALENT_POINTS_PER_LEVEL
+
+		-- ✅ Grant ability point at milestone levels
+		if ABILITY_UNLOCK_LEVELS[data.Level] then
+			data.AbilityPoints += 1
+
+			print("Granted Ability Point at level", data.Level)
+
+			-- Optional: feedback
+			PlaySoundEvent:FireClient(player, {
+				id = "rbxassetid://97468293210189",
+				volume = 1.2,
+				pitch = 1,
+			})
+		end
+
 		data.MaxXP = getXPRequirement(data.Level)
 		SkillTreeUpdateEvent:FireClient(player, XPSystem.GetStats(player))
 

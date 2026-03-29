@@ -164,6 +164,15 @@ local function getDefaultXPData()
 		Level = 1,
 		XP = 0,
 		MaxXP = nil, -- will be recalculated in SetStats
+		TalentPoints = 0,
+
+		UnlockedAbilities = {
+			[1] = false,
+			[2] = false,
+			[3] = false,
+			[4] = false,
+		},
+
 		AbilityPoints = 0,
 	}
 end

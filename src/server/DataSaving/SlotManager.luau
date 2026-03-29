@@ -23,7 +23,7 @@ local DEFAULT_SLOT_DATA = {
 	XP = 0,
 	Level = 1,
 	MaxXP = 100,
-	AbilityPoints = 0,
+	TalentPoints = 0,
 
 	Cash = 0,
 
@@ -31,6 +31,13 @@ local DEFAULT_SLOT_DATA = {
 	Quests = {},
 	CompletedQuests = {},
 	CharacterUpgrades = {},
+
+	UnlockedAbilities = {
+		[1] = false,
+		[2] = false,
+		[3] = false,
+		[4] = false,
+	},
 
 	HasStarted = false,
 }
@@ -43,6 +50,26 @@ local PlayerSlots = {} -- [Player] = { Slot1 = {...}, Slot2 = {...} }
 
 -- Default slot name
 local DEFAULT_SLOT = "Slot1"
+
+local function DeepCopy(t)
+	local copy = {}
+	for k, v in pairs(t) do
+		copy[k] = typeof(v) == "table" and DeepCopy(v) or v
+	end
+	return copy
+end
+
+local function ReconcileSlot(slotData)
+	for key, defaultValue in pairs(DEFAULT_SLOT_DATA) do
+		if slotData[key] == nil then
+			if typeof(defaultValue) == "table" then
+				slotData[key] = DeepCopy(defaultValue)
+			else
+				slotData[key] = defaultValue
+			end
+		end
+	end
+end
 
 ---------------------------------------------------------------------
 -- Initialize a player with default slot if none exist
@@ -60,7 +87,7 @@ function SlotManager.InitPlayer(player: Player, profileData)
 			XP = profileData.XP,
 			Level = profileData.Level,
 			MaxXP = profileData.MaxXP,
-			AbilityPoints = profileData.AbilityPoints,
+			TalentPoints = profileData.TalentPoints,
 			Cash = profileData.Cash,
 			Inventory = profileData.Inventory or {},
 			Quests = profileData.Quests or {},
@@ -74,19 +101,15 @@ function SlotManager.InitPlayer(player: Player, profileData)
 
 	-- GUARANTEE active slot exists
 	if not profileData.Slots[profileData.CurrentSlot] then
-		profileData.Slots[profileData.CurrentSlot] = table.clone(profileData.Slots["Slot1"])
+		profileData.Slots[profileData.CurrentSlot] = DeepCopy(profileData.Slots["Slot1"])
 	end
 
 	PlayerSlots[player] = profileData.Slots
 	ActiveSlots[player] = profileData.CurrentSlot
-end
 
-local function DeepCopy(t)
-	local copy = {}
-	for k, v in pairs(t) do
-		copy[k] = typeof(v) == "table" and DeepCopy(v) or v
+	for slotName, slotData in pairs(profileData.Slots) do
+		ReconcileSlot(slotData)
 	end
-	return copy
 end
 
 function SlotManager.GetAllSlots(player)

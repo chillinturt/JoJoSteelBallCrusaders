@@ -7,7 +7,7 @@ PlayerData.DEFAULT_PLAYER_DATA = {
 	Cash = 0,
 	XP = 0,
 	Level = 1,
-	AbilityPoints = 0,
+	TalentPoints = 0,
 	MaxXP = 100,
 
 	-- Powers
@@ -32,6 +32,15 @@ PlayerData.DEFAULT_PLAYER_DATA = {
 		LastReset = "",
 		Redeemed = {},
 	},
+
+	UnlockedAbilities = {
+		[1] = false,
+		[2] = false,
+		[3] = false,
+		[4] = false,
+	},
+
+	AbilityPoints = 0,
 }
 
 export type PlayerData = typeof(PlayerData.DEFAULT_PLAYER_DATA)

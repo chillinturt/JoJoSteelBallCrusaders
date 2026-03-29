@@ -38,19 +38,34 @@ local Keybinds = {
 -----------------------------------------------------------------------
 local function FireAbility(abilityId, state)
 	if not AbilitiesReady then
-		warn("[Client] Tried to use ability before types were received:", abilityId)
 		return
 	end
 	if not abilityId or not CurrentAbilityTypes[abilityId] then
-		warn("[Client] AbilityId invalid or not registered:", abilityId)
 		return
 	end
 
-	local success, err = pcall(function()
-		AbilityFunction:InvokeServer(abilityId, state)
+	local success, result, reason = pcall(function()
+		return AbilityFunction:InvokeServer(abilityId, state)
 	end)
+
 	if not success then
-		warn("[Client] AbilityFunction InvokeServer failed:", err)
+		warn("[Client] Invoke failed:", result)
+		return
+	end
+
+	local didSucceed = result
+	local failReason = reason
+
+	if not didSucceed then
+		if _G.SetUnlockMessage then
+			if failReason == "UltimateLocked" then
+				_G.SetUnlockMessage("Ultimate must be unlocked last", 3)
+			elseif failReason == "LevelTooLow" then
+				_G.SetUnlockMessage("Level too low", 3)
+			elseif failReason == "NoPoints" then
+				_G.SetUnlockMessage("Not enough ability points", 3)
+			end
+		end
 	end
 end
 

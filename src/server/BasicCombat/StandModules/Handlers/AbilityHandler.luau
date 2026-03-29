@@ -1,5 +1,4 @@
 -- AbilityHandler ModuleScript
-local HeapProfilerService = game:GetService("HeapProfilerService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local ServerScriptService = game:GetService("ServerScriptService")
 
@@ -10,9 +9,21 @@ local StandUtils = require(ServerScriptService.BasicCombat:WaitForChild("StandUt
 local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local HeroGroups = require(ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("HeroGroups"))
+local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
 
 -- Where all stand modules live
 local StandModules = ServerScriptService.BasicCombat.StandModules
+
+local AbilityUnlocksEvent = Instance.new("RemoteEvent")
+AbilityUnlocksEvent.Name = "AbilityUnlocksEvent"
+AbilityUnlocksEvent.Parent = ReplicatedStorage.UIs:WaitForChild("RemoteEvents")
+
+local UNLOCK_LEVELS = {
+	[1] = 10,
+	[2] = 25,
+	[3] = 40,
+	[4] = 50, -- ultimate
+}
 
 -- Cooldowns: cooldowns[player][abilityId] = timestamp
 local cooldowns = {}
@@ -22,6 +33,55 @@ local activeHolds = {}
 
 local function getHeroGroup(heroName)
 	return HeroGroups[heroName] or heroName
+end
+
+function AbilityHandler.TryUnlockAbility(player, abilityId)
+	-- Already unlocked
+	if AbilityHandler.IsAbilityUnlocked(player, abilityId) then
+		return false, "AlreadyUnlocked"
+	end
+
+	local unlocked = AbilityHandler.GetUnlockedAbilities(player)
+
+	-- Level requirement
+	local requiredLevel = UNLOCK_LEVELS[abilityId]
+	local playerLevel = XPSystem.GetField(player, "Level") or 0
+
+	if playerLevel < requiredLevel then
+		warn("Unlock failed: not high enough level")
+		return false, "LevelTooLow"
+	end
+
+	-- Ultimate must be last
+	if abilityId == 4 then
+		if not (unlocked[1] and unlocked[2] and unlocked[3]) then
+			warn("Unlock failed: ultimate locked")
+			return false, "UltimateLocked"
+		end
+	end
+
+	-- Optional: Ability points cost
+	local points = XPSystem.GetField(player, "AbilityPoints") or 0
+	local COST = 1
+
+	if points < COST then
+		warn("Unlock failed: not enough points")
+		return false, "NoPoints"
+	end
+
+	-- Deduct points
+	local data = XPSystem.GetField(player, "AbilityPoints")
+	XPSystem.SetField(player, "AbilityPoints", data - COST)
+
+	-- Unlock
+	unlocked[abilityId] = true
+	HeroManager.SetField(player, "UnlockedAbilities", unlocked)
+
+	print("Unlocked ability:", abilityId)
+
+	AbilityUnlocksEvent:FireClient(player, unlocked)
+
+	return true, "Success"
 end
 
 ---------------------------------------------------------------------
@@ -162,6 +222,12 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		return
 	end
 
+	-- ❌ Block if not unlocked
+	if not AbilityHandler.IsAbilityUnlocked(player, abilityId) then
+		print("Ability blocked: not unlocked")
+		return
+	end
+
 	local abilityType = registry.AbilityTypes[abilityId] or "Press"
 	local cooldown = abilityData.Cooldown or 0
 
@@ -290,6 +356,32 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
 		cooldownUIEvent:FireClient(player, abilityId, cooldown)
 	end
+end
+
+function AbilityHandler.GetUnlockedAbilities(player)
+	return HeroManager.GetField(player, "UnlockedAbilities") or {}
+end
+
+function AbilityHandler.IsAbilityUnlocked(player, abilityId)
+	local unlocked = AbilityHandler.GetUnlockedAbilities(player)
+	return unlocked[abilityId] == true
+end
+
+function AbilityHandler.UnlockAbility(player, abilityId)
+	local unlocked = AbilityHandler.GetUnlockedAbilities(player)
+
+	-- Prevent unlocking ultimate early
+	if abilityId == 4 then
+		if not (unlocked[1] and unlocked[2] and unlocked[3]) then
+			warn("Cannot unlock ultimate before other abilities")
+			return false
+		end
+	end
+
+	unlocked[abilityId] = true
+	HeroManager.SetField(player, "UnlockedAbilities", unlocked)
+
+	return true
 end
 
 return AbilityHandler
