@@ -9,6 +9,7 @@ local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitF
 local remoteFolder = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
 local upgradeEvent = remoteFolder:WaitForChild("UpgradeSubmitted")
 local TalentUpdateEvent = remoteFolder:WaitForChild("SkillTreeUpdateEvent")
+local XPUpdatedEvent = remoteFolder:FindFirstChild("XPUpdated")
 
 --------------------------------------------------------
 -- 🟩 CLIENT → SERVER UPGRADE REQUEST
@@ -69,6 +70,8 @@ local function setupPlayer(player)
 				Talents = stats.Talents,
 			})
 
+			XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+
 			print("updating skill tree text")
 		end)
 	end)
@@ -89,6 +92,8 @@ local function setupPlayer(player)
 				TalentPoints = ap,
 				Talents = stats.Talents,
 			})
+
+			XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
 
 			print("updating skill tree text (existing character)")
 		end)

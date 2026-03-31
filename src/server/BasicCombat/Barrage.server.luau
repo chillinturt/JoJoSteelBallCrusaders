@@ -16,7 +16,6 @@ local activeBarrages = {} -- player -> true if currently barraging
 local autoStopTasks = {} -- player -> task for auto-stop
 
 StandBarrageToggle.OnServerEvent:Connect(function(player, isStarting)
-	print("Stand barrage on server")
 	local character = player.Character
 	if not character then
 		return false
@@ -36,7 +35,6 @@ StandBarrageToggle.OnServerEvent:Connect(function(player, isStarting)
 		-- Cooldown check
 		local lastEnd = lastBarrageEndTime[player]
 		if lastEnd and tick() - lastEnd < COOLDOWN_TIME then
-			print("Barrage on cooldown")
 			return false
 		end
 

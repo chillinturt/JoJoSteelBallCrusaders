@@ -48,6 +48,7 @@ function VampireModule.addBlood(character, amount)
 	return true -- success
 end
 
+--now only used for npcs
 function VampireModule.getIsVampireRace(character)
 	local characterPowersFolder = character:WaitForChild("Powers")
 	local raceValueObject = characterPowersFolder:FindFirstChild("Race")

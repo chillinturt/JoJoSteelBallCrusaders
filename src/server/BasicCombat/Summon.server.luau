@@ -28,8 +28,6 @@ end
 -- Summon logic
 ---------------------------------------------------------------------
 local function onSummonRequested(player)
-	print("Summon fired on server")
-
 	local character = player.Character
 	if not character then
 		return

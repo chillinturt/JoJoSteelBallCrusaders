@@ -2,9 +2,15 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
+local remoteFolder = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
+
 local InventoryUpdatedEvent = Instance.new("RemoteEvent")
 InventoryUpdatedEvent.Name = "InventoryUpdated"
-InventoryUpdatedEvent.Parent = ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents")
+InventoryUpdatedEvent.Parent = remoteFolder
+
+local RequestInventoryData = Instance.new("RemoteEvent")
+RequestInventoryData.Name = "RequestInventoryData"
+RequestInventoryData.Parent = remoteFolder
 
 local ExclamationPointEvent =
 	ReplicatedStorage:WaitForChild("UIs"):WaitForChild("RemoteEvents"):WaitForChild("ExclamationPointEvent")
@@ -182,6 +188,12 @@ function InventoryManager.DebugPrint(player)
 		print("  > ", entry.Name, "x", entry.Amount)
 	end
 end
+
+RequestInventoryData.OnServerEvent:Connect(function(player)
+	local inventory = InventoryManager.GetInventory(player)
+
+	InventoryUpdatedEvent:FireClient(player, inventory)
+end)
 
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()

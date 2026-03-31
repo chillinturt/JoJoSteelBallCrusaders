@@ -22,6 +22,8 @@ local codeEvent = Instance.new("RemoteEvent")
 codeEvent.Name = "CodeSubmitted"
 codeEvent.Parent = ReplicatedStorage
 
+local AbilityUnlocksEvent = ReplicatedStorage.UIs:WaitForChild("RemoteEvents"):WaitForChild("AbilityUnlocksEvent")
+
 -- List of valid stands (your stand names)
 local VALID_STAND_CODES = {
 	["StarPurple"] = true,
@@ -339,6 +341,12 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 		-- Reset XP / progression
 		local resetXPData = getDefaultXPData()
 		XPSystem.SetStats(player, resetXPData)
+		XPSystem.ResetAbilityPoints(player)
+
+		XPSystem.ResetAbilityPoints(player)
+		local unlockedTable = HeroManager.GetField(player, "UnlockedAbilities")
+		AbilityUnlocksEvent:FireClient(player, unlockedTable)
+
 		QuestManager.ResetQuestline(player)
 		TalentsModule.ResetPlayer(player)
 		InventoryManager.SetInventory(player, {})

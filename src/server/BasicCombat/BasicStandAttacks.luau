@@ -79,7 +79,6 @@ local function resetStandRig(standModel)
 end
 
 function BasicStandAttacks.BasicPunch(standModel)
-	print("Basic punch in module")
 	local primaryPart = standModel.PrimaryPart
 	local character = standModel.Parent
 	if not primaryPart or not character then
@@ -87,7 +86,6 @@ function BasicStandAttacks.BasicPunch(standModel)
 	end
 
 	if CombatUtils.IsBlocking(character) then
-		print("isblocking")
 		return
 	end
 
@@ -115,9 +113,6 @@ function BasicStandAttacks.BasicPunch(standModel)
 			dexterity = stats.Talents.Dexterity or 0
 		end
 	end
-
-	print("Dexterity:", dexterity)
-	print("Max combo:", BASE_COMBO + dexterity)
 
 	-- Check cooldown
 	if punchCooldowns[standModel] and tick() < punchCooldowns[standModel] then
@@ -156,7 +151,6 @@ function BasicStandAttacks.BasicPunch(standModel)
 			if heroValue then
 				HeroManager.SetField(player, "Hero", "TuskAct4")
 				heroValue = HeroManager.GetField(player, "Hero")
-				print(player.Name .. " is now Tusk Act 4!")
 			end
 
 			StandUtils.RemoveStand(character)
@@ -263,7 +257,6 @@ function BasicStandAttacks.BasicPunch(standModel)
 end
 
 function BasicStandAttacks.StartBarrage(character)
-	print("Barrage called on module")
 	local standModel = StandUtils.getStandModel(character)
 
 	if not standModel then
@@ -272,30 +265,24 @@ function BasicStandAttacks.StartBarrage(character)
 
 	local primaryPart = standModel.PrimaryPart
 	if not primaryPart or not character then
-		print("no primary part or no character")
 		return false
 	end
 	local motor = primaryPart:FindFirstChild("StandMotor", true)
 
 	local standTag = standModel:FindFirstChild("StandTag")
 	if not standTag then
-		print("no standtag")
 		return false
 	end
 
 	if CombatUtils.IsBlocking(character) then
-		print("isblocking")
 		return
 	end
 
 	local actionFlag = CombatUtils.GetActionInProgress(character)
 	if actionFlag then
-		print("actionflag")
 		return
 	end
 	CombatUtils.SetActionInProgress(character, MAX_BARRAGE_DURATION)
-
-	print("checks passed")
 
 	local player = Players:GetPlayerFromCharacter(character)
 	local heroValue
@@ -313,7 +300,6 @@ function BasicStandAttacks.StartBarrage(character)
 			if heroValue then
 				HeroManager.SetField(player, "Hero", "TuskAct4")
 				heroValue = HeroManager.GetField(player, "Hero")
-				print(player.Name .. " is now Tusk Act 4!")
 			end
 
 			StandUtils.RemoveStand(character)
@@ -441,8 +427,6 @@ function BasicStandAttacks.StartBarrage(character)
 		rate = rate,
 		armCopy = true,
 	})
-
-	print("this is where I expect it to  fail")
 
 	local conn
 	conn = standModel.AncestryChanged:Connect(function(_, parent)

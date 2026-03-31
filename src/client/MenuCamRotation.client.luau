@@ -121,7 +121,6 @@ startMenuCamera()
 -- Exit menu handler
 -------------------------------------------------
 exitMenuEvent.Event:Connect(function()
-	print("EXIT MENU EVENT FIRED")
 	stopMenuCamera()
 	MenuState.MenuOpen = false
 end)

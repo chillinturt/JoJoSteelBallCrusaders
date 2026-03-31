@@ -78,8 +78,6 @@ local function RefreshUI(inventory)
 				Amount = itemAmt,
 			}
 
-			print("Selected:", InventoryState.SelectedItem.Name, "x" .. InventoryState.SelectedItem.Amount)
-
 			local selectedLabel = baseFrame:WaitForChild("SelectedItem"):WaitForChild("TextLabel")
 
 			selectedLabel.Text = InventoryState.SelectedItem.Name
@@ -120,8 +118,6 @@ local function bindUI()
 	connection = InventoryUpdatedEvent.OnClientEvent:Connect(function(inventory)
 		RefreshUI(inventory)
 	end)
-
-	--print("[Inventory UI] Bound to remote event.")
 end
 
 ---------------------------------------------------------------------

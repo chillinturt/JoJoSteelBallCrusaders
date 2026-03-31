@@ -23,7 +23,6 @@ local function tryStartBarrage()
 	if not isBarraging then
 		isBarraging = true
 		BarrageEvent:FireServer(true)
-		print("✅ Barraging started")
 		return true
 	end
 
@@ -54,7 +53,6 @@ local function startBarragingBuffered()
 				bufferConnection = nil
 			end
 			isTryingToBarrage = false
-			print("⏳ Barrage buffer expired")
 			return
 		end
 
@@ -81,7 +79,6 @@ local function stopBarraging()
 	if isBarraging then
 		isBarraging = false
 		BarrageEvent:FireServer(false)
-		print("🛑 Barraging ended")
 	end
 end
 

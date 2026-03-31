@@ -110,7 +110,6 @@ local function applyBlockingState(character)
 end
 
 function BlockModule.StartBlocking(character)
-	print("start blocking function entered")
 	if currentlyBlocking[character] then
 		return
 	end
@@ -128,8 +127,6 @@ function BlockModule.StartBlocking(character)
 	CombatUtils.SetBlocking(character, true)
 
 	applyBlockingState(character)
-
-	print(character.Name .. " started blocking!")
 end
 
 function BlockModule.StopBlocking(character)
@@ -164,16 +161,12 @@ function BlockModule.StopBlocking(character)
 	-- Stop animation
 	stopBlockingAnimation(character)
 
-	print(character.Name .. " stopped blocking!")
-
 	task.defer(function()
 		suppressAutoRestart[character] = nil
 	end)
 end
 
 function BlockModule.StartEmergencyBlocking(character)
-	print(character.Name .. " EMERGENCY BLOCK!")
-
 	CombatUtils.SetBlocking(character, true)
 
 	applyBlockingState(character)
@@ -189,7 +182,6 @@ function BlockModule.StartEmergencyBlocking(character)
 		return
 	end
 	currentlyBlocking[character] = true
-	print("It's an EmergencyBlocking!")
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 
@@ -303,17 +295,13 @@ function BlockModule.IsBlockHeld(character)
 end
 
 function BlockModule.TryStartBlocking(character)
-	print("tried to start blocking")
 	if not BlockModule.IsBlockHeld(character) then
-		print("block not held")
 		return
 	end
 	if currentlyBlocking[character] then
-		print("already blocking!")
 		return
 	end -- NEW guard
 	if suppressAutoRestart[character] then
-		print("supressing auto restart")
 		return
 	end
 
@@ -321,11 +309,9 @@ function BlockModule.TryStartBlocking(character)
 	local stun = CombatUtils.GetStun(character)
 
 	if stun or actionFlag then
-		print("stunned or actionfalg")
 		return
 	end
 	if CombatUtils.IsBlocking(character) then
-		print("is already blocking, using combatutils")
 		return
 	end
 

@@ -27,7 +27,6 @@ local function registerControlPoint(point)
 		if gui then
 			controlPointGUIs[point] = gui
 			gui.Enabled = false -- start hidden until player is close
-			print("[Client] Registered BillboardGui for:", point.Name)
 		else
 			warn("[Client] No BillboardGui found inside WorldModel for:", point.Name)
 		end

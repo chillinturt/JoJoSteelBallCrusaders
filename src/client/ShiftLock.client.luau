@@ -53,7 +53,6 @@ local function setShiftLock(state)
 		UserInputService.MouseIconEnabled = true
 	end
 	shiftLockEnabled = state
-	print("Shift Lock is now", state and "ON" or "OFF")
 end
 
 --[[Apply rotation and camera offset
@@ -99,6 +98,5 @@ UserInputService.InputBegan:Connect(function(input, processed)
 
 	if input.KeyCode == Enum.KeyCode.LeftShift or input.KeyCode == Enum.KeyCode.RightShift then
 		-- Do nothing: block ShiftLock toggle
-		print("Shift key pressed: default ShiftLock disabled")
 	end
 end)

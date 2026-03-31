@@ -36,8 +36,6 @@ function MenuState:SetOpen(uiName, isOpen)
 	player:SetAttribute(getAttributeName(uiName), isOpen)
 
 	MenuState.Changed:Fire(uiName, isOpen)
-
-	print("UI state changed:", uiName, isOpen)
 end
 
 return MenuState

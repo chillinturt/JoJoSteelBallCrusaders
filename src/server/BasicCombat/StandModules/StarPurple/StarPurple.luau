@@ -180,8 +180,6 @@ local function applyMachOraDash(character)
 end
 
 function StarPurple.onMachOraRequested(character)
-	print("🚀 MachOra Fired On Server")
-
 	CombatUtils.SetActionInProgress(character, MACH_ORA_ENDLAG)
 
 	-- Locate the stand
@@ -247,7 +245,6 @@ function StarPurple.onMachOraRequested(character)
 				local machOraVelocity = humanoidRootPart:FindFirstChild("MachOraVelocity")
 				if machOraVelocity then
 					machOraVelocity:Destroy()
-					print("MachOraVelocity has been destroyed!")
 				end
 			end
 		end,
@@ -333,7 +330,6 @@ function StarPurple.onMachOra2Requested(character)
 				local machOraVelocity = humanoidRootPart:FindFirstChild("MachOraVelocity")
 				if machOraVelocity then
 					machOraVelocity:Destroy()
-					print("MachOraVelocity has been destroyed!")
 				end
 			end
 		end,
@@ -525,8 +521,6 @@ function StarPurple.TimeStop(caster)
 
 	local standModel = StandUtils.getStandModel(caster)
 
-	print(caster.Name .. " has stopped time!")
-
 	SoundModule.PlaySound({
 		Root = caster:FindFirstChild("HumanoidRootPart"),
 		soundName = "TimeStopSound",
@@ -630,8 +624,6 @@ function StarPurple.TimeStop(caster)
 
 	-- Resume everything after STOP_DURATION
 	task.delay(amplifiedDuration, function()
-		print("⏰ Time resumes for everyone.")
-
 		-- Resume players
 		for _, player in ipairs(Players:GetPlayers()) do
 			local char = player.Character

@@ -25,7 +25,6 @@ local function fetchAbilityTypes()
 	if success and result then
 		CurrentAbilityTypes = result
 		AbilitiesReady = true
-		print("[Client] Ability types loaded:", result)
 	else
 		warn("[Client] Failed to fetch ability types")
 	end
@@ -68,22 +67,17 @@ end
 -- Unified input handlers
 -----------------------------------------------------------------------
 local function handleInputBegan(abilityId)
-	print("handle input begins...")
 	local abilityType = CurrentAbilityTypes[abilityId]
 	if not abilityType then
-		print("no ability type found")
 		return
 	end
 
 	if abilityType == "Press" then
 		FireAbility(abilityId, nil)
-		print("Press ability fired from client")
 	elseif abilityType == "Toggle" then
 		FireAbility(abilityId, "Toggle")
-		print("Toggle ability fired from client")
 	elseif abilityType == "Hold" then
 		FireAbility(abilityId, "Start")
-		print("Hold ability fired from client")
 	end
 end
 

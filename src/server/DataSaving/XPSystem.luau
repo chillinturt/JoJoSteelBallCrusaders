@@ -9,6 +9,9 @@
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local ServerScriptService = game:GetService("ServerScriptService")
+
+local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 
 ---------------------------------------------------------------------
 -- Remote for client UI sync
@@ -87,7 +90,15 @@ local function deepCopy(tbl)
 end
 
 local function get(player)
-	return xpData[player.UserId]
+	local data = xpData[player.UserId]
+
+	if not data then
+		-- 🔥 Lazy initialization (fixes race conditions)
+		XPSystem.InitPlayer(player)
+		data = xpData[player.UserId]
+	end
+
+	return data
 end
 
 ---------------------------------------------------------------------
@@ -96,6 +107,8 @@ end
 
 -- Initialize default stats (runs on PlayerAdded)
 function XPSystem.InitPlayer(player)
+	print("Initializing XP data for", player.Name)
+
 	xpData[player.UserId] = xpData[player.UserId]
 		or {
 			Level = 1,
@@ -117,12 +130,19 @@ end
 -- Return deep copy for ProfileStore saving
 function XPSystem.GetStats(player)
 	local data = get(player)
+
 	if not data then
-		return
+		warn("XPSystem.GetStats: No data for", player.Name)
+
+		return {
+			Level = 1,
+			XP = 0,
+			MaxXP = getXPRequirement(1),
+			TalentPoints = 0,
+			AbilityPoints = 0,
+		}
 	end
-	if not data then
-		return {}
-	end
+
 	return deepCopy(data)
 end
 
@@ -149,6 +169,29 @@ function XPSystem.SetStats(player, savedData)
 
 	-- sync UI
 	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+end
+
+function XPSystem.ResetAbilityPoints(player)
+	local level = XPSystem.GetField(player, "Level") or 1
+	local newPoints = 0
+
+	-- Count how many unlock milestones the player has reached
+	for unlockLevel, _ in pairs(ABILITY_UNLOCK_LEVELS) do
+		if level >= unlockLevel then
+			newPoints += 1
+		end
+	end
+
+	-- Reset unlocked abilities
+	HeroManager.SetField(player, "UnlockedAbilities", {
+		[1] = false,
+		[2] = false,
+		[3] = false,
+		[4] = false,
+	})
+
+	-- Set ability points based on level
+	XPSystem.SetField(player, "AbilityPoints", newPoints)
 end
 
 ---------------------------------------------------------------------
@@ -268,15 +311,6 @@ end
 
 Players.PlayerAdded:Connect(function(player)
 	XPSystem.InitPlayer(player)
-
-	player.CharacterAdded:Connect(function()
-		player:WaitForChild("PlayerGui")
-
-		task.defer(function()
-			wait(2)
-			XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
-		end)
-	end)
 end)
 
 Players.PlayerRemoving:Connect(function(player)

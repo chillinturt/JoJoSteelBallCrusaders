@@ -118,7 +118,6 @@ end
 ----------------------------------------------------------
 local function loadSpecialtyUI(playerGui, specialty)
 	if not specialty or specialty == "" then
-		print("No specialty. Not loading spec UI.")
 		return
 	end
 
@@ -131,7 +130,6 @@ local function loadSpecialtyUI(playerGui, specialty)
 	if cooldownUI then
 		cooldownUI:Clone().Parent = playerGui
 	end
-	print("Successfully loaded spec ui")
 end
 
 ----------------------------------------------------------
@@ -172,7 +170,6 @@ local function loadMobileUI(playerGui)
 		return
 	end
 
-	print("[UIManager] Loading mobile UIs...")
 	for _, ui in ipairs(mobileFolder:GetChildren()) do
 		if ui:IsA("ScreenGui") and not playerGui:FindFirstChild(ui.Name) then
 			ui:Clone().Parent = playerGui
@@ -187,7 +184,6 @@ local function loadPCUI(playerGui)
 		return
 	end
 
-	print("[UIManager] Loading PC UIs...")
 	for _, ui in ipairs(PCFolder:GetChildren()) do
 		if ui:IsA("ScreenGui") and not playerGui:FindFirstChild(ui.Name) then
 			ui:Clone().Parent = playerGui

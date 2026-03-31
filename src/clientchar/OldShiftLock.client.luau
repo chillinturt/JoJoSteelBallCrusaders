@@ -46,7 +46,6 @@ local function setShiftLock(state)
 		UserInputService.MouseIconEnabled = true
 	end
 	shiftLockEnabled = state
-	print("Shift Lock is now", shiftLockEnabled and "ON" or "OFF")
 end
 
 -- Continuously rotate the character and adjust camera while shiftlock is active

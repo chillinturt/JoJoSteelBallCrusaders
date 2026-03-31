@@ -1,7 +1,5 @@
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-print("before loading block module")
 local BlockModule = require(game.ServerScriptService.BasicCombat:WaitForChild("BlockModule"))
-print("after loading block module")
 local CanBlockFunction = Instance.new("RemoteFunction")
 CanBlockFunction.Name = "CanBlockFunction"
 CanBlockFunction.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")

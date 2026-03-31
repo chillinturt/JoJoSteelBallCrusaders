@@ -101,6 +101,7 @@ local DEFAULT_JUMP_HEIGHT = 40.996
 
 --services
 local RunService = game:GetService("RunService")
+local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 
 local AnimationModule = require(script.Parent.AnimationModule)
 local StandUtils = require(script.Parent.StandUtils)
@@ -151,14 +152,20 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 		newDamage = newDamage * damageMult
 	end
 
-	local isVamp = VampireModule.getIsVampireRace(attacker)
-	if isVamp then
+	local attackerPlayer = Players:GetPlayerFromCharacter(attacker)
+	local race
+	local isVamp = false
+	if attackerPlayer then
+		race = HeroManager.GetField(attackerPlayer, "Race")
+	else
+		isVamp = VampireModule.getIsVampireRace(attacker)
+	end
+
+	if race == "Vampire" or isVamp then
 		--Apply Vampire blood buff if applicable
 		if VampireModule.spendBlood(attacker, damage / BLOOD_DRAIN_CONST) then
 			newDamage = newDamage * VAMPIRE_DAMAGE_BUFF
 		end
-	else
-		--print("Not a vampire, did not apply damage buff")
 	end
 
 	-- Apply Hamon damage reduction if applicable

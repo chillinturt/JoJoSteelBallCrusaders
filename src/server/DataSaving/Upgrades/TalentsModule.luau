@@ -253,9 +253,7 @@ function TalentsModule.ApplyAllEffects(player)
 	end
 
 	for talentName, level in pairs(data.Talents) do
-		if level > 0 then
-			applyTalentEffect(player, talentName, level)
-		end
+		applyTalentEffect(player, talentName, level)
 	end
 end
 
@@ -302,6 +300,8 @@ function TalentsModule.ResetPlayer(player)
 		stats.TalentPoints = (stats.Level - 1) * 2
 		XPSystem.SetStats(player, stats)
 	end
+
+	TalentsModule.ApplyAllEffects(player)
 end
 
 task.spawn(function()

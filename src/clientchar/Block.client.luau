@@ -36,7 +36,6 @@ local function tryStartBlock()
 	if canBlock then
 		isBlocking = true
 		blockEvent:FireServer(true)
-		print("✅ Blocking started")
 		return true
 	end
 
@@ -67,7 +66,6 @@ local function startBlockingBuffered()
 				bufferConnection = nil
 			end
 			isTryingToBlock = false
-			print("⏳ Block buffer expired")
 			return
 		end
 
@@ -94,7 +92,6 @@ local function stopBlocking()
 	if isBlocking then
 		isBlocking = false
 		blockEvent:FireServer(false)
-		print("🛑 Blocking ended")
 	end
 end
 

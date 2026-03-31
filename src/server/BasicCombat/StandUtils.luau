@@ -184,18 +184,14 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		local standFolder = game.ServerScriptService.BasicCombat.StandModules:FindFirstChild(standTag)
 
 		if standFolder then
-			print("stand folder found!")
 			local registryModule = standFolder:FindFirstChild("AbilityRegistry")
 			if registryModule then
-				print("Found ability registry...")
 				local registry = require(registryModule)
 				if registry.AbilityTypes then
-					print("found ability types in registry!")
 					-- Fire the ability types to the client immediately
 					local StandAbilityTypesRemote =
 						game.ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityTypes")
 					StandAbilityTypesRemote:FireClient(player, registry.AbilityTypes)
-					print("[StandUtils] Sent ability types to", player.Name, "for stand", standTag)
 				end
 			end
 		end

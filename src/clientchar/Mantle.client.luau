@@ -36,7 +36,6 @@ local function tryStartMantle()
 	if canMantle then
 		isMantling = true
 		MantleEvent:FireServer(true)
-		print("✅ Mantle started")
 		return true
 	end
 
@@ -67,7 +66,6 @@ local function startMantleBuffered()
 				bufferConnection = nil
 			end
 			isTryingToMantle = false
-			print("⏳ Mantle buffer expired")
 			return
 		end
 
@@ -93,7 +91,6 @@ local function stopMantle()
 	if isMantling then
 		isMantling = false
 		MantleEvent:FireServer(false)
-		print("🛑 Mantle ended")
 	end
 end
 

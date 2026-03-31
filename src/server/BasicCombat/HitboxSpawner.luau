@@ -216,7 +216,6 @@ function HitboxSpawner.spawnHitbox(params)
 								DOTDuration,
 								sourcePlayer
 							)
-							print("DOT Applied!")
 						end
 
 						local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")

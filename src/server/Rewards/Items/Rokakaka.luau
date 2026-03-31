@@ -1,11 +1,16 @@
 -- ServerScriptService.DataSaving.ItemUse.Rokakaka.lua
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
 local InventoryManager = require(game.ServerScriptService.DataSaving.InventoryManager)
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local StandUtils = require(game.ServerScriptService.BasicCombat.StandUtils)
 local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
+local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
 
 local Rokakaka = {}
 Rokakaka.Cooldown = 3
+
+local AbilityUnlocksEvent = ReplicatedStorage.UIs:WaitForChild("RemoteEvents"):WaitForChild("AbilityUnlocksEvent")
 
 function Rokakaka.Use(player)
 	local inventory = InventoryManager.GetInventory(player)
@@ -46,6 +51,11 @@ function Rokakaka.Use(player)
 
 	StandUtils.RemoveStand(char, player)
 	TalentsModule.ResetPlayer(player)
+
+	XPSystem.ResetAbilityPoints(player)
+	local unlockedTable = HeroManager.GetField(player, "UnlockedAbilities")
+	AbilityUnlocksEvent:FireClient(player, unlockedTable)
+
 	print("Rokakaka used, hero values reset")
 
 	return true

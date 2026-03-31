@@ -24,6 +24,5 @@ PowerChangedEvent.OnClientEvent:Connect(function(fieldName, newValue)
 	local raceValue = heroData.Race
 	local heroValue = heroData.Hero
 
-	print("Power updated:", fieldName, "=", newValue)
 	UIManager.LoadUI(playerGui, specialtyValue, raceValue, heroValue)
 end)

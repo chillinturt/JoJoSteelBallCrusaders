@@ -20,7 +20,6 @@ local AbilitiesReady = false
 AbilityTypesRemote.OnClientEvent:Connect(function(abilityTypes)
 	CurrentAbilityTypes = abilityTypes or {}
 	AbilitiesReady = true
-	print("[Client] Received ability types:", abilityTypes)
 end)
 
 -----------------------------------------------------------------------
@@ -75,13 +74,11 @@ end
 local function handleInputBegan(abilityId)
 	local abilityType = CurrentAbilityTypes[abilityId]
 	if not abilityType then
-		print("no ability type found")
 		return
 	end
 
 	if abilityType == "Press" then
 		FireAbility(abilityId, nil)
-		print("Press ability fired from client...")
 	elseif abilityType == "Toggle" then
 		FireAbility(abilityId, "Toggle")
 	elseif abilityType == "Hold" then

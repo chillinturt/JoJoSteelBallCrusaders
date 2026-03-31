@@ -88,7 +88,6 @@ local function CacheModelScaleData(model)
 end
 
 local function ApplyModelScale(model, scaleData, scale)
-	print("applying model scale")
 	local primary = model.PrimaryPart
 
 	for part, info in pairs(scaleData) do
@@ -103,7 +102,6 @@ end
 -- Finds an effect model by name across all stands
 local function FindEffect(effectName)
 	for _, standFolder in ipairs(StandEffectsFolder:GetChildren()) do
-		print("[VFX] Checking stand folder:", standFolder.Name)
 		local effect = standFolder:FindFirstChild(effectName)
 		if effect then
 			return effect
@@ -113,7 +111,6 @@ local function FindEffect(effectName)
 end
 
 local function DeleteProjectileVFX(id)
-	print("Delete projectile called on client")
 	local data = activeProjectiles[id]
 	if data then
 		if data.conn then
@@ -536,10 +533,8 @@ local function ShowEmoji(data)
 end
 
 SpawnVfx.OnClientEvent:Connect(function(data)
-	print("Spawnvfx called")
 	if data.type == "Projectile" and data.deleteId then
 		DeleteProjectileVFX(data.deleteId)
-		print("Projectile vfx called for deletion!")
 		return
 	end
 
@@ -549,10 +544,8 @@ SpawnVfx.OnClientEvent:Connect(function(data)
 
 	-- 🔥 BARRAGE HANDLER
 	if data.type == "Barrage" then
-		print("barrageVFX in client manager")
 		if data.action == "Start" then
 			BarrageVfx.barragestart(data.character, data.distance, data.speed, data.rate, data.armCopy)
-			print("starting barrage")
 		elseif data.action == "End" then
 			BarrageVfx.barragend(data.character)
 		end

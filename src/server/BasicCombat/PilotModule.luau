@@ -30,14 +30,11 @@ function PilotMode.EnterPilotMode(character, stand)
 		return
 	end
 
-	print("entered pillot mode called")
 	local standRoot = stand.PrimaryPart
 	local playerRoot = character and character:FindFirstChild("HumanoidRootPart")
 	if not standRoot or not playerRoot then
 		return
 	end
-
-	print("roots found")
 
 	-- Clear old data/connections
 	if pilotConnections[character] then

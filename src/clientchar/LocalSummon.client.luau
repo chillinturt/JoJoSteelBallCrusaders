@@ -10,6 +10,5 @@ userInputService.InputBegan:Connect(function(input, gameProcessed)
 
 	if input.KeyCode == Enum.KeyCode.Q then
 		summonEvent:FireServer() -- Request summon from the server
-		print("Summon Event fired from client")
 	end
 end)
