@@ -242,6 +242,7 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 		loadMainMenu(playerGui)
 		disableAllGameplayUIs(playerGui)
 	else
+		loadMainMenu(playerGui)
 		-- Menu is not active; ensure gameplay UIs are visible
 		for _, ui in ipairs(playerGui:GetChildren()) do
 			if
@@ -250,6 +251,7 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 				and ui.Name ~= "CommsWheel"
 				and ui.Name ~= "DialogGui"
 				and ui.Name ~= "TeleportGui"
+				and ui.Name ~= "ShopNpcDialogGui"
 			then
 				ui.Enabled = true
 			end

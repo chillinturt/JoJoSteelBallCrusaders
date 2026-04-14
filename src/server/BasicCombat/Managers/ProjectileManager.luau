@@ -1,10 +1,11 @@
 -- ServerScriptService/ProjectileManager
 local RunService = game:GetService("RunService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TouchInputService = game:GetService("TouchInputService")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
+local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
 
 local RequestProjectileTarget = Instance.new("RemoteFunction")
 RequestProjectileTarget.Name = "RequestProjectileTarget"
@@ -117,9 +118,11 @@ RunService.Heartbeat:Connect(function(dt)
 											humanoid:TakeDamage(newDamage)
 											p.playSound(targetChar, newDamage)
 											p.applyStun(targetChar, p.stunDuration)
+											DamageNumberService.ShowDamage(targetChar, newDamage)
 										else
 											humanoid:TakeDamage(newDamage)
 											p.playSound(targetChar, newDamage)
+											DamageNumberService.ShowDamage(targetChar, newDamage)
 										end
 									end
 								else
@@ -127,6 +130,7 @@ RunService.Heartbeat:Connect(function(dt)
 									humanoid:TakeDamage(newDamage)
 									p.playSound(targetChar, newDamage)
 									p.applyStun(targetChar, p.stunDuration)
+									DamageNumberService.ShowDamage(targetChar, newDamage)
 								end
 							end
 						end

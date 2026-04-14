@@ -90,7 +90,6 @@ function Tusk.NailShot(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local id = HttpService:GenerateGUID(false)
@@ -194,7 +193,6 @@ function Tusk.GuidedNail(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local projectile = HitboxSpawner.spawnGuidedProjectile({
@@ -442,7 +440,6 @@ function Tusk.SpinWormhole(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local projectile = HitboxSpawner.spawnGuidedProjectile({
@@ -519,7 +516,6 @@ function Tusk.InfiniteRotation(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	task.wait(0.5)

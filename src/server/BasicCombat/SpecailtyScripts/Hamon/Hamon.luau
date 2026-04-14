@@ -127,7 +127,6 @@ function HamonModule.ZoomPunch(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -137,7 +136,6 @@ function HamonModule.ZoomPunch(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local vfxId = HttpService:GenerateGUID(false)
@@ -194,7 +192,6 @@ function HamonModule.StartSunlightYellow(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundUtils.PlaySound({
@@ -204,7 +201,6 @@ function HamonModule.StartSunlightYellow(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local vfxRoot = HitboxSpawner.spawnStandOffHitbox({
@@ -217,6 +213,10 @@ function HamonModule.StartSunlightYellow(character)
 		Transparency = 1,
 		Name = "TorrentialDownpourVfxRoot",
 		RemoveOnStun = false,
+
+		StatScaling = {
+			Stregnth = 0,
+		},
 	})
 
 	local vfxId = HttpService:GenerateGUID(false)
@@ -246,6 +246,10 @@ function HamonModule.StartSunlightYellow(character)
 			HitboxSpawner.spawnStandOffHitbox({
 				Character = character,
 				Damage = SUNLIGHT_YELLOW_DAMAGE or 0.1,
+
+				StatScaling = {
+					Strength = 0.2,
+				},
 				Size = SUNLIGHT_YELLOW_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
@@ -334,6 +338,9 @@ function HamonModule.BubbleCutter(character)
 			HitboxSpawner.spawnProjectile({
 				Character = character,
 				Damage = BUBBLECUTTER_DAMAGE or 0.1,
+				StatScaling = {
+					Stregnth = 1.5,
+				},
 				Size = BUBBLECUTTER_SIZE,
 				Offset = BUBBLECUTTER_OFFSET,
 				Color = BrickColor.new("Bright red"),
@@ -368,7 +375,6 @@ function HamonModule.BubbleCutter(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -378,7 +384,6 @@ function HamonModule.BubbleCutter(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 end
 
@@ -412,7 +417,6 @@ function HamonModule.LifeForceAura(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 	SoundModule.PlaySound({
 		Root = hrp,
@@ -421,7 +425,6 @@ function HamonModule.LifeForceAura(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local humanoid = character:FindFirstChild("Humanoid")

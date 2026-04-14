@@ -24,7 +24,7 @@ local VOID_SHIELDING_AMOUNT = 40
 local VOID_SHIELDING_DECAY_RATE = 1
 local VOID_SHIELDING_DECAY_DELAY = 1
 
-local TEAR_SPACE_SPEED = 60
+local TEAR_SPACE_SPEED = 120
 local TEAR_SPACE_DURATION = 2.5
 
 local lastStandFlags = {}
@@ -72,12 +72,16 @@ function ThatHand.Erase(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local hitbox = HitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = ERASE_DAMAGE or 0.1,
+
+		StatScaling = {
+			Power = 3,
+		},
+
 		Size = ERASE_SIZE,
 		Offset = CFrame.new(ERASE_OFFSET),
 		Color = BrickColor.new("Bright red"),
@@ -131,7 +135,6 @@ function ThatHand.VoidShielding(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 end
 
@@ -150,7 +153,6 @@ function ThatHand.TearSpace(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -160,7 +162,6 @@ function ThatHand.TearSpace(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	CombatUtils.ApplyTurningVelocity({
@@ -205,7 +206,6 @@ function ThatHand.LastStand(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local standCF = standModel.PrimaryPart.CFrame
@@ -264,7 +264,6 @@ function ThatHand.LastStand(standModel)
 				volume = 2,
 				playbackSpeed = 1,
 				looped = false,
-				range = 160,
 			})
 
 			-- 🔥 VFX runs independently

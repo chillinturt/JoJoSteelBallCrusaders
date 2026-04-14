@@ -224,10 +224,10 @@ function StaminaService.OnDashRequest(player, dirLabel)
 		Root = humanoidRootPart,
 		soundName = "Dash",
 		soundID = "6128977275",
-		volume = 1.5,
+		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
+		range = 400,
 	})
 
 	-- Start recharge if not full
@@ -515,7 +515,6 @@ function StaminaService.OnJumpRequest(player)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	print(jumpType .. " performed on server")

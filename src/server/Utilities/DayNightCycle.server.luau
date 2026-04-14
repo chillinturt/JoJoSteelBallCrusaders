@@ -1,4 +1,4 @@
--- dayLength defines how long, in minutes, a day in your game is.
+--[[ dayLength defines how long, in minutes, a day in your game is.
 local dayLength = 8
 
 local cycleTime = dayLength * 60
@@ -60,3 +60,4 @@ repeat
 
 	wait(1 / 15)
 until false
+]]

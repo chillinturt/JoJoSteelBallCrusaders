@@ -178,7 +178,6 @@ function Metallica.StartMagneticAura(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Continuous hitbox + drain loop
@@ -265,14 +264,6 @@ function Metallica.ScalpelDaggers(character)
 
 		OnHit = function(target, trueDamage)
 			print("💥 Metallica hit " .. target.Name .. " for " .. trueDamage .. " damage!")
-			CombatUtils.AddBarrier(
-				character,
-				trueDamage / RAINBARRIER_CONSTANT,
-				RAINBARRIER_DECAY_RATE,
-				RAINBARRIER_DECAY_DELAY,
-				"RainBarrier",
-				RAINBARRIER_MAX
-			)
 		end,
 	})
 

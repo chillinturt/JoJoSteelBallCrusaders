@@ -152,7 +152,6 @@ function KaiserQueen.PlantBomb(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -162,7 +161,6 @@ function KaiserQueen.PlantBomb(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local hitbox = HitboxSpawner.spawnHitbox({
@@ -241,7 +239,6 @@ function KaiserQueen.SheerHeartAttack(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -251,7 +248,6 @@ function KaiserQueen.SheerHeartAttack(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	HitboxSpawner.spawnHitbox({
@@ -368,7 +364,6 @@ function KaiserQueen.StrayCatBubble(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local projectile = HitboxSpawner.spawnGuidedProjectile({
@@ -456,7 +451,6 @@ function KaiserQueen.BitesTheDust(caster)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
 	})
 
 	HitboxSpawner.spawnStationaryHitbox({

@@ -30,7 +30,7 @@ local suppressAutoRestart = {}
 local blockHeld = {} -- [character] = true / false
 
 local EMERGENCY_BLOCK_COOLDOWN = 1.5 -- seconds (tune later)
-local EMERGENCYBLOCK_SIZE = Vector3.new(10, 10, 10)
+local EMERGENCYBLOCK_SIZE = Vector3.new(20, 20, 20)
 local EMERGENCYBLOCK_KNOCKBACK_SPEED = 60
 local EMERGENCYBLOCK_KNOCKBACK_DURATION = 0.5
 local EMERGENCYBLOCK_OFFSET = Vector3.new(0, 0, 0)

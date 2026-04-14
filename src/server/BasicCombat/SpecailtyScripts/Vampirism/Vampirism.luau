@@ -82,7 +82,6 @@ function VampirismModule.DivineDrink(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -92,7 +91,6 @@ function VampirismModule.DivineDrink(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local vfxId = HttpService:GenerateGUID(false)
@@ -137,7 +135,6 @@ function VampirismModule.VaporizationFreeze(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -147,7 +144,6 @@ function VampirismModule.VaporizationFreeze(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local vfxId = HttpService:GenerateGUID(false)
@@ -200,6 +196,11 @@ function VampirismModule.SpaceRipperStingyEyes(character)
 			HitboxSpawner.spawnProjectile({
 				Character = character,
 				Damage = SPACE_RIPPER_STINGY_EYES_DAMAGE or 0.1,
+
+				StatScaling = {
+					Strength = 0.3,
+				},
+
 				Size = SPACE_RIPPER_STINGY_EYES_SIZE,
 				Offset = SPACE_RIPPER_STINGY_EYES_OFFSET,
 				Color = BrickColor.new("Bright red"),
@@ -225,7 +226,6 @@ function VampirismModule.SpaceRipperStingyEyes(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 1000,
 	})
 end
 
@@ -276,7 +276,6 @@ function VampirismModule.BloodRush(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -286,7 +285,6 @@ function VampirismModule.BloodRush(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 end
 

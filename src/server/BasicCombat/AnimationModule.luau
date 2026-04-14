@@ -1,12 +1,36 @@
 -- AnimationModule.lua
 local AnimationModule = {}
 
+local activeTracks = {} -- [character] = { [animId] = track }
+local animationLocks = {} -- [character] = true/false
+
 local IDLE_ANIM_ID = 89452205434139
+
+function AnimationModule.SetAnimationLocked(character, locked)
+	animationLocks[character] = locked
+end
+
+function AnimationModule.IsAnimationLocked(character)
+	return animationLocks[character]
+end
 
 -- Play an animation on a Humanoid or AnimationController
 function AnimationModule.PlayAnimation(entity, animationId, looped, priority, speed)
 	local humanoid = entity:FindFirstChildOfClass("Humanoid")
 	local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+
+	-- inside PlayAnimation
+	local existingTrack = activeTracks[entity] and activeTracks[entity][animationId]
+
+	if existingTrack then
+		-- If it's already playing, just return it
+		if existingTrack.IsPlaying then
+			return existingTrack
+		else
+			-- Cleanup dead track
+			activeTracks[entity][animationId] = nil
+		end
+	end
 
 	-- Fallback to AnimationController (for Stand or similar non-Humanoid models)
 	if not animator then
@@ -30,7 +54,16 @@ function AnimationModule.PlayAnimation(entity, animationId, looped, priority, sp
 	track.Priority = priority or Enum.AnimationPriority.Action
 	track:AdjustSpeed(speed or 1) -- ✅ fallback to normal speed if not specified
 	track:Play()
-	track:AdjustSpeed(speed or 1) -- ✅ fallback to normal speed if not specified
+
+	-- ✅ STORE TRACK
+	activeTracks[entity] = activeTracks[entity] or {}
+	activeTracks[entity][animationId] = track
+
+	track.Stopped:Connect(function()
+		if activeTracks[entity] and activeTracks[entity][animationId] == track then
+			activeTracks[entity][animationId] = nil
+		end
+	end)
 
 	return track
 end
@@ -86,10 +119,20 @@ function AnimationModule.PlayAnimationThenIdle(entity, animationId, looped, prio
 end
 
 -- ✅ Stop an animation by track reference
-function AnimationModule.StopAnimation(track)
+function AnimationModule.StopAnimation(character, animId)
+	if not character or not animId then
+		return
+	end
+	if not activeTracks[character] then
+		return
+	end
+
+	local track = activeTracks[character][animId]
 	if track and track.IsPlaying then
 		track:Stop()
 	end
+
+	activeTracks[character][animId] = nil
 end
 
 -- ✅ Stop all animations for a given entity

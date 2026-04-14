@@ -16,7 +16,7 @@ local animations = {
 }
 
 -- Track active animations
-local activeTracks = {}
+local activeStates = {}
 local lastDirection = {}
 
 -- Decide movement direction relative to character facing
@@ -55,23 +55,30 @@ end
 
 -- Play the correct animation when state changes
 local function onStateChanged(player, humanoid, character)
+	if not character or not character.Parent then
+		return
+	end
 	local direction = getMovementDirection(character, humanoid)
 	local animId = animations[direction]
 
-	-- Detect landing (Fall → Grounded)
-	if lastDirection[player] == "Fall" and direction ~= "Fall" and humanoid.FloorMaterial ~= Enum.Material.Air then
-		-- Stop falling anim
-		if activeTracks[player] then
-			AnimationModule.StopAnimation(activeTracks[player].track)
-			activeTracks[player] = nil
+	-- Detect landing (Fall → Grounded) ✅ FIRST
+	if lastDirection[player] == "Fall" and direction ~= "Fall" then
+		-- Stop fall animation
+		if activeStates[player] then
+			AnimationModule.StopAnimation(character, activeStates[player].animId)
+			activeStates[player] = nil
 		end
 
 		-- Play landing anim once
 		local landTrack =
 			AnimationModule.PlayAnimation(character, animations.Land, false, Enum.AnimationPriority.Action, 1.5)
+
 		if landTrack then
-			-- When finished, go into the correct walk/idle
-			landTrack.Stopped:Connect(function()
+			local connection
+			connection = landTrack.Stopped:Connect(function()
+				if connection then
+					connection:Disconnect()
+				end
 				onStateChanged(player, humanoid, character)
 			end)
 		end
@@ -80,23 +87,45 @@ local function onStateChanged(player, humanoid, character)
 		return
 	end
 
+	-- Handle Fall (high priority)
+	if direction == "Fall" then
+		if not activeStates[player] or activeStates[player].direction ~= "Fall" then
+			-- Stop current animation
+			if activeStates[player] then
+				AnimationModule.StopAnimation(character, activeStates[player].animId)
+			end
+
+			-- Play fall
+			AnimationModule.PlayAnimation(character, animations.Fall, true, Enum.AnimationPriority.Action, 1)
+
+			activeStates[player] = {
+				direction = "Fall",
+				animId = animations.Fall,
+			}
+		end
+
+		lastDirection[player] = "Fall"
+		return
+	end
+
 	-- If the new direction is the same, do nothing
-	if activeTracks[player] and activeTracks[player].direction == direction then
+	if activeStates[player] and activeStates[player].direction == direction then
 		lastDirection[player] = direction
 		return
 	end
 
 	-- Stop old track if any
-	if activeTracks[player] then
-		AnimationModule.StopAnimation(activeTracks[player].track)
-		activeTracks[player] = nil
+	if activeStates[player] and activeStates[player].animId ~= animId then
+		AnimationModule.StopAnimation(character, activeStates[player].animId)
+		activeStates[player] = nil
 	end
 
-	-- Play new animation (if not Idle)
-	if direction ~= "Idle" then
-		local track = AnimationModule.PlayAnimation(character, animId, true, Enum.AnimationPriority.Movement, 1)
-		activeTracks[player] = { track = track, direction = direction }
-	end
+	AnimationModule.PlayAnimation(character, animId, true, Enum.AnimationPriority.Movement, 1)
+
+	activeStates[player] = {
+		direction = direction,
+		animId = animId,
+	}
 
 	lastDirection[player] = direction
 end
@@ -120,6 +149,9 @@ end
 -- Setup for new players
 Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
+		activeStates[player] = nil
+		lastDirection[player] = nil
+
 		onCharacterAdded(player, character)
 	end)
 end)

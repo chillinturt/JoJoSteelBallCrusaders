@@ -100,7 +100,6 @@ function KingCarmine.Teleport(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Project the camera direction onto the XZ plane so the player stands upright
@@ -129,7 +128,6 @@ function KingCarmine.Chop(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -139,7 +137,6 @@ function KingCarmine.Chop(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	HitboxSpawner.spawnHitbox({
@@ -173,7 +170,6 @@ function KingCarmine.Splatter(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -183,7 +179,6 @@ function KingCarmine.Splatter(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- this will help determiune the direction of the projectile
@@ -317,7 +312,6 @@ function KingCarmine.TimeErase(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -327,7 +321,6 @@ function KingCarmine.TimeErase(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Reset other abilities

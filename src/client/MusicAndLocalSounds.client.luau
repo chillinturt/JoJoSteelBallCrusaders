@@ -20,7 +20,6 @@ end
 local player = game.Players.LocalPlayer
 local runService = game:GetService("RunService")
 local workspace = game:GetService("Workspace")
-local userInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -45,7 +44,7 @@ local toggleButton = scrollingFrame:WaitForChild("MuteMusicButton")
 -- === Config ===
 local MUSIC_FADE_TIME = 2
 local CHECK_INTERVAL = 0.5
-local REGION_RANGE = 600
+local REGION_RANGE = 100
 local DEFAULT_VOLUME = 0.7
 
 -- === State ===
@@ -58,13 +57,18 @@ local switchCooldown = 1.5
 local lastSwitchTime = 0
 local HYSTERESIS_BUFFER = 10 -- must be this much closer before switching regions
 
---[[ Create sound object (cha-ching)
-local cashSound = Instance.new("Sound")
-cashSound.SoundId = "rbxassetid://7112275565" -- replace with your cha-ching sound ID
-cashSound.Volume = 1
-cashSound.Parent = player:WaitForChild("PlayerGui") -- attach to GUI for local playback
+-- === Default Ambient Music ===
+local DEFAULT_MUSIC_IDS = {
+	"rbxassetid://76338872803366", -- Deep In Abyss (Instrumental Version) [qigbBgDapTc]
+	--"rbxassetid://98584102044368", -- it's going down now - Asset is not approved for the requester
+	"rbxassetid://75680909936973", -- blitz (soul eater)
+	--"rbxassetid://88437114656735", --funky dealer - Asset is not approved for the requester
+	"rbxassetid://125979185781274", -- the first layer
+	"rbxassetid://116561044403837", -- Traitor's requiem instrumental
+}
 
-]]
+local defaultMusicSound: Sound? = nil
+local lastDefaultIndex = nil
 
 -- Optional: cache sounds so they don’t recreate every time
 local soundCache = {}
@@ -157,6 +161,31 @@ local function stopCurrentMusic(force)
 	end
 end
 
+local function stopDefaultMusic(force)
+	if not defaultMusicSound then
+		return
+	end
+
+	local sound = defaultMusicSound
+	defaultMusicSound = nil
+
+	if force then
+		sound:Destroy()
+		return
+	end
+
+	local tween = tweenVolume(sound, 0, MUSIC_FADE_TIME)
+	if tween then
+		tween.Completed:Connect(function()
+			if sound then
+				sound:Destroy()
+			end
+		end)
+	else
+		sound:Destroy()
+	end
+end
+
 local function playRegionMusic(region)
 	if isSwitching then
 		return
@@ -198,6 +227,9 @@ local function playRegionMusic(region)
 	tweenVolume(s, DEFAULT_VOLUME, MUSIC_FADE_TIME)
 	currentMusic, currentRegion = s, region
 
+	-- Stop default music when entering a region
+	stopDefaultMusic(true)
+
 	task.delay(MUSIC_FADE_TIME, function()
 		isSwitching = false
 	end)
@@ -228,6 +260,7 @@ local function connectToggleButton()
 
 		if not musicEnabled then
 			stopCurrentMusic()
+			stopDefaultMusic(true)
 		else
 			local pos = getPlayerPosition()
 			if pos then
@@ -238,13 +271,84 @@ local function connectToggleButton()
 	end)
 end
 
+local function getRandomDefaultTrack()
+	if #DEFAULT_MUSIC_IDS == 0 then
+		return nil
+	end
+
+	if #DEFAULT_MUSIC_IDS == 1 then
+		return DEFAULT_MUSIC_IDS[1], 1
+	end
+
+	local index
+	repeat
+		index = math.random(1, #DEFAULT_MUSIC_IDS)
+	until index ~= lastDefaultIndex
+
+	lastDefaultIndex = index
+	return DEFAULT_MUSIC_IDS[index], index
+end
+
+local function playDefaultMusic()
+	if isSwitching or not musicEnabled then
+		return
+	end
+
+	-- Already playing default music
+	if defaultMusicSound then
+		return
+	end
+
+	local id = getRandomDefaultTrack()
+	if not id then
+		return
+	end
+
+	-- Stop region music
+	stopCurrentMusic(true)
+
+	local s = Instance.new("Sound")
+	s.SoundId = id
+	s.Volume = 0
+	s.Looped = false -- important: we handle chaining manually
+	s.RollOffMode = Enum.RollOffMode.Linear
+	s.Parent = workspace
+	s:Play()
+
+	tweenVolume(s, DEFAULT_VOLUME, MUSIC_FADE_TIME)
+
+	defaultMusicSound = s
+	currentRegion = nil
+
+	-- When song ends → play another random one
+	s.Ended:Connect(function()
+		if defaultMusicSound ~= s then
+			return -- safety
+		end
+
+		defaultMusicSound = nil
+		playDefaultMusic()
+	end)
+end
+
 -- ⬇️ CLIENT receives saved setting here
 MusicSettingsEvent.OnClientEvent:Connect(function(enabled)
 	musicEnabled = enabled
 	updateButtonText()
 
 	if not musicEnabled then
-		stopCurrentMusic(true)
+		stopCurrentMusic()
+		stopDefaultMusic(true)
+	else
+		local pos = getPlayerPosition()
+		if pos then
+			local nearest = getClosestRegion(pos)
+			if nearest then
+				playRegionMusic(nearest)
+			else
+				playDefaultMusic()
+			end
+		end
 	end
 end)
 
@@ -281,7 +385,11 @@ runService.Heartbeat:Connect(function(dt)
 	local nearest = getClosestRegion(pos)
 	if not nearest then
 		stopCurrentMusic()
+		playDefaultMusic()
 		return
+	else
+		-- entering a region → stop default
+		stopDefaultMusic(true)
 	end
 
 	-- Add hysteresis: only switch if much closer than current

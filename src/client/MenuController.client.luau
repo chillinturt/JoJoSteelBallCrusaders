@@ -23,7 +23,14 @@ end
 
 local function showGameplayUIs()
 	for _, ui in ipairs(playerGui:GetChildren()) do
-		if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" then
+		if
+			ui:IsA("ScreenGui")
+			and ui.Name ~= "MainMenu"
+			and ui.Name ~= "DialogGui"
+			and ui.Name ~= "ShopNpcDialogGui"
+			and ui.Name ~= "TeleportGui"
+			and ui.Name ~= "CommsWheel"
+		then
 			ui.Enabled = true
 		end
 	end

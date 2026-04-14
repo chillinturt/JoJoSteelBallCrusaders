@@ -161,7 +161,6 @@ function HierophantModule.StartSplash(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundUtils.PlaySound({
@@ -171,7 +170,6 @@ function HierophantModule.StartSplash(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundUtils.PlaySound({
@@ -181,7 +179,6 @@ function HierophantModule.StartSplash(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Start spawning hitboxes
@@ -220,6 +217,11 @@ function HierophantModule.StartSplash(character)
 				Stand = standModel,
 				Character = character,
 				Damage = EMERALD_DAMAGE,
+
+				StatScaling = {
+					Power = 0.13,
+				},
+
 				Size = EMERALD_HITBOX_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
@@ -315,7 +317,6 @@ function HierophantModule.ActivateBarrier(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 180,
 	})
 
 	SpawnBarrierVfx(slowingField.Position, 0.3, 1, BARRIER_DURATION)
@@ -356,7 +357,6 @@ function HierophantModule.PuppetMaster(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundUtils.PlaySound({
@@ -366,7 +366,6 @@ function HierophantModule.PuppetMaster(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	hitboxSpawner.spawnHitbox({
@@ -420,6 +419,11 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 				Stand = standModel,
 				Character = character,
 				Damage = TWENTY_METER_BARRIER_DAMAGE,
+
+				StatScaling = {
+					Power = 0.5,
+				},
+
 				Size = TWENTY_METER_BARRIER_SIZE,
 				Offset = hitBoxOffset,
 				Color = BrickColor.new("Bright red"),
@@ -441,7 +445,6 @@ function HierophantModule.TwentyMeterBarrier(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 end
 

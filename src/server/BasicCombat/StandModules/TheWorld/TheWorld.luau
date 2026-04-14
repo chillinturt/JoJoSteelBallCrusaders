@@ -41,7 +41,7 @@ local BLAZINGSTRIKE_KOCKBACK_OFFSET = Vector3.new(0, 0, 0)
 local TIME_STOP_BASE_DURATION = 3 -- seconds
 local TIME_STOP_DURATION_SCALING = 0.1
 local IMMOBILE_ANCHOR_NAME = "TheWorldTimeStopAnchor"
-local TIME_STOP_DAMAGE_MULT = 1.25
+local TIME_STOP_DAMAGE_MULT = 0.8
 local TIME_STOP_RANGE = 50
 
 local ENEMY_NPC_FOLDER = game.Workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
@@ -167,7 +167,6 @@ function TheWorld.ThrowKnives(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -177,7 +176,6 @@ function TheWorld.ThrowKnives(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- this will help determiune the direction of the projectile
@@ -238,7 +236,6 @@ function TheWorld.BlazingStrike(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -248,7 +245,6 @@ function TheWorld.BlazingStrike(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	HitboxSpawner.spawnHitbox({
@@ -363,7 +359,6 @@ function TheWorld.KickBarrage(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	TandemModule.EnterTandemMode(character, standModel)
@@ -389,7 +384,6 @@ function TheWorld.TimeStop(caster)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -399,7 +393,6 @@ function TheWorld.TimeStop(caster)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	timeStopBall(caster)

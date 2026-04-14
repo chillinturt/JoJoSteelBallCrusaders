@@ -175,7 +175,6 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 			volume = vol,
 			playbackSpeed = 1,
 			looped = false,
-			range = 100,
 		})
 
 		if standTag == "TuskAct1" or standTag == "TuskAct2" or standTag == "TuskAct3" or standTag == "TuskAct4" then

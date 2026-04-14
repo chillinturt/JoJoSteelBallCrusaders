@@ -14,6 +14,7 @@ local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChil
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
+local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
 
 local FLAMESHOT_SPEED = 400
 local FLAMESHOT_GRAVITY = 0.2
@@ -191,8 +192,11 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 
 			-- apply the burn damage
 			humanoid:TakeDamage(stack.damagePerTick)
+
 			local targetChar = humanoid.Parent
 			local targetHRP = targetChar:FindFirstChild("HumanoidRootPart")
+
+			DamageNumberService.ShowDamage(targetChar, stack.damagePerTick)
 
 			-- Sound
 			local ok, volume, pitch = pcall(function()
@@ -207,7 +211,6 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 						volume = volume,
 						playbackSpeed = 1,
 						looped = false,
-						range = 160,
 						pitch = pitch,
 					})
 				end)
@@ -300,7 +303,6 @@ function MagiciansRed.FlameShot(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local id = HttpService:GenerateGUID(false)
@@ -376,7 +378,6 @@ function MagiciansRed.RedBind(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local hitbox = HitboxSpawner.spawnHitbox({
@@ -395,6 +396,8 @@ function MagiciansRed.RedBind(standModel)
 			-- Apply normal hit damage
 			if hitHumanoid and hitHumanoid.Health > 0 then
 				hitHumanoid:TakeDamage(REDBIND_DAMAGE or 0.1)
+
+				DamageNumberService.ShowDamage(targetChar, REDBIND_DAMAGE or 0.1)
 			end
 
 			-- Apply a burn stack (damage over time)
@@ -464,7 +467,6 @@ function MagiciansRed.CrossfireHurricane(character)
 		volume = 4,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local id = HttpService:GenerateGUID(false)
@@ -513,6 +515,7 @@ function MagiciansRed.CrossfireHurricane(character)
 					-- Apply normal hit damage
 					if hitHumanoid and hitHumanoid.Health > 0 then
 						hitHumanoid:TakeDamage(REDBIND_DAMAGE or 0.1)
+						DamageNumberService.ShowDamage(targetChar, REDBIND_DAMAGE or 0.1)
 					end
 
 					-- Apply a burn stack (damage over time)
@@ -533,7 +536,6 @@ function MagiciansRed.CrossfireHurricane(character)
 				volume = 2,
 				playbackSpeed = 1,
 				looped = false,
-				range = 160,
 			})
 
 			ClientCrossfireHurricaneExplosionVfx(player, hitPosition)
@@ -574,7 +576,6 @@ function MagiciansRed.Hellfire(character)
 		volume = 10,
 		playbackSpeed = 1,
 		looped = false,
-		range = 300,
 	})
 
 	task.wait(3)
@@ -586,7 +587,6 @@ function MagiciansRed.Hellfire(character)
 		volume = 10,
 		playbackSpeed = 1,
 		looped = false,
-		range = 300,
 	})
 
 	local hrpCFrame = hrp.CFrame

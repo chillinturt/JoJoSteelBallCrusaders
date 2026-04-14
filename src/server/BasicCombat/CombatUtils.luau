@@ -73,8 +73,8 @@ local HAMON_DAMAGE_REDUCTION = 0.8 -- 25% damage reduction
 
 -- Constants
 local BLOCK_REGEN_DELAY = 5 -- seconds to wait before regen starts
-local BLOCK_REGEN_RATE = 2 -- HP per second regenerated
-local BLOCK_MAX_HP = 80 -- maximum block HP
+local BLOCK_REGEN_RATE = 10 -- HP per second regenerated
+local BLOCK_MAX_HP = 100 -- maximum block HP
 local blockingState = {} -- [Player | Character] = boolean
 
 local BLOOD_DRAIN_CONST = 10 -- cost of buff is damage / const
@@ -383,6 +383,15 @@ function CombatUtils.GetDexterity(player)
 	return data.Dexterity
 end
 
+function CombatUtils.InitializeBlock(character)
+	if not character then
+		return
+	end
+
+	blockMaxHPByCharacter[character] = BLOCK_MAX_HP
+	blockHPByCharacter[character] = BLOCK_MAX_HP
+end
+
 function CombatUtils.GetBlockHP(character)
 	if not character then
 		return 0
@@ -405,13 +414,29 @@ function CombatUtils.SetBlockMaxHP(character, value)
 		return
 	end
 
-	blockMaxHPByCharacter[character] = value
+	local oldMax = blockMaxHPByCharacter[character]
+	local current = blockHPByCharacter[character]
 
-	if blockHPByCharacter[character] == nil then
+	-- Initialize if needed
+	if current == nil then
 		blockHPByCharacter[character] = value
+		blockMaxHPByCharacter[character] = value
+		return
 	end
 
-	blockHPByCharacter[character] = math.min(blockHPByCharacter[character], value)
+	-- Check if player was at max BEFORE updating
+	local wasAtMax = (oldMax ~= nil and current >= oldMax)
+
+	-- Set new max
+	blockMaxHPByCharacter[character] = value
+
+	if wasAtMax then
+		-- Keep them at full
+		blockHPByCharacter[character] = value
+	else
+		-- Otherwise just clamp (no free heal)
+		blockHPByCharacter[character] = math.min(current, value)
+	end
 end
 
 function CombatUtils.SpendBlockHP(character, hp)
@@ -556,6 +581,8 @@ end
 
 game.Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
+		CombatUtils.InitializeBlock(character)
+
 		CombatUtils.StartBlockRegen(character)
 		CombatUtils.GetMoveSpeed(character)
 		CombatUtils.SetMoveSpeed(character)

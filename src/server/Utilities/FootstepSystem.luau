@@ -55,7 +55,7 @@ local function playFootstep(player, humanoid)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 100,
+		range = 400,
 	})
 end
 

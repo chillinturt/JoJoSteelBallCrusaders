@@ -19,10 +19,10 @@ AbilityUnlocksEvent.Name = "AbilityUnlocksEvent"
 AbilityUnlocksEvent.Parent = ReplicatedStorage.UIs:WaitForChild("RemoteEvents")
 
 local UNLOCK_LEVELS = {
-	[1] = 10,
-	[2] = 25,
-	[3] = 40,
-	[4] = 50, -- ultimate
+	[1] = 0,
+	[2] = 10,
+	[3] = 20,
+	[4] = 30, -- ultimate
 }
 
 -- Cooldowns: cooldowns[player][abilityId] = timestamp
@@ -44,7 +44,13 @@ function AbilityHandler.TryUnlockAbility(player, abilityId)
 	local unlocked = AbilityHandler.GetUnlockedAbilities(player)
 
 	-- Level requirement
-	local requiredLevel = UNLOCK_LEVELS[abilityId]
+	local requiredLevel
+	if abilityId == 4 then
+		requiredLevel = 30
+	else
+		requiredLevel = 0
+	end
+
 	local playerLevel = XPSystem.GetField(player, "Level") or 0
 
 	if playerLevel < requiredLevel then

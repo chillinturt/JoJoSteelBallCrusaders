@@ -156,7 +156,6 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Continuous hitbox + drain loop
@@ -181,6 +180,10 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 				Shape = Enum.PartType.Cylinder,
 				Rotation = CFrame.Angles(0, 0, math.rad(90)),
 				RemoveOnStun = false,
+
+				StatScaling = {
+					Power = 0.2,
+				},
 
 				OnHit = function(target, trueDamage)
 					print("💥 NuclearRain hit " .. target.Name .. " for " .. trueDamage .. " damage!")
@@ -335,7 +338,6 @@ function NuclearRain.HeavyRaindrop(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 	SoundModule.PlaySound({
 		Root = hitbox,
@@ -344,7 +346,6 @@ function NuclearRain.HeavyRaindrop(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Optional: add sound or visual effect at the spawn position
@@ -451,7 +452,6 @@ function NuclearRain.ExpelBarrier(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 	return true
 end
@@ -586,7 +586,6 @@ local function createHollowCage(center, radius, duration)
 		volume = 0.5,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
 	})
 
 	SoundModule.PlaySound({
@@ -596,7 +595,6 @@ local function createHollowCage(center, radius, duration)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
 	})
 
 	game:GetService("Debris"):AddItem(folder, duration)

@@ -141,7 +141,7 @@ function InventoryManager.AddItem(player, itemName, amount)
 
 	PlaySoundEvent:FireClient(player, {
 		id = "rbxassetid://550208601",
-		volume = 3,
+		volume = 5,
 		pitch = 1,
 	})
 end

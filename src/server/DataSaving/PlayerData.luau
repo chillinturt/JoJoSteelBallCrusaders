@@ -12,6 +12,7 @@ local XPSystem = require(ServerScriptService.DataSaving.XPSystem)
 local TalentsModule = require(ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 local CashSystem = require(ServerScriptService.DataSaving:WaitForChild("CashSystem"))
 local SlotManager = require(ServerScriptService.DataSaving:WaitForChild("SlotManager"))
+local BadgeHandler = require(ServerScriptService.Rewards.Badges.BadgeHandler)
 
 local ProfileStore = require(ServerScriptService.DataSaving.ProfileStore)
 
@@ -136,6 +137,9 @@ function Local.LoadProfile(player: Player)
 	local unlockedTable = HeroManager.GetField(player, "UnlockedAbilities")
 
 	AbilityUnlocksEvent:FireClient(player, unlockedTable)
+
+	local badgeStats = XPSystem.GetStats(player)
+	BadgeHandler:CheckAllBadges(player, badgeStats.Level)
 
 	return true
 end

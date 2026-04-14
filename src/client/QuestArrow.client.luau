@@ -20,6 +20,19 @@ local arrow
 local connection
 local currentTarget -- BasePart or Model.PrimaryPart
 
+local function getNPCPrimaryPart(name)
+	if not name then
+		return nil
+	end
+
+	local npc = workspace.NPCs.QuestGivers:FindFirstChild(name)
+	if npc and npc.PrimaryPart then
+		return npc.PrimaryPart
+	end
+
+	return nil
+end
+
 local function setArrowVisible(state)
 	for _, obj in ipairs(arrow:GetDescendants()) do
 		if obj:IsA("BasePart") and obj.Name ~= "MainPart" then
@@ -81,14 +94,31 @@ local function resolveQuestTarget(quest, character)
 				return npc.PrimaryPart
 			end
 		end
+
+		if objectiveDef.Type == "CheckPowers" and not objectiveState.Completed then
+			-- Point to TurnIn NPC since that's where the check happens
+			return getNPCPrimaryPart(definition.TurnInNpc)
+		end
+
+		if objectiveDef.Type == "Interact" and not objectiveState.Completed then
+			local interactable = workspace.Objectives.QuestInteractables:FindFirstChild(objectiveDef.Target, true) -- recursive search
+			if interactable then
+				-- Prefer PrimaryPart (models)
+				if interactable:IsA("Model") and interactable.PrimaryPart then
+					return interactable.PrimaryPart
+				end
+
+				-- Fallback for parts
+				if interactable:IsA("BasePart") then
+					return interactable
+				end
+			end
+		end
 	end
 
 	-- 🔹 All objectives complete → Turn-in NPC
 	if definition.TurnInNpc then
-		local npc = workspace.NPCs.QuestGivers:FindFirstChild(definition.TurnInNpc)
-		if npc and npc.PrimaryPart then
-			return npc.PrimaryPart
-		end
+		return getNPCPrimaryPart(definition.TurnInNpc)
 	end
 
 	return nil

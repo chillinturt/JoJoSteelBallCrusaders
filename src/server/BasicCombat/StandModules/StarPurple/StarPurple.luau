@@ -43,7 +43,7 @@ local STARFINGER_ANIM_ID = 90498591949232
 -- CONFIG
 local TIME_STOP_BASE_DURATION = 3 -- seconds
 local IMMOBILE_ANCHOR_NAME = "StarPurpleTimeStopAnchor"
-local TIME_STOP_DAMAGE_MULT = 1
+local TIME_STOP_DAMAGE_MULT = 0.75
 local TIME_STOP_RANGE = 50
 local TIME_STOP_DURATION_SCALING = 0.1
 
@@ -212,7 +212,6 @@ function StarPurple.onMachOraRequested(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	-- Fire first animation (charge-up)
@@ -233,10 +232,6 @@ function StarPurple.onMachOraRequested(character)
 		Transparency = 1,
 		Name = "BasicPunchHitbox",
 		RemoveOnStun = false,
-
-		StatScaling = {
-			Power = 1,
-		},
 
 		OnHit = function(projectile, hitResult, horizontalDirection)
 			-- Destroy MachOraVelocity if it exists
@@ -280,7 +275,6 @@ function StarPurple.onMachOraRequested(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 end
 
@@ -318,10 +312,6 @@ function StarPurple.onMachOra2Requested(character)
 		Transparency = 1,
 		Name = "BasicPunchHitbox",
 		RemoveOnStun = false,
-
-		StatScaling = {
-			Power = 1,
-		},
 
 		OnHit = function(projectile, hitResult, horizontalDirection)
 			-- Destroy MachOraVelocity if it exists
@@ -363,7 +353,6 @@ function StarPurple.onMachOra2Requested(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	task.wait(0.6)
@@ -377,7 +366,6 @@ function StarPurple.onMachOra2Requested(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 end
 
@@ -409,7 +397,6 @@ function StarPurple.GroundPound(standModel)
 		volume = 3,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -419,7 +406,6 @@ function StarPurple.GroundPound(standModel)
 		volume = 0.5,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SpawnClientVfx:FireAllClients({
@@ -466,10 +452,6 @@ function StarPurple.StarFinger(standModel)
 		StunDuration = STARFINGER_STUN,
 		Transparency = 1,
 		Name = "StarFingerHitbox",
-
-		StatScaling = {
-			Power = 1,
-		},
 	})
 
 	SoundModule.PlaySound({
@@ -479,7 +461,6 @@ function StarPurple.StarFinger(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -489,7 +470,6 @@ function StarPurple.StarFinger(standModel)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	local vfxId = HttpService:GenerateGUID(false)
@@ -528,7 +508,6 @@ function StarPurple.TimeStop(caster)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
 	})
 
 	timeStopBall(caster)

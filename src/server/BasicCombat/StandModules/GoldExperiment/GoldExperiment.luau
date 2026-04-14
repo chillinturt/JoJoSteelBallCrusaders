@@ -75,7 +75,6 @@ function GoldExperiment.LifeOverflow(standModel)
 		volume = 5,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	SoundModule.PlaySound({
@@ -85,7 +84,6 @@ function GoldExperiment.LifeOverflow(standModel)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	HitboxSpawner.spawnHitbox({
@@ -163,7 +161,6 @@ function GoldExperiment.EagleStrike(character)
 			volume = 2,
 			playbackSpeed = 1,
 			looped = false,
-			range = 160,
 		})
 		SoundModule.PlaySound({
 			Root = projectile,
@@ -172,7 +169,6 @@ function GoldExperiment.EagleStrike(character)
 			volume = 2,
 			playbackSpeed = 1,
 			looped = false,
-			range = 160,
 		})
 
 		local vfxId = HttpService:GenerateGUID(false)
@@ -245,7 +241,6 @@ function GoldExperiment.EagleStrike(character)
 			volume = 2,
 			playbackSpeed = 1,
 			looped = false,
-			range = 160,
 		})
 
 		SpawnClientVfx:FireAllClients({
@@ -353,7 +348,6 @@ function GoldExperiment.TreeOfLife(character)
 				volume = 1.5,
 				playbackSpeed = 1,
 				looped = false,
-				range = 200,
 			})
 			SoundModule.PlaySound({
 				Root = soundRoot,
@@ -362,7 +356,6 @@ function GoldExperiment.TreeOfLife(character)
 				volume = 3,
 				playbackSpeed = 1,
 				looped = false,
-				range = 200,
 			})
 			SoundModule.PlaySound({
 				Root = soundRoot,
@@ -371,7 +364,6 @@ function GoldExperiment.TreeOfLife(character)
 				volume = 2,
 				playbackSpeed = 1,
 				looped = false,
-				range = 200,
 			})
 
 			-- Damage loop
@@ -449,7 +441,6 @@ function GoldExperiment.TreeOfLife(character)
 		volume = 1,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	return true
@@ -661,7 +652,6 @@ function GoldExperiment.CarnivorousTrap(character)
 				volume = 4,
 				playbackSpeed = 1,
 				looped = false,
-				range = 240,
 			})
 		end,
 	})
@@ -688,7 +678,6 @@ function GoldExperiment.CarnivorousTrap(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
 	})
 
 	SoundModule.PlaySound({
@@ -698,7 +687,6 @@ function GoldExperiment.CarnivorousTrap(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 240,
 	})
 
 	task.delay(3, function()
@@ -709,7 +697,6 @@ function GoldExperiment.CarnivorousTrap(character)
 			volume = 3,
 			playbackSpeed = 1,
 			looped = false,
-			range = 240,
 		})
 	end)
 

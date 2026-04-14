@@ -1,9 +1,10 @@
 -- ServerScriptService/GuidedProjectileManager.lua
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
-local TeamsModule = require(game.ServerScriptService.BasicCombat.Managers.TeamsModule)
-local RaycastModule = require(game.ServerScriptService.BasicCombat.RaycastModule)
+local TeamsModule = require(ServerScriptService.BasicCombat.Managers.TeamsModule)
+local RaycastModule = require(ServerScriptService.BasicCombat.RaycastModule)
+local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
 
 -- ✅ Folder setup
 local ProjectileFolder = workspace:FindFirstChild("GuidedProjectiles")
@@ -127,6 +128,8 @@ RunService.Heartbeat:Connect(function(dt)
 
 							local damage = p.damageFunc and p.damageFunc(targetChar) or p.damage
 							humanoid:TakeDamage(damage)
+
+							DamageNumberService.ShowDamage(targetChar, damage)
 
 							if p.onHit then
 								p.onHit(targetChar, damage)

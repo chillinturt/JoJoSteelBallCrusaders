@@ -12,6 +12,7 @@ local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
 
 local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
+local BadgeHandler = require(ServerScriptService.Rewards.Badges.BadgeHandler)
 
 ---------------------------------------------------------------------
 -- Remote for client UI sync
@@ -52,10 +53,10 @@ local XPSystem = {}
 local MAX_LEVEL = 50
 
 local ABILITY_UNLOCK_LEVELS = {
+	[0] = true,
 	[10] = true,
-	[25] = true,
-	[40] = true,
-	[50] = true,
+	[20] = true,
+	[30] = true,
 }
 
 local function getXPRequirement(level)
@@ -225,6 +226,9 @@ function XPSystem.AddXP(player, amount)
 		data.XP -= data.MaxXP
 		data.Level += 1
 		data.TalentPoints += TALENT_POINTS_PER_LEVEL
+
+		-- 🎖️ Award badge if milestone reached
+		BadgeHandler:AwardLevelBadge(player, data.Level)
 
 		-- ✅ Grant ability point at milestone levels
 		if ABILITY_UNLOCK_LEVELS[data.Level] then

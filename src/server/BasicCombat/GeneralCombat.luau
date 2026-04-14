@@ -17,7 +17,7 @@ local PILOT_PUNCH_ANIMATIONS = { "136847469830162", "116981576719265", "11505928
 
 local STAND_OFF_PUNCH_DAMAGE = 5
 
-function GeneralCombat.StandOffPunch(character)
+function GeneralCombat.StandOffPunch(character, damage)
 	local primaryParty = character:FindFirstChild("HumanoidRootPart")
 	if not primaryParty or not character then
 		return false
@@ -31,6 +31,8 @@ function GeneralCombat.StandOffPunch(character)
 	if comboCooldowns[character] and tick() < comboCooldowns[character] then
 		return false -- Still in combo cooldown
 	end
+
+	local finalDamage = damage or STAND_OFF_PUNCH_DAMAGE
 
 	-- Check cooldown
 	if punchCooldowns[character] and tick() < punchCooldowns[character] then
@@ -67,12 +69,11 @@ function GeneralCombat.StandOffPunch(character)
 		volume = 1,
 		playbackSpeed = 2,
 		looped = false,
-		range = 160,
 	})
 
 	hitboxSpawner.spawnStandOffHitbox({
 		Character = character,
-		Damage = STAND_OFF_PUNCH_DAMAGE,
+		Damage = finalDamage,
 
 		StatScaling = {
 			Strength = 0.1,

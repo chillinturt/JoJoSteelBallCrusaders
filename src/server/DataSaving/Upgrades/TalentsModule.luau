@@ -29,11 +29,11 @@ local HEALTH_PER_LEVEL = 15
 local BASE_MOVE_SPEED = 24
 local SPEED_PER_LEVEL = 0.6
 
-local BASE_REGEN = 0.1
+local BASE_REGEN = 1
 local REGEN_PER_LEVEL = 0.15
 
-local BASE_BLOCK_HP = 50
-local BLOCK_PER_LEVEL = 3
+local BASE_BLOCK_HP = 100
+local BLOCK_PER_LEVEL = 15
 
 local regenRateByCharacter = {}
 

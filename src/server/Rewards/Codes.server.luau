@@ -319,7 +319,7 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 		return
 	end
 
-	if typedCode == "maxmeout" then
+	if typedCode == "max" then
 		if not IsModerator(player) then
 			return
 		end
@@ -328,7 +328,61 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 		codeEvent:FireClient(player, true, typedCode)
 	end
 
-	if typedCode == "resetmyprogress" then
+	if typedCode:lower():sub(1, 5) == "level" then
+		if not IsModerator(player) then
+			return
+		end
+
+		local levelNumber = tonumber(typedCode:sub(6))
+		if not levelNumber then
+			warn("Invalid level code:", typedCode)
+			return
+		end
+
+		levelNumber = math.clamp(levelNumber, 1, 50)
+
+		-- Set core XP data
+		XPSystem.SetField(player, "Level", levelNumber)
+		XPSystem.SetField(player, "XP", 0)
+
+		local newMaxXP = 100 + 20 * ((levelNumber - 1) ^ 2)
+		XPSystem.SetField(player, "MaxXP", newMaxXP)
+
+		-- Recalculate ability points + reset abilities
+		XPSystem.ResetAbilityPoints(player)
+
+		-- Sync ability UI
+		local unlocked = HeroManager.GetField(player, "UnlockedAbilities")
+		AbilityUnlocksEvent:FireClient(player, unlocked)
+
+		codeEvent:FireClient(player, true, typedCode)
+
+		print("[Admin] Set level for", player.Name, "to", levelNumber)
+	end
+
+	if typedCode:lower():sub(1, 8) == "questadd" then
+		if not IsModerator(player) then
+			return
+		end
+
+		local questId = typedCode:sub(9) -- everything after "questadd"
+
+		if questId == "" then
+			warn("No quest ID provided:", typedCode)
+			return
+		end
+
+		-- Optional: normalize first letter (depends on how your IDs are formatted)
+		-- questId = questId:sub(1,1):upper() .. questId:sub(2)
+
+		print("[Admin] Attempting to add quest:", questId, "to", player.Name)
+
+		QuestManager.AddQuest(player, questId)
+
+		codeEvent:FireClient(player, true, typedCode)
+	end
+
+	if typedCode == "reset" then
 		if not IsModerator(player) then
 			return
 		end

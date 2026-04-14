@@ -1,10 +1,11 @@
 -- ServerScriptService/ArcProjectileManager
 local RunService = game:GetService("RunService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerScriptService = game:GetService("ServerScriptService")
 
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
+local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
 
 -- ✅ Folder setup
 local ProjectileFolder = workspace:FindFirstChild("ArcProjectiles")
@@ -84,6 +85,8 @@ RunService.Heartbeat:Connect(function(dt)
 							local damage = p.damageFunc and p.damageFunc(targetChar) or p.damage
 							humanoid:TakeDamage(damage)
 
+							DamageNumberService.ShowDamage(targetChar, damage)
+
 							-- Call the OnHit callback if provided
 							if p.onHit then
 								p.onHit(targetChar, damage)
@@ -133,8 +136,6 @@ RunService.Heartbeat:Connect(function(dt)
 					return
 				end
 			end
-
-			
 		end)
 
 		if not ok then

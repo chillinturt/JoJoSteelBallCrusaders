@@ -23,12 +23,6 @@ function Rokakaka.Use(player)
 		return
 	end
 
-	local heroValue = HeroManager.GetField(player, "Hero")
-	if heroValue == "None" then
-		print("Player already has no stand!")
-		return
-	end
-
 	-- find Stand Rokakaka
 	local found = nil
 	for _, entry in ipairs(inventory) do

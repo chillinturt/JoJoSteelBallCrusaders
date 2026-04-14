@@ -223,7 +223,6 @@ function BasicStandAttacks.BasicPunch(standModel)
 		volume = 1.25,
 		playbackSpeed = 2,
 		looped = false,
-		range = 160,
 	})
 
 	hitboxSpawner.spawnHitbox({
@@ -371,7 +370,6 @@ function BasicStandAttacks.StartBarrage(character)
 		volume = 2,
 		playbackSpeed = 1,
 		looped = false,
-		range = 160,
 	})
 
 	--check if the heroValue has a valid barrage call in the table. if so, then play it using the call below:
@@ -385,7 +383,6 @@ function BasicStandAttacks.StartBarrage(character)
 			volume = 1,
 			playbackSpeed = 1,
 			looped = false,
-			range = 160,
 		})
 	end
 

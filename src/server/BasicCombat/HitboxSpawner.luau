@@ -2,25 +2,26 @@ local HitboxSpawner = {}
 
 local RunService = game:GetService("RunService")
 local Players = game:GetService("Players")
-
-local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
-local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
-local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
-local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
-local VampireModule = require(game.ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
-local ProjectileManager = require(
-	game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("ProjectileManager")
-)
-local ArcProjectileManager = require(game.ServerScriptService.BasicCombat.Managers:WaitForChild("ArcProjectileManager"))
-local GuidedProjectileManager =
-	require(game.ServerScriptService.BasicCombat.Managers:WaitForChild("GuidedProjectileManager"))
-local TeamsModule =
-	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
-local SlowingFieldRegistry = require(game.ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
-local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
-
-local Debris = game:GetService("Debris")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Debris = game:GetService("Debris")
+
+local StandUtils = require(ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
+local CombatUtils = require(ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local AnimationModule = require(ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
+local RaycastIgnoreModule = require(ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
+local VampireModule = require(ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
+local ProjectileManager =
+	require(ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("ProjectileManager"))
+local ArcProjectileManager = require(ServerScriptService.BasicCombat.Managers:WaitForChild("ArcProjectileManager"))
+local GuidedProjectileManager =
+	require(ServerScriptService.BasicCombat.Managers:WaitForChild("GuidedProjectileManager"))
+local TeamsModule =
+	require(ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
+local SlowingFieldRegistry = require(ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
+local RaycastModule = require(ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
+local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
+
 local SoundUtils = require(ServerScriptService.Utilities.SoundUtils)
 
 local activeFields = {} -- [player] = { [field] = true, ... }
@@ -30,6 +31,9 @@ local HIT_SOUND_ID = 8255306220
 local BLOCK_SOUND_ID = 132615624053575
 
 local VAMP_BLOOD_GAIN_RATE = 2 -- amount of blood gained is newDamage (post damg reduction) / VAMP_BLOOD_GAIN_RATE
+
+local DEFAULT_POWER_SCALING = 1.2
+local DEFAULT_STRENGTH_SCALING = 1.5
 
 local function MapDamageToSound(damage: number)
 	-- Clamp damage to a reasonable range (so extreme values don’t explode)
@@ -71,7 +75,7 @@ end
 function HitboxSpawner.spawnHitbox(params)
 	local character = params.Character
 	local damage = params.Damage or 10
-	local statScaling = params.StatScaling or { Power = 1 }
+	local statScaling = params.StatScaling or { Power = DEFAULT_POWER_SCALING }
 	local size = params.Size or Vector3.new(4, 4, 7)
 	local offset = params.Offset or CFrame.new(2, 0, -8)
 	local color = params.Color or BrickColor.new("Bright yellow")
@@ -203,6 +207,8 @@ function HitboxSpawner.spawnHitbox(params)
 
 						humanoid:TakeDamage(newDamage)
 
+						DamageNumberService.ShowDamage(targetChar, newDamage)
+
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
@@ -306,7 +312,7 @@ end
 function HitboxSpawner.spawnStandOffHitbox(params)
 	local character = params.Character
 	local damage = params.Damage or 10
-	local statScaling = params.StatScaling or { Strength = 1 }
+	local statScaling = params.StatScaling or { Strength = 1.5 }
 	local size = params.Size or Vector3.new(4, 4, 7)
 	local offset = params.Offset or CFrame.new(2, 0, -8)
 	local color = params.Color or BrickColor.new("Bright yellow")
@@ -412,6 +418,8 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 
 						humanoid:TakeDamage(newDamage)
 
+						DamageNumberService.ShowDamage(targetChar, newDamage)
+
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
@@ -479,7 +487,15 @@ function HitboxSpawner.spawnProjectile(params)
 
 	local stand = params.Stand
 	local character = params.Character
-	local damage = params.Damage or 0
+	local baseDamage = params.Damage or 0
+
+	local statScaling = params.StatScaling or { Power = DEFAULT_POWER_SCALING }
+
+	local finalDamage = baseDamage
+	if statScaling then
+		finalDamage = CombatUtils.ApplyStatScaling(character, baseDamage, statScaling)
+	end
+
 	local stunDuration = params.StunDuration or 0
 	local size = params.Size
 	local offset = params.Offset or Vector3.new()
@@ -539,13 +555,13 @@ function HitboxSpawner.spawnProjectile(params)
 		paramsFilter = paramsFilter,
 		character = character,
 		hitPlayers = hitPlayers,
-		damage = damage,
+		damage = finalDamage,
 		stunDuration = stunDuration,
 		CanBlock = canBlock, -- 👈 pass to projectile manager
 
 		-- wrapped dependencies for safety
 		damageFunc = function(target)
-			return CombatUtils.ReturnDamage(target, damage, canBlock, character)
+			return CombatUtils.ReturnDamage(target, finalDamage, canBlock, character)
 		end,
 
 		getIsBlocking = function(target)
@@ -602,7 +618,16 @@ function HitboxSpawner.spawnArcProjectile(params)
 
 	local stand = params.Stand
 	local character = params.Character
-	local damage = params.Damage or 0
+	local baseDamage = params.Damage or 0
+
+	-- ✅ ADD THIS
+	local statScaling = params.StatScaling or { Power = DEFAULT_POWER_SCALING }
+
+	local finalDamage = baseDamage
+	if statScaling then
+		finalDamage = CombatUtils.ApplyStatScaling(character, baseDamage, statScaling)
+	end
+
 	local stunDuration = params.StunDuration or 0
 	local size = params.Size
 	local offset = params.Offset or Vector3.new()
@@ -667,7 +692,7 @@ function HitboxSpawner.spawnArcProjectile(params)
 		duration = duration,
 		paramsFilter = paramsFilter,
 		hitPlayers = hitPlayers,
-		damage = damage,
+		damage = finalDamage,
 		stunDuration = stunDuration,
 		DetectSurface = detectSurface,
 		OnSurfaceHit = params.OnSurfaceHit,
@@ -676,7 +701,7 @@ function HitboxSpawner.spawnArcProjectile(params)
 
 		-- wrapped dependencies
 		damageFunc = function(target)
-			return CombatUtils.ReturnDamage(target, damage, canBlock, character)
+			return CombatUtils.ReturnDamage(target, finalDamage, canBlock, character)
 		end,
 
 		getIsBlocking = function(target)
@@ -733,7 +758,16 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 
 	local stand = params.Stand
 	local character = params.Character
-	local damage = params.Damage or 0
+	local baseDamage = params.Damage or 0
+
+	-- ✅ ADD THIS
+	local statScaling = params.StatScaling or { Power = DEFAULT_POWER_SCALING }
+
+	local finalDamage = baseDamage
+	if statScaling then
+		finalDamage = CombatUtils.ApplyStatScaling(character, baseDamage, statScaling)
+	end
+
 	local stunDuration = params.StunDuration or 0
 	local size = params.Size
 	local offset = params.Offset or Vector3.new()
@@ -788,7 +822,7 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 		maxDistance = maxDistance,
 		paramsFilter = paramsFilter,
 		hitPlayers = hitPlayers,
-		damage = damage,
+		damage = finalDamage,
 		stunDuration = stunDuration,
 		DetectSurface = detectSurface,
 		OnSurfaceHit = params.OnSurfaceHit,
@@ -798,7 +832,7 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 
 		-- wrapped dependencies
 		damageFunc = function(target)
-			return CombatUtils.ReturnDamage(target, damage, canBlock, character)
+			return CombatUtils.ReturnDamage(target, finalDamage, canBlock, character)
 		end,
 
 		getIsBlocking = function(target)
@@ -853,7 +887,7 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 	local size = params.Size or Vector3.new(6, 6, 6)
 	local duration = params.Duration or 0.5
 	local damage = params.Damage
-	local statScaling = params.StatScaling or { Power = 1 }
+	local statScaling = params.StatScaling or { Power = DEFAULT_POWER_SCALING }
 	local stunDuration = params.StunDuration or 0
 	local transparency = params.Transparency or 0.5
 	local color = params.Color or BrickColor.new("Bright red")
@@ -990,6 +1024,8 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 						local newDamage = CombatUtils.ReturnDamage(targetChar, finalDamage, canBlock, character)
 
 						humanoid:TakeDamage(newDamage)
+
+						DamageNumberService.ShowDamage(targetChar, newDamage)
 
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
@@ -1335,6 +1371,9 @@ function HitboxSpawner.ApplyDamageOverTime(humanoid, damagePerTick, tickInterval
 			end
 
 			humanoid:TakeDamage(damagePerTick)
+
+			local targetChar = humanoid.Parent
+			DamageNumberService.ShowDamage(targetChar, damagePerTick)
 
 			local volume, pitch = MapDamageToSound(damagePerTick)
 

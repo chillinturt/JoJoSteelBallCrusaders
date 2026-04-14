@@ -8,7 +8,7 @@ function SoundUtils.PlaySound(params)
 	local volume = params.volume or 1
 	local playbackSpeed = params.playbackSpeed
 	local looped = params.looped
-	local range = params.range or 160
+	local range = params.range or 300
 	local pitch = params.pitch or 1
 
 	if not root then
@@ -40,7 +40,7 @@ function SoundUtils.PlaySound(params)
 
 	sound.Looped = looped
 	sound.RollOffMaxDistance = range
-	sound.RollOffMinDistance = range * 0.5
+	sound.RollOffMinDistance = range * 0.2
 
 	-- Play the sound
 	sound:Play()
