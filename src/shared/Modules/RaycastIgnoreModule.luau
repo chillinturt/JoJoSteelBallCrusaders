@@ -3,12 +3,10 @@
 
 local RaycastIgnoreModule = {}
 
--- Holds all objects excluded from raycasts
 local ignoreList = {}
 
 -- Internal helper to clean up destroyed instances
 local function connectAutoCleanup(instance)
-	-- Roblox provides a Destroying event (works for all Instances)
 	instance.Destroying:Connect(function()
 		for i = #ignoreList, 1, -1 do
 			if ignoreList[i] == instance then
@@ -18,27 +16,47 @@ local function connectAutoCleanup(instance)
 	end)
 end
 
--- Returns the current ignore list (read-only usage)
+-- Returns a SAFE COPY of the ignore list
 function RaycastIgnoreModule.GetIgnoreList()
-	return ignoreList
+	local copy = table.clone(ignoreList)
+	return copy
 end
 
--- Returns a new RaycastParams object based on the current ignore list
-function RaycastIgnoreModule.GetParams()
+-- Returns raycast params with optional extra exclusions
+function RaycastIgnoreModule.GetParams(extraIgnore)
 	local params = RaycastParams.new()
 	params.FilterType = Enum.RaycastFilterType.Exclude
-	params.FilterDescendantsInstances = ignoreList
+
+	local finalIgnore = table.clone(ignoreList)
+
+	if extraIgnore then
+		if typeof(extraIgnore) == "Instance" then
+			table.insert(finalIgnore, extraIgnore)
+		elseif typeof(extraIgnore) == "table" then
+			for _, inst in ipairs(extraIgnore) do
+				if typeof(inst) == "Instance" then
+					table.insert(finalIgnore, inst)
+				end
+			end
+		end
+	end
+
+	params.FilterDescendantsInstances = finalIgnore
+	params.IgnoreWater = false
+
 	return params
 end
 
--- Adds one or more instances to the ignore list and hooks up cleanup
+-- Adds one or more instances to ignore list
 function RaycastIgnoreModule.AddToIgnore(instances)
 	if typeof(instances) == "Instance" then
-		table.insert(ignoreList, instances)
-		connectAutoCleanup(instances)
+		if not table.find(ignoreList, instances) then
+			table.insert(ignoreList, instances)
+			connectAutoCleanup(instances)
+		end
 	elseif typeof(instances) == "table" then
 		for _, inst in ipairs(instances) do
-			if typeof(inst) == "Instance" then
+			if typeof(inst) == "Instance" and not table.find(ignoreList, inst) then
 				table.insert(ignoreList, inst)
 				connectAutoCleanup(inst)
 			end
@@ -46,7 +64,7 @@ function RaycastIgnoreModule.AddToIgnore(instances)
 	end
 end
 
--- Optional manual removal (you rarely need this now)
+-- Manual removal
 function RaycastIgnoreModule.RemoveFromIgnore(instance)
 	for i = #ignoreList, 1, -1 do
 		if ignoreList[i] == instance then

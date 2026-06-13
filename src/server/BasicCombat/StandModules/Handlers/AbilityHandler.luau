@@ -32,7 +32,7 @@ local cooldowns = {}
 local activeHolds = {}
 
 local function getHeroGroup(heroName)
-	return HeroGroups[heroName] or heroName
+	return HeroGroups.GetHeroGroup(heroName) or heroName
 end
 
 function AbilityHandler.TryUnlockAbility(player, abilityId)
@@ -211,6 +211,11 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 
 	-- Normalize stand tag too
 	local standHeroGroup = getHeroGroup(standTag.Value)
+
+	print("HeroValue:", heroValue)
+	print("HeroGroup:", heroGroup)
+	print("StandTag:", standTag.Value)
+	print("StandGroup:", standHeroGroup)
 
 	if standHeroGroup ~= heroGroup then
 		print("Ability blocked: stand mismatch")

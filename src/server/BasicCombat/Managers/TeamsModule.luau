@@ -12,6 +12,7 @@ local PlayerCharacterConnections = {} -- [Player] = connection
 TeamsModule.TeamA = "TeamA"
 TeamsModule.TeamB = "TeamB"
 TeamsModule.TeamC = "TeamC"
+TeamsModule.NPCTeam = "NPCFaction"
 
 -- Helper: get a consistent key for entity (Player or Model)
 local function getEntityKey(entity)
@@ -48,7 +49,7 @@ end
 -- Assign entity to a team
 function TeamsModule.SetTeam(entity, teamName)
 	assert(entity, "SetTeam: entity cannot be nil")
-	assert(teamName == TeamsModule.TeamA or teamName == TeamsModule.TeamB or TeamsModule.TeamC, "Invalid team name")
+	assert(typeof(teamName) == "string" and teamName ~= "", "Invalid team name")
 
 	local key = getEntityKey(entity)
 	if not key then

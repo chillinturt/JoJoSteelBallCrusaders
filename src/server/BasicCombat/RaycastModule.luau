@@ -171,4 +171,104 @@ function RaycastModule.CheckForNearbySurface(entity, maxDistance)
 	return false, nil, nil
 end
 
+function RaycastModule.RaycastFromCamera(character, maxDistance)
+	maxDistance = maxDistance or 500
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return nil
+	end
+
+	local remote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("RequestCameraDirection")
+	local cameraDirection = remote:InvokeClient(player)
+	if not cameraDirection then
+		return nil
+	end
+
+	cameraDirection = cameraDirection.Unit
+
+	local origin = character:FindFirstChild("Head") and character.Head.Position
+		or character:FindFirstChild("HumanoidRootPart").Position
+
+	if not origin then
+		return nil
+	end
+
+	local rayParams = RaycastParams.new()
+	local ignoreList = RaycastIgnoreModule.GetIgnoreList()
+	table.insert(ignoreList, character)
+
+	rayParams.FilterDescendantsInstances = ignoreList
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	local result = workspace:Raycast(origin, cameraDirection * maxDistance, rayParams)
+
+	return result -- 🔥 FULL result (Position, Instance, Normal)
+end
+
+-- Checks if entity has clear line of sight to target
+function RaycastModule.HasLineOfSight(entity, target, maxDistance)
+	maxDistance = maxDistance or 200
+
+	if not entity or not target then
+		warn("RaycastModule.HasLineOfSight: Missing entity or target!")
+		return false
+	end
+
+	-- === Get origin ===
+	local originPart
+	if entity:IsA("Model") then
+		originPart = entity.PrimaryPart or entity:FindFirstChild("HumanoidRootPart") or entity:FindFirstChild("Head")
+	elseif entity:IsA("BasePart") then
+		originPart = entity
+	end
+
+	-- === Get target part ===
+	local targetPart
+	if target:IsA("Model") then
+		targetPart = target.PrimaryPart or target:FindFirstChild("HumanoidRootPart") or target:FindFirstChild("Head")
+	elseif target:IsA("BasePart") then
+		targetPart = target
+	end
+
+	if not originPart or not targetPart then
+		warn("RaycastModule.HasLineOfSight: Invalid origin or target part!")
+		return false
+	end
+
+	local origin = originPart.Position
+	local targetPos = targetPart.Position
+	local direction = targetPos - origin
+	local distance = direction.Magnitude
+
+	-- Optional distance cap
+	if distance > maxDistance then
+		return false
+	end
+
+	direction = direction.Unit
+
+	-- === Raycast setup ===
+	local rayParams = RaycastParams.new()
+	local ignoreList = RaycastIgnoreModule.GetIgnoreList()
+
+	table.insert(ignoreList, entity)
+	table.insert(ignoreList, target) -- ignore target model so we can detect it properly
+
+	rayParams.FilterDescendantsInstances = ignoreList
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	-- === Perform raycast ===
+	local result = workspace:Raycast(origin, direction * distance, rayParams)
+
+	-- === LOS logic ===
+	if result then
+		-- Something is blocking the view
+		return false, result
+	else
+		-- Nothing hit → clear line of sight
+		return true, nil
+	end
+end
+
 return RaycastModule

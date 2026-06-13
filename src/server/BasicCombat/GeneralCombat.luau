@@ -1,3 +1,4 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 -- CombatUtils.lua
 local GeneralCombat = {}
 
@@ -16,6 +17,7 @@ local HITBOX_SIZE = Vector3.new(6, 8, 9)
 local PILOT_PUNCH_ANIMATIONS = { "136847469830162", "116981576719265", "115059281874785" }
 
 local STAND_OFF_PUNCH_DAMAGE = 5
+local BASE_COMBO = 5
 
 function GeneralCombat.StandOffPunch(character, damage)
 	local primaryParty = character:FindFirstChild("HumanoidRootPart")
@@ -44,22 +46,34 @@ function GeneralCombat.StandOffPunch(character, damage)
 	if not comboIndices[character] then
 		comboIndices[character] = 1
 	end
+
 	local index = comboIndices[character]
 
+	-- Reuse animations for punches past 3
+	local animIndex = index
+	if index > 3 then
+		animIndex = (index % 2 == 0) and 2 or 3
+	end
+
 	local hitboxOffset = CFrame.new(0, 0, -3)
-	-- Stop idle and play punch animation
-	AnimationModule.PlayAnimation(character, PILOT_PUNCH_ANIMATIONS[index], false, Enum.AnimationPriority.Action, 1.5)
+
+	AnimationModule.StopAnimationsOfPriority(character, Enum.AnimationPriority.Action)
+
+	AnimationModule.PlayAnimation(
+		character,
+		PILOT_PUNCH_ANIMATIONS[animIndex],
+		false,
+		Enum.AnimationPriority.Action,
+		1.5
+	)
 
 	-- Advance combo index or finish combo
-	if index == 3 then
+	if index >= BASE_COMBO then
 		comboIndices[character] = 1
-		comboCooldowns[character] = tick() + 3 -- 3 sec cooldown after full combo
+		comboCooldowns[character] = tick() + 1 -- cooldown after full combo
 	else
 		comboIndices[character] = index + 1
 	end
-
-	-- Prepare for next combo punch
-	comboIndices[character] = index % 3 + 1
 
 	--play sound
 	SoundUtils.PlaySound({
@@ -76,16 +90,22 @@ function GeneralCombat.StandOffPunch(character, damage)
 		Damage = finalDamage,
 
 		StatScaling = {
-			Strength = 0.1,
+			Strength = 0.2,
 		},
 
 		Size = HITBOX_SIZE,
 		Offset = hitboxOffset,
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.3,
-		StunDuration = 0.1,
+		StunDuration = 0.2,
 		Transparency = 1,
 		Name = "BasicPunchHitbox",
+
+		HitSoundId = 4799537772,
+		HitSoundPitch = 1,
+		HitSoundVolume = 1,
+		HitSoundPlaybackSpeed = 1,
+		RandomPitchRange = 0.08,
 	})
 
 	--reset index in 3 seconds if index == 1
@@ -93,7 +113,7 @@ function GeneralCombat.StandOffPunch(character, damage)
 	if comboResetTimers[character] then
 		task.cancel(comboResetTimers[character])
 	end
-	comboResetTimers[character] = task.delay(3, function()
+	comboResetTimers[character] = task.delay(1, function()
 		comboIndices[character] = 1
 	end)
 

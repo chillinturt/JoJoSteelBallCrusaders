@@ -1,18 +1,17 @@
 local HERO_GROUPS = {
+	-- Only define exceptions / shared groups
 	TuskAct1 = "Tusk",
 	TuskAct2 = "Tusk",
 	TuskAct3 = "Tusk",
 	TuskAct4 = "Tusk",
-
-	-- Other heroes
-	StarPurple = "StarPurple",
-	KingCarmine = "KingCarmine",
-	HierophantGrand = "HierophantGrand",
-	MagiciansRed = "MagiciansRed",
-	TheWorld = "TheWorld",
-	NuclearRain = "NuclearRain",
-	ThatHand = "ThatHand",
-	GoldExperiment = "GoldExperiment",
 }
 
-return HERO_GROUPS
+-- Helper function to resolve group
+local function GetHeroGroup(heroName)
+	return HERO_GROUPS[heroName] or heroName
+end
+
+return {
+	Groups = HERO_GROUPS,
+	GetHeroGroup = GetHeroGroup,
+}

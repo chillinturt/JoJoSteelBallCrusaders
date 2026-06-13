@@ -395,177 +395,179 @@ function TheWorld.TimeStop(caster)
 		looped = false,
 	})
 
-	timeStopBall(caster)
-
 	local casterRoot = caster:FindFirstChild("HumanoidRootPart")
 	if not casterRoot then
 		return
 	end
 
+	local power = 0
 	local casterPlayer = Players:GetPlayerFromCharacter(caster)
 	if casterPlayer then
 		table.insert(affectedPlayersVfx, casterPlayer)
+		power = CombatUtils.GetPower(casterPlayer)
 	end
-
-	local power = CombatUtils.GetPower(casterPlayer)
 	local amplifiedDuration = TIME_STOP_BASE_DURATION
 	if power > 0 then
 		amplifiedDuration = power * TIME_STOP_DURATION_SCALING + TIME_STOP_BASE_DURATION
 	end
 
-	-- Freeze all players except caster
-	for _, player in ipairs(Players:GetPlayers()) do
-		local char = player.Character
-		if char and char ~= caster and char:FindFirstChild("HumanoidRootPart") then
-			local root = char.HumanoidRootPart
-			local distance = (root.Position - casterRoot.Position).Magnitude
+	task.delay(0.5, function()
+		timeStopBall(caster)
 
-			if distance <= TIME_STOP_RANGE then
-				CombatUtils.applyStun(char, amplifiedDuration)
-
-				BlockModule.StopBlocking(char)
-				CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, amplifiedDuration)
-
-				table.insert(affectedPlayersVfx, player)
-
-				local humanoid = char:FindFirstChildOfClass("Humanoid")
-				if humanoid then
-					humanoid.WalkSpeed = 0
-					humanoid.JumpPower = 0
-
-					local animator = humanoid:FindFirstChildOfClass("Animator")
-					if animator then
-						for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-							track:AdjustSpeed(0)
-						end
-					end
-
-					if root then
-						root.Anchored = true
-						root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
-					end
-				end
-			end
-		end
-	end
-
-	for _, plr in ipairs(affectedPlayersVfx) do
-		ScreenColorVfxEvent:FireClient(plr, "TimeStop.Start", amplifiedDuration)
-	end
-
-	-- Freeze all enemy NPCs
-	for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
-		if
-			npc:IsA("Model")
-			and npc:FindFirstChild("Humanoid")
-			and npc:FindFirstChild("HumanoidRootPart")
-			and npc ~= caster
-		then
-			local root = npc:FindFirstChild("HumanoidRootPart")
-			local distance = (root.Position - casterRoot.Position).Magnitude
-
-			if distance <= TIME_STOP_RANGE then
-				local humanoid = npc:FindFirstChildOfClass("Humanoid")
-				local animator = humanoid:FindFirstChildOfClass("Animator")
-
-				-- Stop animations and movement
-				humanoid.WalkSpeed = 0
-				humanoid.JumpPower = 0
-				if animator then
-					for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-						track:AdjustSpeed(0)
-					end
-				end
-				root.Anchored = true
-				root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
-
-				CombatUtils.applyStun(npc, amplifiedDuration)
-
-				CombatUtils.ApplyDamageMult(npc, 2, amplifiedDuration)
-			end
-		end
-	end
-
-	-- Resume everything after STOP_DURATION
-	task.delay(amplifiedDuration, function()
-		print("⏰ Time resumes for everyone.")
-
-		-- Resume players
+		-- Freeze all players except caster
 		for _, player in ipairs(Players:GetPlayers()) do
 			local char = player.Character
-			if char and char:FindFirstChild("HumanoidRootPart") then
-				local humanoid = char:FindFirstChildOfClass("Humanoid")
-				local root = char:FindFirstChild("HumanoidRootPart")
+			if char and char ~= caster and char:FindFirstChild("HumanoidRootPart") then
+				local root = char.HumanoidRootPart
+				local distance = (root.Position - casterRoot.Position).Magnitude
 
-				if not root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
-					continue
-				end
+				if distance <= TIME_STOP_RANGE then
+					CombatUtils.applyStun(char, amplifiedDuration)
 
-				if humanoid and player ~= Players:GetPlayerFromCharacter(caster) then
-					local moveSpeed = char:FindFirstChild("MoveSpeed")
-					local jumpHeight = char:FindFirstChild("JumpHeight")
-					-- resume movement
-					if moveSpeed then
-						local baseSpeed = CombatUtils.GetMoveSpeed(char).Value
-						local mult = CombatUtils.GetSlowMultiplier(char)
-						humanoid.WalkSpeed = baseSpeed * mult
-					end
-					humanoid.JumpPower = jumpHeight and jumpHeight.Value or 40.996
-				end
+					BlockModule.StopBlocking(char)
+					CombatUtils.ApplyDamageMult(char, TIME_STOP_DAMAGE_MULT, amplifiedDuration)
 
-				if root and root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
-					root.Anchored = false
-					root:SetAttribute(IMMOBILE_ANCHOR_NAME, nil)
-				end
+					table.insert(affectedPlayersVfx, player)
 
-				local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
-				if animator then
-					for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-						track:AdjustSpeed(1)
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					if humanoid then
+						humanoid.WalkSpeed = 0
+						humanoid.JumpPower = 0
+
+						local animator = humanoid:FindFirstChildOfClass("Animator")
+						if animator then
+							for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+								track:AdjustSpeed(0)
+							end
+						end
+
+						if root then
+							root.Anchored = true
+							root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
+						end
 					end
 				end
 			end
 		end
 
 		for _, plr in ipairs(affectedPlayersVfx) do
-			ScreenColorVfxEvent:FireClient(plr, "TimeStop.End")
+			ScreenColorVfxEvent:FireClient(plr, "TimeStop.Start", amplifiedDuration)
 		end
 
-		-- Resume NPCs
+		-- Freeze all enemy NPCs
 		for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
-			if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
-				local humanoid = npc:FindFirstChildOfClass("Humanoid")
-				local animator = humanoid:FindFirstChildOfClass("Animator")
+			if
+				npc:IsA("Model")
+				and npc:FindFirstChild("Humanoid")
+				and npc:FindFirstChild("HumanoidRootPart")
+				and npc ~= caster
+			then
 				local root = npc:FindFirstChild("HumanoidRootPart")
+				local distance = (root.Position - casterRoot.Position).Magnitude
 
-				if not root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
-					continue
-				end
+				if distance <= TIME_STOP_RANGE then
+					local humanoid = npc:FindFirstChildOfClass("Humanoid")
+					local animator = humanoid:FindFirstChildOfClass("Animator")
 
-				if humanoid then
-					local moveSpeed = npc:FindFirstChild("MoveSpeed")
-					-- resume movement
-					if moveSpeed then
-						local baseSpeed = CombatUtils.GetMoveSpeed(npc)
-						local mult = CombatUtils.GetSlowMultiplier(npc)
-						humanoid.WalkSpeed = baseSpeed * mult
+					-- Stop animations and movement
+					humanoid.WalkSpeed = 0
+					humanoid.JumpPower = 0
+					if animator then
+						for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+							track:AdjustSpeed(0)
+						end
 					end
+					root.Anchored = true
+					root:SetAttribute(IMMOBILE_ANCHOR_NAME, true)
 
-					humanoid.JumpPower = npc:FindFirstChild("JumpHeight").Value or 40.996
-				end
+					CombatUtils.applyStun(npc, amplifiedDuration)
 
-				if root and root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
-					root.Anchored = false
-					root:SetAttribute(IMMOBILE_ANCHOR_NAME, nil)
-				end
-
-				if animator then
-					for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
-						track:AdjustSpeed(1)
-					end
+					CombatUtils.ApplyDamageMult(npc, 2, amplifiedDuration)
 				end
 			end
 		end
+
+		-- Resume everything after STOP_DURATION
+		task.delay(amplifiedDuration, function()
+			print("⏰ Time resumes for everyone.")
+
+			-- Resume players
+			for _, player in ipairs(Players:GetPlayers()) do
+				local char = player.Character
+				if char and char:FindFirstChild("HumanoidRootPart") then
+					local humanoid = char:FindFirstChildOfClass("Humanoid")
+					local root = char:FindFirstChild("HumanoidRootPart")
+
+					if not root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
+						continue
+					end
+
+					if humanoid and player ~= Players:GetPlayerFromCharacter(caster) then
+						local moveSpeed = char:FindFirstChild("MoveSpeed")
+						local jumpHeight = char:FindFirstChild("JumpHeight")
+						-- resume movement
+						if moveSpeed then
+							local baseSpeed = CombatUtils.GetMoveSpeed(char).Value
+							local mult = CombatUtils.GetSlowMultiplier(char)
+							humanoid.WalkSpeed = baseSpeed * mult
+						end
+						humanoid.JumpPower = jumpHeight and jumpHeight.Value or 40.996
+					end
+
+					if root and root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
+						root.Anchored = false
+						root:SetAttribute(IMMOBILE_ANCHOR_NAME, nil)
+					end
+
+					local animator = humanoid and humanoid:FindFirstChildOfClass("Animator")
+					if animator then
+						for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+							track:AdjustSpeed(1)
+						end
+					end
+				end
+			end
+
+			for _, plr in ipairs(affectedPlayersVfx) do
+				ScreenColorVfxEvent:FireClient(plr, "TimeStop.End")
+			end
+
+			-- Resume NPCs
+			for _, npc in ipairs(ENEMY_NPC_FOLDER:GetChildren()) do
+				if npc:IsA("Model") and npc:FindFirstChild("Humanoid") and npc:FindFirstChild("HumanoidRootPart") then
+					local humanoid = npc:FindFirstChildOfClass("Humanoid")
+					local animator = humanoid:FindFirstChildOfClass("Animator")
+					local root = npc:FindFirstChild("HumanoidRootPart")
+
+					if not root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
+						continue
+					end
+
+					if humanoid then
+						local moveSpeed = npc:FindFirstChild("MoveSpeed")
+						-- resume movement
+						if moveSpeed then
+							local baseSpeed = CombatUtils.GetMoveSpeed(npc)
+							local mult = CombatUtils.GetSlowMultiplier(npc)
+							humanoid.WalkSpeed = baseSpeed * mult
+						end
+
+						humanoid.JumpPower = npc:FindFirstChild("JumpHeight").Value or 40.996
+					end
+
+					if root and root:GetAttribute(IMMOBILE_ANCHOR_NAME) then
+						root.Anchored = false
+						root:SetAttribute(IMMOBILE_ANCHOR_NAME, nil)
+					end
+
+					if animator then
+						for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+							track:AdjustSpeed(1)
+						end
+					end
+				end
+			end
+		end)
 	end)
 end
 

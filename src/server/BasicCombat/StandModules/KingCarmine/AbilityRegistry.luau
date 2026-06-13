@@ -28,7 +28,7 @@ AbilityRegistry.AbilityTypes = {
 AbilityRegistry[1] = {
 	Name = "Chop",
 	Type = "Press",
-	Cooldown = 10,
+	Cooldown = 8,
 	Execute = function(standModel, player)
 		KingCarmine.Chop(standModel)
 	end,
@@ -40,7 +40,7 @@ AbilityRegistry[1] = {
 AbilityRegistry[2] = {
 	Name = "Splatter",
 	Type = "Press",
-	Cooldown = 12,
+	Cooldown = 10,
 	Execute = function(standModel, player)
 		KingCarmine.Splatter(standModel)
 	end,
@@ -53,7 +53,7 @@ AbilityRegistry[3] = {
 	Name = "Teleport",
 	Type = "Press",
 	EndlagCancel = true,
-	Cooldown = 12,
+	Cooldown = 8,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then
@@ -69,7 +69,7 @@ AbilityRegistry[4] = {
 	Name = "TimeErase",
 	Type = "Press",
 	Hyperarmor = true,
-	Cooldown = 45,
+	Cooldown = 30,
 	EndlagCancel = true,
 
 	BypassGlobalCooldown = true,
@@ -90,7 +90,7 @@ AbilityRegistry[4] = {
 
 		-- cooldown check
 		local lastUse = lastTimeEraseUse[player] or 0
-		if now - lastUse < 45 then
+		if now - lastUse < 30 then
 			return
 		end
 
@@ -98,7 +98,7 @@ AbilityRegistry[4] = {
 		KingCarmine.TimeErase(standModel)
 
 		lastTimeEraseUse[player] = now
-		CooldownUpdateEvent:FireClient(player, 4, 45)
+		CooldownUpdateEvent:FireClient(player, 4, 30)
 	end,
 }
 

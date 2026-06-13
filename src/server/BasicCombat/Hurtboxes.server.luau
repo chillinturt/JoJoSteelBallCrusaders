@@ -1,6 +1,6 @@
 local Players = game:GetService("Players")
 
-local HURTBOX_SIZE = Vector3.new(4, 6, 4) -- Adjust size as needed
+local HURTBOX_SIZE = Vector3.new(3, 5, 3) -- Adjust size as needed
 
 -- Function to create a hurtbox
 local function createHurtbox(character)

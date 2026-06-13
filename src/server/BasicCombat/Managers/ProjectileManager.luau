@@ -7,6 +7,39 @@ local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
 local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
 
+local DEFAULT_HIT_VFX = {
+	effectName = "PunchImpact",
+	emitCount = 1,
+	offset = CFrame.new(),
+}
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
+local function SpawnHitVFX(targetChar, hitVFXData)
+	-- Explicitly disabled
+	if hitVFXData == false then
+		return
+	end
+
+	-- Use defaults if nil
+	hitVFXData = hitVFXData or DEFAULT_HIT_VFX
+
+	local hrp = targetChar:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+
+	SpawnClientVfx:FireAllClients({
+		type = "Particle",
+		effectName = hitVFXData.effectName or DEFAULT_HIT_VFX.effectName,
+
+		offset = hitVFXData.offset or DEFAULT_HIT_VFX.offset,
+		attachTo = hrp,
+
+		emitCount = hitVFXData.emitCount or DEFAULT_HIT_VFX.emitCount,
+	})
+end
+
 local RequestProjectileTarget = Instance.new("RemoteFunction")
 RequestProjectileTarget.Name = "RequestProjectileTarget"
 RequestProjectileTarget.Parent = ReplicatedStorage.Shared:WaitForChild("BasicCombat")
@@ -132,6 +165,8 @@ RunService.Heartbeat:Connect(function(dt)
 									p.applyStun(targetChar, p.stunDuration)
 									DamageNumberService.ShowDamage(targetChar, newDamage)
 								end
+
+								SpawnHitVFX(targetChar, p.HitVFX)
 							end
 						end
 					end

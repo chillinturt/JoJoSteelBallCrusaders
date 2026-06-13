@@ -22,10 +22,11 @@ local RequestCameraDirection = replicatedStorage.Shared.BasicCombat:FindFirstChi
 ---------------------------------------------------
 -- ENTER TANDEM MODE
 ---------------------------------------------------
-function TandemMode.EnterTandemMode(character, stand, followCamera, directionMethod, disableMovement)
+function TandemMode.EnterTandemMode(character, stand, followCamera, directionMethod, disableMovement, speed)
 	followCamera = followCamera or false -- ✅ default to false
 	directionMethod = directionMethod or "Raycast" -- default
 	disableMovement = disableMovement or false
+	speed = speed or TANDEM_SPEED
 
 	local canTandem = stand:FindFirstChild("CanTandemMode")
 	if not canTandem then
@@ -169,7 +170,7 @@ function TandemMode.EnterTandemMode(character, stand, followCamera, directionMet
 		---------------------------------------------------
 		-- Move targetCF
 		---------------------------------------------------
-		local speed = TANDEM_SPEED
+		local speed = speed
 		local moveDelta = direction * speed * dt
 
 		data.targetCF = data.targetCF + moveDelta

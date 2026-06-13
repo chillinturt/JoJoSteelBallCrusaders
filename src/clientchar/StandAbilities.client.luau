@@ -36,6 +36,7 @@ local Keybinds = {
 -- SEND ABILITY REQUEST TO SERVER
 -----------------------------------------------------------------------
 local function FireAbility(abilityId, state)
+	print("fire ability on client")
 	if not AbilitiesReady then
 		return
 	end
@@ -52,6 +53,8 @@ local function FireAbility(abilityId, state)
 		return
 	end
 
+	print("client test 1")
+
 	local didSucceed = result
 	local failReason = reason
 
@@ -66,6 +69,8 @@ local function FireAbility(abilityId, state)
 			end
 		end
 	end
+
+	print("client test 2")
 end
 
 -----------------------------------------------------------------------

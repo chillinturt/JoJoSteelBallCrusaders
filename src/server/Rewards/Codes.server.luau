@@ -34,7 +34,7 @@ local VALID_STAND_CODES = {
 	["KaiserQueen"] = true,
 	["NuclearRain"] = true,
 	["ThatHand"] = true,
-	["HeavyDoor"] = true,
+	["HeavensDoor"] = true,
 	["WhiteSake"] = true,
 	["TuskAct4"] = true,
 	["MagiciansRed"] = true,
@@ -42,6 +42,8 @@ local VALID_STAND_CODES = {
 	["Metallica"] = true,
 	["Cream"] = true,
 	["StoneFree"] = true,
+	["HermitPurple"] = true,
+	["StickyFingers"] = true,
 	-- add more here
 }
 
@@ -49,6 +51,7 @@ local VALID_STAND_CODES = {
 local VALID_SPECIALTY_CODES = {
 	["Vampirism"] = true,
 	["Hamon"] = true,
+	["FengShui"] = true,
 }
 
 local ITEM_CODES = {
@@ -76,6 +79,9 @@ local MODERATOR_LIST = {
 	[7150098622] = true, -- Vyl1t
 	[4155032061] = true, -- diego
 	[31053701] = true, -- DREpiclass
+	--[360433667] = true, -- airwalk2000 rando from hidden devs
+	[2252009119] = true, -- technodudeninja
+	[10947383896] = true, -- yummypoodle87
 }
 
 local function IsModerator(player)

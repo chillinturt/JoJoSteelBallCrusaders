@@ -1,6 +1,190 @@
 -- QuestDefinitions Module
 local QuestDefinitions = {}
 
+QuestDefinitions.DashTutorial = {
+	Name = "Learn to Dash",
+	Description = "Press SHIFT to Dash",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "SlideTutorial",
+
+	Dialog = {
+		Offer = {
+			"Movement is key in combat.",
+			"Press Shift to Dash.",
+		},
+	},
+}
+
+QuestDefinitions.SlideTutorial = {
+	Name = "Learn to Slide",
+	Description = "Hold CTRL to slide",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "BlockTutorial",
+
+	Dialog = {
+		Offer = {
+			"Movement is key in combat.",
+			"Press CTRL to SLIDE.",
+		},
+	},
+}
+
+QuestDefinitions.BlockTutorial = {
+	Name = "Learn to Block",
+	Description = "Hold F to Block",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "ShiftLockTutorial",
+
+	Dialog = {
+		Offer = {
+			"Movement is key in combat.",
+			"Press F to Block.",
+		},
+	},
+}
+
+QuestDefinitions.ShiftLockTutorial = {
+	Name = "Learn to ShiftLock",
+	Description = "Press Alt to ShiftLock",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "UseStandArrowTutorial",
+
+	Dialog = {
+		Offer = {
+			"Movement is key in combat.",
+			"Press F to Block.",
+		},
+	},
+}
+
+QuestDefinitions.UseStandArrowTutorial = {
+	Name = "Use Stand Arrow",
+	Description = "Open inventory and use the Stand Arrow",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "SummonStandTutorial",
+
+	Dialog = {
+		Offer = {
+			"Open your inventory and use the stand arrow.",
+		},
+	},
+}
+
+QuestDefinitions.SummonStandTutorial = {
+	Name = "Summon your Stand",
+	Description = "Press Q to summon your stand",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "StandBarrageTutorial",
+
+	Dialog = {
+		Offer = {
+			"Press Q to summon your stand.",
+		},
+	},
+}
+
+QuestDefinitions.StandBarrageTutorial = {
+	Name = "Barrage with your stand",
+	Description = "While you stand is summoned, Hold E to barrage",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "TalentTutorial",
+
+	Dialog = {
+		Offer = {
+			"While you stand is summoned, Hold E to barrage.",
+		},
+	},
+}
+
+QuestDefinitions.TalentTutorial = {
+	Name = "Spend talent points",
+	Description = "Open the menu in the bottom right and select Talents. Upgrade any talent from either of the 3 tabs.",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "DoubleJumpTutorial",
+
+	Dialog = {
+		Offer = {
+			"While you stand is summoned, Hold E to barrage.",
+		},
+	},
+}
+
+QuestDefinitions.DoubleJumpTutorial = {
+	Name = "Use double jump",
+	Description = "Press jump while in the air to double jump.",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = "WallJumpTutorial",
+
+	Dialog = {
+		Offer = {
+			"Press jump while in the air to double jump.",
+		},
+	},
+}
+
+QuestDefinitions.WallJumpTutorial = {
+	Name = "Use wall jump",
+	Description = "Press jump while in the air AND next to a wall to wall jump.",
+
+	Manual = true, -- 🔥 THIS is the key
+
+	Objectives = {}, -- No objectives needed
+
+	RewardXP = 25,
+	NextQuest = nil,
+
+	Dialog = {
+		Offer = {
+			"Press jump while in the air AND next to a wall to wall jump.",
+		},
+	},
+}
+
 ---------------------------------------------------------------------
 -- 1. TALK TO GIORNO (Quest 1)
 ---------------------------------------------------------------------
@@ -16,14 +200,13 @@ QuestDefinitions.TalkToGiorno1 = {
 	TurnInNpc = nil,
 	RewardItems = { "StandArrow" },
 	RewardCash = 100,
-	NextQuest = { "TalkToJotaro1" },
+	NextQuest = { "DefeatThugs1" },
 
 	Dialog = {
 		Offer = {
-			"I sense great potential within you.",
-			"I am Girono Giorvana and I have a dream to keep this city safe. Crime is running rampant and that's no coincidence.",
-			"Take this STAND ARROW. Open your INVENTORY to use it.",
-			"Go talk to Jotaro. He knows what needs to be done. (Hit SHIFT to DASH!)",
+			"I am Girono Giorvana and I have a dream to keep this city safe.",
+			"Crime is running rampant and even I can't stop it all. Will you help me?",
+			"My Stand Arrow is attracted to you, as if it senses your worthiness... Here, take it. Tust your best judgement...",
 		},
 
 		InProgress = {
@@ -32,8 +215,7 @@ QuestDefinitions.TalkToGiorno1 = {
 
 		TurnIn = nil, -- No turn-in NPC
 		Completed = {
-			"You’ve already spoken to me. Jotaro is waiting.",
-			"Hit Shift to dash! You'll get there faster that way.",
+			"You’ve already spoken to me. The mission is waiting.",
 		},
 	},
 }
@@ -49,32 +231,33 @@ QuestDefinitions.TalkToJotaro1 = {
 		{ Type = "Talk", Target = "Jotaro", Completed = false },
 	},
 
-	RewardXP = 150,
+	RewardXP = 20000,
 	RewardItems = { "Rokakaka" },
 	TurnInNpc = nil,
 
-	NextQuest = { "DefeatThugs1", "TalkToCrimeBoss" },
+	NextQuest = "DefeatDIO",
 
 	Dialog = {
 		Offer = {
-			"So, Giorno sent you? Good… we’ve got a problem on our hands.",
-			"The thugs we’ve seen around the city aren’t just random punks — someone is supplying them.",
-			"I have a strong suspicion it’s the RO Bank, but I need proof.",
-			"Head to the motor store and take out a few thugs. Then, interogate their boss to get the information we need.",
-			"(DASH with SHIFT and then hold CONTROL to SLIDE down this hill!)",
+			"So you made it this far...",
+			"DIO's not like the others. You already know that.",
+			"He'll keep coming until someone puts him down for good.",
+			"All that fighting you've done... it led you here.",
+			"Don't hold back. End this.",
 		},
-
 		InProgress = {
-			"The thugs at the motor store should have something on them… if my hunch is right.",
+			"Stay sharp.",
+			"DIO won't give you an opening twice.",
 		},
-
 		TurnIn = {
-			"The thugs at the motor store should have something on them… if my hunch is right.",
-			"Dash and then hold CTRL to slide down this hill!",
+			"...You actually did it.",
+			"DIO's finished.",
+			"...Good.",
+			"You did what had to be done.",
 		},
-
 		Completed = {
-			"You already spoke to me. Stay sharp.",
+			"You've freed us all from DIO's Vampiric influence. You truely are a reliable guy.",
+			"But DIO is still out there plotting his revenge. Take him out - leave no trace of him remaining.",
 		},
 	},
 }
@@ -97,7 +280,6 @@ QuestDefinitions.TalkToCrimeBoss = {
 	Dialog = {
 		Offer = {
 			"So you’re the one who’s been taking out my men… bold.",
-			"Yeah, we’re working with the RO Bank. They pay us, we cause chaos — simple business.",
 			"But if you’re here looking for a fight… you’re gonna get one.",
 			"My men are stand users! You'll never defeat them in a million years!",
 		},
@@ -123,7 +305,7 @@ QuestDefinitions.TalkToCrimeBoss = {
 QuestDefinitions.DefeatThugs1 = {
 	Name = "Stop the Thugs",
 	Description = "Defeat 5 thugs in the alley.",
-	NextQuest = "RobROBank",
+	NextQuest = "TalkToCrimeBoss",
 	RewardXP = 400,
 	RewardItems = { "StandArrow" },
 	RewardCash = 100,
@@ -132,11 +314,11 @@ QuestDefinitions.DefeatThugs1 = {
 		{ Type = "Defeat", Target = "Thug", Required = 5, Progress = 0, Completed = false },
 	},
 
-	TurnInNpc = "Jotaro",
+	TurnInNpc = "Giorno",
 
 	Dialog = {
 		Offer = {
-			"The thugs around the motor store have what we need — take down at least five.",
+			"These thugs — take down at least five.",
 		},
 
 		InProgress = {
@@ -144,15 +326,13 @@ QuestDefinitions.DefeatThugs1 = {
 		},
 
 		TurnIn = {
-			"That’s exactly what we needed. Nice work.",
-			"If we’re right about the RO Bank… there’s only one way to take them down.",
-			"Break into the vault. Take their source of power - their gold.",
-			"Smash the doors blocking your way.",
-			"I'm counting on you. You seem to be quite... reliable.",
+			"You’ve helped clean up the city. Good job.",
+			"Go Interogate the Thug's boss. Find his leader and go undercover. You'll do more good from within the gang.",
 		},
 
 		Completed = {
-			"You’ve already cleaned helped clean up the city. Good job.",
+			"You’ve helped clean up the city. Good job.",
+			"Go Interogate the Thug's boss. Find his leader and go undercover. You'll do more good from within the gang.",
 		},
 	},
 }
@@ -163,15 +343,13 @@ QuestDefinitions.DefeatThugs1 = {
 QuestDefinitions.DefeatCriminalStandUsers = {
 	Name = "Defeat Criminal Stand Users",
 
-	--Giver = "CrimeBoss",
-
 	Objectives = {
 		{ Type = "Defeat", Target = "CriminalStandUser", Required = 3, Progress = 0, Completed = false },
 	},
 
 	NextQuest = { "TalkToDioPB1" },
 
-	RewardXP = 1000,
+	RewardXP = 4000,
 	TurnInNpc = "CrimeBoss",
 
 	Dialog = {
@@ -200,16 +378,24 @@ QuestDefinitions.DefeatCriminalStandUsers = {
 ---------------------------------------------------------------------
 -- 6. ROB RO BANK (Quest 6)
 ---------------------------------------------------------------------
+--[[
 QuestDefinitions.RobROBank = {
 	Name = "Rob the RO Bank",
 
 	Giver = "Jotaro", -- or an NPC who instructs the robbery
 
 	Objectives = {
-		{ Type = "Interact", Target = "ROBankVault", Required = 1, Progress = 0, Completed = false },
+		{
+			Type = "Interact",
+			Target = "ROBankVault",
+			Required = 1,
+			Progress = 0,
+			Completed = false,
+			Text = "Steal the gold inside the vault",
+		},
 	},
 
-	RewardXP = 1000,
+	RewardXP = 3000,
 	RewardCash = 20000,
 	TurnInNpc = "Jotaro",
 	NextQuest = "TalkToSpeedwagon1",
@@ -237,6 +423,7 @@ QuestDefinitions.RobROBank = {
 		},
 	},
 }
+]]
 
 ---------------------------------------------------------------------
 -- 7. TALK TO DIOPB (Quest 7)
@@ -261,7 +448,7 @@ QuestDefinitions.TalkToDioPB1 = {
 			"So… you’ve crushed the Criminal Stand Users. Impressive.",
 			"But raw strength means nothing without true resolve.",
 			"If you wish to stand among the immortals… prove it.",
-			"Hunt these wakling vampires in this very room. Survive… and you may earn my respect.",
+			"Hunt these wakling vampires in this very room. I have no use for them. Survive… and you may earn my respect.",
 		},
 
 		InProgress = {
@@ -281,15 +468,13 @@ QuestDefinitions.DefeatVampires1 = {
 	Name = "Prove Yourself to Dio",
 	Description = "Defeat 3 vampires to prove your strength to DioPB.",
 
-	--Giver = "DioPB",
-
 	Objectives = {
 		{ Type = "Defeat", Target = "Vampire", Required = 3, Progress = 0, Completed = false },
 	},
 
 	RewardXP = 700,
 	RewardCash = 20000,
-	NextQuest = "CheckVampirismSpecialty",
+	NextQuest = "DefeatAvdol1",
 
 	TurnInNpc = "DioPB",
 	RewardItems = { "StoneMask" },
@@ -306,9 +491,8 @@ QuestDefinitions.DefeatVampires1 = {
 
 		TurnIn = {
 			"You survived… and triumphed.",
-			"Perhaps you truly are worthy of the path of the immortal.",
-			"Use this Stone Mask to become a Vampire!",
-			"Then, return to me and talk to the Vampire Lady to learn your true potential...",
+			"You're ready for the next stage of your initiation. Go talk to my loyal servant Avdol.",
+			"He has sworn fealty to me, a completely loyal servant. You can learn much from him...",
 		},
 
 		Completed = {
@@ -335,10 +519,10 @@ QuestDefinitions.CheckVampirismSpecialty = {
 		},
 	},
 
-	RewardXP = 1000,
+	RewardXP = 10000,
 	RewardItems = {},
 	TurnInNpc = "DioPB",
-	NextQuest = { "DefeatAvdol1" },
+	NextQuest = nil,
 
 	Dialog = {
 		Offer = {
@@ -368,8 +552,8 @@ QuestDefinitions.DefeatPlayers1 = {
 		{ Type = "Defeat", Target = "Player", Required = 3, Progress = 0, Completed = false },
 	},
 
-	RewardXP = 500,
-	RewardCash = 500,
+	RewardXP = 100000,
+	RewardCash = 1000,
 	NextQuest = nil,
 
 	TurnInNpc = nil,
@@ -400,22 +584,21 @@ QuestDefinitions.DefeatPlayers1 = {
 QuestDefinitions.TalkToSpeedwagon1 = {
 	Name = "Talk to Speedwagon",
 	Description = "Find Speedwagon and speak with him.",
-	Giver = "Speedwagon",
 	Objectives = {
 		{ Type = "Talk", Target = "Speedwagon", Completed = false },
 	},
-	RewardXP = 600,
+	RewardXP = 6000,
 	TurnInNpc = "Speedwagon", -- Talking to him completes the quest
 	RewardItems = {},
 	RewardCash = 150,
-	NextQuest = "CheckHamonSpecialty1", -- Or set to your next quest when ready
+	NextQuest = "DefeatVampires2", -- Or set to your next quest when ready
 	Dialog = {
 		Offer = {
-			"Oi, you there! I saw ya takin' down those blokes from a mile away!",
+			"Oi, you there! I saw ya infultrate DIO's gang and free my allies from a mile away!",
 			"Name's Robert E. O. Speedwagon – ex-thug turned Joestar ally.",
-			"You've got the fire of a proper fighter. Joestars could use someone like you.",
-			"Stick around, chap. I've got the lowdown on vampires and worse lurkin' about.",
-			"You'll need the ripple to defeat them! Talk to Baron Zeppeli to optain Hamon!",
+			"You've got the fire of a proper fighter. The Joestars and I are glad to have someone like you on our side.",
+			"Now it's time to turn the tables, chap. I've got the lowdown on vampires and worse lurkin' about.",
+			"Defeat them and soon we'll bring DIO to justice once and for all!",
 		},
 		InProgress = {
 			"We're chattin' now, ain't we? Keep yer eyes peeled!",
@@ -440,7 +623,7 @@ QuestDefinitions.CheckHamonSpecialty1 = {
 			Completed = false,
 		},
 	},
-	RewardXP = 1500,
+	RewardXP = 4000,
 	RewardCash = 300,
 	TurnInNpc = "Speedwagon",
 	NextQuest = { "DefeatVampires2" },
@@ -450,7 +633,7 @@ QuestDefinitions.CheckHamonSpecialty1 = {
 			"Return when the ripple courses through your veins.",
 		},
 		InProgress = {
-			"Your Hamon is not yet awakened. Focus and try again.",
+			"Talk to Baron Zeppeli to learn the breathing technique.",
 		},
 		TurnIn = {
 			"Yes! The ripple is strong in you now.",
@@ -466,11 +649,10 @@ QuestDefinitions.CheckHamonSpecialty1 = {
 QuestDefinitions.DefeatVampires2 = {
 	Name = "Prove Your Resolve",
 	Description = "Defeat 5 Vampires lurking near the training grounds to show Baron Zeppeli your determination.",
-	Giver = "Speedwagon",
 	Objectives = {
-		{ Type = "Defeat", Target = "Vampire", Required = 5, Progress = 0, Completed = false },
+		{ Type = "Defeat", Target = "EliteVampire", Required = 5, Progress = 0, Completed = false },
 	},
-	RewardXP = 3500,
+	RewardXP = 5000,
 	RewardCash = 200,
 	TurnInNpc = "Speedwagon",
 	NextQuest = "DefeatKiraYoshikage1",
@@ -508,7 +690,7 @@ QuestDefinitions.DefeatKiraYoshikage1 = {
 	Objectives = {
 		{ Type = "Defeat", Target = "KiraYoshikage", Required = 1, Progress = 0, Completed = false },
 	},
-	RewardXP = 7000,
+	RewardXP = 22000,
 	RewardCash = 600,
 	RewardItems = { "PurpleRokakaka" },
 	TurnInNpc = "Speedwagon",
@@ -548,7 +730,7 @@ QuestDefinitions.DefeatDiavolo1 = {
 	Objectives = {
 		{ Type = "Defeat", Target = "Diavolo", Required = 1, Progress = 0, Completed = false },
 	},
-	RewardXP = 20000,
+	RewardXP = 35000,
 	RewardCash = 900,
 	RewardItems = { "StandArrow", "PurpleRokakaka" },
 	TurnInNpc = "Speedwagon", -- no longer auto completes
@@ -583,21 +765,20 @@ QuestDefinitions.DefeatDiavolo1 = {
 QuestDefinitions.TalkToEmporio1 = {
 	Name = "Talk to Emporio",
 	Description = "Find Emporio and speak with him.",
-	Giver = "Emporio",
 	Objectives = {
 		{ Type = "Talk", Target = "Emporio", Completed = false },
 	},
-	RewardXP = 10000,
+	RewardXP = 12000,
 	TurnInNpc = nil, -- Auto-completes on talk
 	RewardItems = {},
 	RewardCash = 150,
 	NextQuest = "DefeatEscapedConvicts1", -- Leads to defeating convicts
 	Dialog = {
 		Offer = {
-			"H-Hi... I'm Emporio. Please, you have to help!",
-			"Jolyne-san is locked up in prison... but these escaped convicts are everywhere!",
-			"They're too dangerous. We can't break her out until the area is clear.",
-			"Please defeat 8 of them first. I'll be hiding nearby!",
+			"H-Hi... I'm Emporio. Thank you for freeing the Joestars and their allies. Perhaps it's not too late to defeat DIO afterall!",
+			"Dangerous criminals have escaped the prison... these escaped convicts are everywhere!",
+			"They're too dangerous. To let run free, but these corrupt cops won't do anything to stop it!",
+			"Please defeat 8 of the convicts. I'll be hiding nearby!",
 		},
 		InProgress = {
 			"This never triggers",
@@ -605,8 +786,7 @@ QuestDefinitions.TalkToEmporio1 = {
 		TurnIn = nil,
 		Completed = {
 			"Thank you for listening... Now go stop those convicts!",
-			"Jolyne-san's counting on us!",
-			"(Convicts quest will release soon)",
+			"Jolyne-san and the others are counting on us!",
 		},
 	},
 }
@@ -617,20 +797,19 @@ QuestDefinitions.TalkToEmporio1 = {
 QuestDefinitions.DefeatEscapedConvicts1 = {
 	Name = "Clear the Escaped Convicts",
 	Description = "Defeat 8 escaped convicts to secure the area for Jolyne's breakout.",
-	Giver = "Emporio",
 	Objectives = {
 		{ Type = "Defeat", Target = "EscapedConvict", Required = 8, Progress = 0, Completed = false },
 	},
-	RewardXP = 15000,
+	RewardXP = 37000,
 	RewardCash = 400,
 	TurnInNpc = "Emporio",
-	NextQuest = "TalkToWarden1", -- End of this segment or link to Jolyne breakout quest later
+	NextQuest = "TalkToJotaro1", -- End of this segment or link to Jolyne breakout quest later
 	Dialog = {
 		Offer = {
 			"The convicts are strong... and they're not thinking straight.",
 			"They broke out during the chaos—now the whole yard is dangerous.",
 			"If we try to move like this, we'll get caught for sure.",
-			"Can you defeat 8 of them? Then we’ll have a clear path to Jolyne-san.",
+			"Can you defeat 8 of them? Then we'll be one step closer to keeping this city safe.",
 		},
 
 		InProgress = {
@@ -643,18 +822,57 @@ QuestDefinitions.DefeatEscapedConvicts1 = {
 			"You’re back...! Did you handle them?",
 			"...You did?! I knew I could count on you!",
 			"The area feels a lot safer now… we can finally move without drawing attention.",
-			"This is our chance. Jolyne-san is waiting.",
+			"Thank you for all the good work. By the way, Jotaro wanted to talk to you. It sounds serious.",
+			"Go meet with him now - he's got a job for you.",
 		},
 
 		Completed = {
 			"You got them all! The path is clear now.",
-			"Thank you... Jolyne-san will be so happy.",
-			"We're one step closer to breaking her out.",
-			"Let’s not waste any time.",
+			"Thank you... People will be able to walk the streets safely thanks to you.",
 		},
 	},
 }
 
+QuestDefinitions.DefeatDIO = {
+	Name = "End DIO's Reign",
+	Description = "Face DIO and put an end to his tyranny once and for all. The fate of the world rests on this final battle.",
+	Objectives = {
+		{ Type = "Defeat", Target = "DIO", Required = 1, Progress = 0, Completed = false },
+	},
+	RewardXP = 100000,
+	RewardCash = 25000,
+	RewardItems = "PurpleRokakaka",
+
+	TurnInNpc = "Jotaro",
+
+	NextQuest = nil, -- Final quest in the arc
+
+	Dialog = {
+		Offer = {
+			"You freed us all from DIO's vampiric influence. You truely are a reliable guy.",
+			"DIO's not like the others. You already know that.",
+			"He'll keep coming until someone puts him down for good.",
+			"All that fighting you've done... it led you here.",
+			"Don't hold back. End this.",
+		},
+		InProgress = {
+			"Stay sharp.",
+			"DIO won't give you an opening twice.",
+		},
+		TurnIn = {
+			"...You actually did it.",
+			"DIO's finished.",
+			"...Good.",
+			"You did what had to be done.",
+		},
+		Completed = {
+			"It's over.",
+			"DIO's gone. That's all that matters.",
+		},
+	},
+}
+
+--[[
 QuestDefinitions.TalkToWarden1 = {
 	Name = "Talk to the Warden",
 	Description = "Speak with the Warden to advance Jolyne's breakout plan.",
@@ -686,6 +904,7 @@ QuestDefinitions.TalkToWarden1 = {
 		},
 	},
 }
+]]
 
 --beginning of new quests:
 QuestDefinitions.DefeatAvdol1 = {
@@ -701,23 +920,25 @@ QuestDefinitions.DefeatAvdol1 = {
 	NextQuest = "TalkToPucci1", -- End of branch or link to more later (e.g., "TalkToJoseph1")
 	Dialog = {
 		Offer = {
-			"Hmph... So you think yourself worthy of standing beside me?",
-			"Avdol, that pathetic fortune teller, dares to oppose my will with his Magician's Red.",
-			"His flames are nothing but a flickering candle before my power.",
-			"Prove to me that you are not mere fodder. Do not disappoint me... or face my wrath.",
+			"You stand before me seeking purpose... and I may grant it.",
+			"Avdol now serves under my will, his mind bound and his flames bent to me.",
+			"Go to him. Observe him. Ensure that his loyalty remains... absolute.",
+			"A servant who exists under my control has no room for doubt. Remember that.",
 		},
 		InProgress = {
-			"Avdol's flames burn hot, but they are weak compared to a true vampire's might.",
-			"Extinguish his fire and return to me victorious.",
+			"Avdol is mine. His will, his power, his very soul.",
+			"See that nothing disturbs that truth.",
 		},
 		TurnIn = {
-			"Well... it seems you are not completely useless after all.",
-			"Avdol has fallen. His flames have been quenched by your hand.",
-			"You have taken another step toward true power.",
+			"You have returned.",
+			"I trust Avdol carried out his role without issue. Of course... he would not dare fail me.",
+			"You have done well to confirm what I already knew.",
+			"Now, there is another I wish you to meet—Enrico Pucci.",
+			"He is far more... enlightened than the others. Speak with him, and continue your service to me.",
 		},
 		Completed = {
-			"Avdol has already been defeated.",
-			"Do not waste my time with trivialities.",
+			"Why do you linger?",
+			"Enrico Pucci awaits you. Do not test my patience.",
 		},
 	},
 }
@@ -728,7 +949,6 @@ QuestDefinitions.DefeatAvdol1 = {
 QuestDefinitions.TalkToPucci1 = {
 	Name = "Talk to Pucci",
 	Description = "Find Pucci and speak with him about the path to Heaven.",
-	Giver = "Pucci",
 	Objectives = {
 		{ Type = "Talk", Target = "Pucci", Completed = false },
 	},
@@ -738,19 +958,26 @@ QuestDefinitions.TalkToPucci1 = {
 	NextQuest = "DefeatHamonUsers1",
 	Dialog = {
 		Offer = {
-			"You... I sense the will of my lord Dio within you.",
-			"I am Enrico Pucci, priest of the new world – the world of Heaven.",
-			"To ascend, all obstacles must be crushed. Jotaro Kujo and his allies stand in our way.",
-			"Seek them out and defeat them. Prove your devotion to the plan.",
-			"His Star Platinum will test you... but Heaven awaits the worthy.",
+			"So... you are the one Lord Dio has taken interest in.",
+			"I am Enrico Pucci. I walk the path toward Heaven alongside him.",
+			"There are those who cling to the light... practitioners of Hamon.",
+			"They believe their sunlight-born power can oppose destiny itself.",
+			"In truth, they are merely remnants of a fading era.",
+			"Seek them out. Erase them. Let their final breaths affirm your devotion to Dio's will.",
 		},
 		InProgress = {
-			"This never triggers",
+			"The light of Hamon is fleeting.",
+			"Only those who embrace darkness will witness Heaven.",
 		},
-		TurnIn = "Pucci",
+		TurnIn = {
+			"I can feel it... the disturbance has quieted.",
+			"The Hamon users have been silenced, just as fate intended.",
+			"You act without hesitation. That is... reassuring.",
+			"Continue down this path, and you may yet glimpse Heaven itself.",
+		},
 		Completed = {
-			"Our paths align. Jotaro must fall for Heaven to rise.",
-			"Find him near Old Town Road. Do not fail.",
+			"Our path is absolute.",
+			"Return to Lord Dio when you are ready to proceed further.",
 		},
 	},
 }
@@ -761,32 +988,31 @@ QuestDefinitions.TalkToPucci1 = {
 QuestDefinitions.DefeatHamonUsers1 = {
 	Name = "Purge the Hamon Users",
 	Description = "Defeat 3 Hamon users to eliminate threats to the Heaven plan.",
-	Giver = "Pucci",
 	Objectives = {
 		{ Type = "Defeat", Target = "HamonUser", Required = 3, Progress = 0, Completed = false },
 	},
-	RewardXP = 3000,
+	RewardXP = 12000,
 	RewardCash = 800,
 	RewardItems = { "Rokakaka" }, -- Unique JoJo-themed item
 	TurnInNpc = "Pucci", -- Auto-completes on defeat
 	NextQuest = "DefeatRohanKishibe1", -- Leads directly into the next quest
 	Dialog = {
 		Offer = {
-			"The ripple of Hamon is a vile force that once opposed Lord Dio.",
-			"These Hamon users still lurk, clinging to their outdated breathing techniques.",
-			"Hunt down and defeat three of them. Leave no trace of their light.",
-			"Their energy will be extinguished before Heaven's gravity.",
-			"Go now. Mercy is for the weak.",
+			"There is a powerful clan of Hamon users who I wish for you to defeat.",
+			"Do NOT train with them and learn their ways. However tempting their power may seem, it lies in the way of Lord DIO's plan.",
+			"Remove them from the picutre, leaving no obstacle in our path.",
 		},
 		InProgress = {
-			"Their Hamon surges like sunlight. Crush it beneath your will!",
-			"Two more remain... Do not falter.",
+			"This hamon clan is no laughing matter. They once nearly defeated Lord DIO himself.",
+			"Without the ripple, the Joestars and their allies are reduced in power significantly.",
+			"See that this truth remains intact.",
 		},
 		-- No TurnIn dialog (auto-complete)
 		Completed = {
-			"The Hamon users have been silenced... Well done.",
-			"Their light fades, making way for true destiny.",
-			"A new challenge awaits. Seek out the one called Rohan Kishibe.",
+			"Good, the Hamon clan is defeated.",
+			"All who oppose Lord Dio's influence will serve their role in the path to Heaven.",
+			"You have done well to witness this for yourself.",
+			"Continue forward. Destiny is already guiding your steps.",
 		},
 	},
 }
@@ -800,31 +1026,40 @@ QuestDefinitions.DefeatRohanKishibe1 = {
 	Objectives = {
 		{ Type = "Defeat", Target = "RohanKishibe", Required = 1, Progress = 0, Completed = false },
 	},
-	RewardXP = 3000,
+	RewardXP = 15000,
 	RewardCash = 1000,
 	RewardItems = nil, -- Unique collectible item
 	TurnInNpc = "Pucci", -- Auto-completes on defeat
 	NextQuest = "DefeatKakyoin1", -- End of this mini-branch or link to more later
 	Dialog = {
 		Offer = {
-			"Rohan Kishibe possesses Heaven's Door – a Stand that can rewrite reality itself.",
-			"He is a wild card who pries into matters he should not.",
-			"Find him and defeat him utterly.",
-			"Do not let him open his book on you. End him swiftly.",
+			"You return... and I can sense your resolve has deepened.",
+			"The path to Heaven demands more than strength—it requires understanding of those who stand before us.",
+			"There is a man I wish for you to meet... Rohan Kishibe.",
+			"A curious individual. His mind has already been brought under Lord Dio's influence.",
+			"Go to him. Observe him closely, and ensure his devotion remains... undisturbed.",
+			"Those touched by Dio's will must never stray from their purpose.",
 		},
 		InProgress = {
-			"Heaven's Door reveals all secrets. Do not let him read you!",
-			"Strike fast – his pen is mightier than most swords.",
+			"Rohan Kishibe is not like the others.",
+			"Even so, a soul bound to Dio cannot escape its fate.",
+			"See that this truth remains intact.",
 		},
 		TurnIn = {
-			"Excellent... Rohan Kishibe has been silenced.",
-			"No more will his Stand rewrite the pages of fate.",
-			"You have removed another obstacle standing in the way of Heaven.",
-			"Your devotion serves the greater plan well.",
+			"You have returned.",
+			"I trust Rohan remains aligned with Lord Dio's will.",
+			"Good... everything proceeds exactly as it must.",
+			"You continue to prove yourself reliable.",
+			"Remain on this path, and you will come ever closer to understanding Heaven.",
+			"Now, I'd like you to meet a man by the name of Kakyoin Noriaki... Seek him out and train alongside him.",
 		},
 		Completed = {
-			"Rohan has already been defeated.",
-			"His stories are over. Heaven draws ever closer.",
+			"You have returned.",
+			"I trust Rohan remains aligned with Lord Dio's will.",
+			"Good... everything proceeds exactly as it must.",
+			"You continue to prove yourself reliable.",
+			"Remain on this path, and you will come ever closer to understanding Heaven.",
+			"Now, I'd like you to meet a man by the name of Kakyoin Noriaki... Seek him out and train alongside him.",
 		},
 	},
 }
@@ -835,30 +1070,36 @@ QuestDefinitions.DefeatKakyoin1 = {
 	Objectives = {
 		{ Type = "Defeat", Target = "KakyoinNoriaki", Required = 1, Progress = 0, Completed = false },
 	},
-	RewardXP = 5000,
+	RewardXP = 13000,
 	RewardCash = 500,
 	RewardItems = nil, -- Unique collectible item
 	TurnInNpc = "Pucci", -- Auto-completes on defeat
 	NextQuest = "DefeatOkuyasu1", -- End of this mini-branch or link to more later
 	Dialog = {
 		Offer = {
-			"Kakyoin Noriaki... that loyal dog who once served Jotaro.",
-			"His Hierophant Green is a versatile long-range Stand with deadly precision.",
-			"He still clings to the old bonds of friendship. Such weakness.",
-			"Find him and crush him. Leave no trace of his emerald splash.",
+			"You continue to walk this path without hesitation... good.",
+			"There is another servant of Lord Dio I wish for you to meet—Noriaki Kakyoin.",
+			"His Stand is precise, calculated... a reflection of his mind.",
+			"He, too, has been guided under Dio's will.",
+			"Go to him. Observe his state, and ensure his loyalty remains unwavering.",
+			"A servant must never drift from the gravity of Heaven.",
+			"You continue to act in accordance with Lord Dio's will... admirable.",
 		},
 		InProgress = {
-			"Hierophant Green can attack from a distance. Stay alert and close the gap.",
-			"Do not underestimate him — finish the job quickly.",
+			"Kakyoin's resolve should be absolute.",
+			"A will bound to Dio does not falter.",
+			"See that nothing has... changed.",
 		},
 		TurnIn = {
-			"Well done. Kakyoin has fallen.",
-			"One more thread of Jotaro's past has been severed.",
-			"Continue proving your worth to the cause of Heaven.",
+			"You have returned.",
+			"I trust Kakyoin remains as he should be—devoted, unquestioning.",
+			"Good... everything continues to align with fate.",
+			"You carry out your role with consistency. That is... valuable.",
+			"Ensure that our friend Okuyasu remains on the righteous path as well.",
 		},
 		Completed = {
-			"Kakyoin has already been defeated.",
-			"Your service to the greater plan is remembered.",
+			"Kakyoin has already been accounted for.",
+			"Do not lose focus. Our path cannot be delayed.",
 		},
 	},
 }
@@ -869,27 +1110,28 @@ QuestDefinitions.DefeatOkuyasu1 = {
 	Objectives = {
 		{ Type = "Defeat", Target = "OkuyasuNijimura", Required = 1, Progress = 0, Completed = false },
 	},
-	RewardXP = 5000,
+	RewardXP = 14000,
 	RewardCash = 500,
 	RewardItems = { "StandArrow" }, -- Unique collectible item
 	TurnInNpc = "Pucci", -- Auto-completes on defeat
 	NextQuest = "DefeatJotaro1", -- End of this mini-branch or link to more later
 	Dialog = {
 		Offer = {
-			"Okuyasu Nijimura... a simple-minded fool with terrifying power.",
-			"His Stand, The Hand, can erase anything it touches — space itself vanishes before it.",
-			"He and his friend Josuke continue to interfere with our plans.",
-			"Find him and defeat him. Do not allow his erasure to touch you.",
+			"There is another I wish for you to meet—Okuyasu Nijimura.",
+			"His power is... crude, yet undeniably destructive.",
+			"He has been brought under Dio's influence, his strength now serving a higher purpose.",
+			"Go to him. Observe his condition, and ensure his loyalty remains intact.",
+			"Even the simplest mind must not stray once it has been bound to destiny.",
 		},
 		InProgress = {
-			"Be extremely careful. One wrong move and The Hand will erase you from existence.",
-			"Strike decisively before he can use his ability.",
+			"Okuyasu's power is absolute when guided.",
+			"A servant of Dio does not question—he obeys.",
+			"See that his path remains unchanged.",
 		},
 		TurnIn = {
-			"Well done. Okuyasu has been eliminated.",
-			"Another piece of Josuke's little gang has been removed.",
-			"With every fallen ally, Jotaro grows more isolated.",
+			"Welcome back my ally. I trust that Okuyasu is still in line.",
 			"You continue to serve the path to Heaven faithfully.",
+			"Now, the pawn lord DIO values the most... Jotaro Kujo. Go to him and your training will be complete.",
 		},
 		Completed = {
 			"Okuyasu has already been dealt with.",
@@ -914,26 +1156,28 @@ QuestDefinitions.DefeatJotaro1 = {
 	NextQuest = "TalkToFunnyValentine1", -- End of this branch or link to more (e.g., "TalkToDio1")
 	Dialog = {
 		Offer = {
-			"Jotaro Kujo... the man who once stopped Lord Dio.",
-			"His Stand, Star Platinum, possesses immense strength and can stop time itself.",
-			"He is the greatest obstacle remaining from the old world.",
-			"Find him and crush him utterly. Ora ora will not save him this time.",
-			"Strike without mercy. Heaven demands his end.",
+			"At last... we come to one of great importance.",
+			"Jotaro Kujo—the one who once opposed Lord Dio—now stands beneath his will.",
+			"Such a powerful soul, bent to a greater purpose... it is almost poetic.",
+			"You will go to him.",
+			"Observe him carefully, and ensure his loyalty remains absolute.",
+			"A being of his strength must never be allowed to stray, even for a moment.",
 		},
 		InProgress = {
-			"Star Platinum's power is overwhelming. Endure his barrage and counter with everything you have.",
-			"Do not falter — the fate of Heaven rests on this victory.",
+			"Jotaro Kujo's will was once unbreakable.",
+			"Now, it exists only to serve.",
+			"See that this truth has not changed.",
 		},
 		TurnIn = {
-			"At last... Jotaro Kujo has fallen.",
-			"The final thread connecting the old Joestar bloodline has been severed.",
-			"You have done what even Dio could not fully accomplish.",
-			"Your service brings us one step closer to the birth of a new Heaven.",
-			"Well done, my faithful servant.",
+			"You have returned.",
+			"I trust Jotaro remains bound, his power fully aligned with Lord Dio's will.",
+			"Good... then even the strongest of the old world has accepted his place.",
+			"You have done well to confirm this.",
+			"There are still matters that require your attention. Seek out my associate—he will guide you further.",
 		},
 		Completed = {
-			"Jotaro has already been defeated.",
-			"The path to Heaven is clearer thanks to your efforts.",
+			"Jotaro Kujo has already been accounted for.",
+			"Do not linger. Our path toward Heaven continues.",
 		},
 	},
 }
@@ -965,8 +1209,8 @@ QuestDefinitions.TalkToFunnyValentine1 = {
 		},
 		TurnIn = nil,
 		Completed = {
-			"Your patriotism is noted.",
-			"The flag waves for those who act. Return when you are ready for greater duty.",
+			"So you are DIO's new acolyte? I hope you are a fellow patriot.",
+			"Yes? Very good. DIO has recently captured a new assistant whom you have yet to meet. Further your training and seek him out.",
 			"Do not waver. America will be first... always.",
 		},
 	},
@@ -978,29 +1222,41 @@ QuestDefinitions.DefeatGiorno1 = {
 	Objectives = {
 		{ Type = "Defeat", Target = "Giorno", Required = 1, Progress = 0, Completed = false },
 	},
-	RewardXP = 15000,
+	RewardXP = 18000,
 	RewardCash = 10000,
 	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
 	TurnInNpc = "FunnyValentine", -- Auto-completes on defeat
-	NextQuest = "FindFreddy1", -- End of this branch or link to more (e.g., "TalkToDio1")
+	NextQuest = "DefeatPolice1", -- End of this branch or link to more (e.g., "TalkToDio1")
 	Dialog = {
 		Offer = {
-			"Giorno Giovanna... Dio's son, wielder of Gold Experience.",
-			"He stands in our way, but he is a good kid. His life-giving power means nothing before true destiny.",
-			"Strike him down, but do not eliminate him. He may be of use later.",
+			"You stand before the President of the United States... Funny Valentine.",
+			"I act not for personal gain, but for the absolute prosperity of this nation.",
+			"There are individuals who now stand under Lord Dio's influence—key assets in the unfolding order.",
+			"One in particular is called Giorno Giovanna.",
+			"A young man of unusual potential... now aligned with forces beyond his understanding.",
+			"Go to him. Observe his condition, and ensure his alignment with this greater direction.",
+			"Every piece must remain in its rightful place for the good of America... and the world.",
 		},
 		InProgress = {
-			"Giorno's Requiem resets reality itself. Endure and impose Heaven's order!",
+			"Giorno Giovanna is no ordinary individual.",
+			"Even so, he now serves a purpose greater than himself.",
+			"Confirm that this remains true.",
 		},
-		-- No TurnIn dialog (auto-complete)
+		TurnIn = {
+			"You have returned.",
+			"So Giorno continues to move as expected under Lord Dio's influence... good.",
+			"Everything proceeds according to a larger design.",
+			"You have proven yourself capable of handling matters of national importance.",
+			"Continue forward. There are greater alignments yet to be secured.",
+		},
 		Completed = {
-			"Giorno has been defeated... Excellent.",
-			"You are one step closer to the ultimate destiny.",
-			"Return if you seek further enlightenment.",
+			"Giorno Giovanna has already been accounted for.",
+			"America's path remains unchanged. Stay the course.",
 		},
 	},
 }
 
+--[[
 QuestDefinitions.FindFreddy1 = {
 	Name = "Find Freddy",
 	Giver = "FunnyValentine",
@@ -1032,6 +1288,7 @@ QuestDefinitions.FindFreddy1 = {
 	},
 }
 
+
 QuestDefinitions.ValentinesGold1 = {
 	Name = "Valentine's Gold",
 	Giver = "FunnyValentine",
@@ -1062,19 +1319,19 @@ QuestDefinitions.ValentinesGold1 = {
 		},
 	},
 }
+]]
 
 QuestDefinitions.DefeatPolice1 = {
 	Name = "Purge the Corrupt Cops",
 	Description = "Defeat 8 Corrupt Cops in Shanty Town to eliminate threats after recovering the gold.",
-	Giver = "FunnyValentine",
 	Objectives = {
 		{ Type = "Defeat", Target = "CorruptCop", Required = 8, Progress = 0, Completed = false },
 	},
-	RewardXP = 17000,
+	RewardXP = 35000,
 	RewardCash = 800,
 	RewardItems = { "PurpleRokakaka" }, -- Unique JoJo-themed item
 	TurnInNpc = "FunnyValentine",
-	NextQuest = "TalkToPucci2", -- End of chain or link to next
+	NextQuest = "TalkToSpeedwagon1", -- End of chain or link to next
 	Dialog = {
 		Offer = {
 			"These Shanty Town police... corrupt dogs of a false justice.",
@@ -1097,10 +1354,10 @@ QuestDefinitions.DefeatPolice1 = {
 	},
 }
 
+--[[
 QuestDefinitions.TalkToPucci2 = {
 	Name = "Talk to Pucci",
 	Description = "Find Pucci and speak with him about the path to Heaven.",
-	Giver = "Pucci",
 	Objectives = {
 		{ Type = "Talk", Target = "Pucci2", Completed = false },
 	},
@@ -1127,17 +1384,18 @@ QuestDefinitions.TalkToPucci2 = {
 		},
 	},
 }
+]]
 
 --end of new quests
 QuestDefinitions.DefeatThugsRepeatable = {
 	Name = "Stop the Thugs",
-	Description = "Defeat 5 thugs at the Motor Store.",
+	Description = "Defeat 5 thugs",
 
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Josuke",
 	RewardCash = 1500,
-	RewardXP = 300,
+	RewardXP = 6000,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Thug", Required = 5, Progress = 0, Completed = false },
@@ -1172,7 +1430,7 @@ QuestDefinitions.DefeatCriminalsStandUsersRepeatable = {
 
 	Giver = "Kakyoin",
 	RewardCash = 1500,
-	RewardXP = 200,
+	RewardXP = 8000,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "CriminalStandUser", Required = 3, Progress = 0, Completed = false },
@@ -1207,7 +1465,7 @@ QuestDefinitions.DefeatVampiresRepeatable = {
 
 	Giver = "Caesar",
 	RewardCash = 300,
-	RewardXP = 2000,
+	RewardXP = 40000,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Vampire", Required = 3, Progress = 0, Completed = false },
@@ -1242,7 +1500,7 @@ QuestDefinitions.DefeatHamonUsersRepeatable = {
 
 	Giver = "Esidisi",
 	RewardCash = 5000,
-	RewardXP = 3000,
+	RewardXP = 60000,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "HamonUser", Required = 3, Progress = 0, Completed = false },
@@ -1267,6 +1525,43 @@ QuestDefinitions.DefeatHamonUsersRepeatable = {
 
 		Completed = {
 			"Ready for more work?",
+		},
+	},
+}
+
+--new islands quests
+
+QuestDefinitions.DefeatBanditsRepeatable = {
+	Name = "Stop the Bandit",
+	Description = "Defeat 5 Bandits",
+
+	Repeatable = true, -- 🔹 NEW
+
+	Giver = "Josuke2",
+	RewardCash = 1500,
+	RewardXP = 2000,
+
+	Objectives = {
+		{ Type = "Defeat", Target = "Bandit", Required = 5, Progress = 0, Completed = false },
+	},
+
+	--TurnInNpc = "Josuke",
+
+	Dialog = {
+		Offer = {
+			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
+		},
+
+		InProgress = {
+			"Keep going. Take out a few more Bandits.",
+		},
+
+		TurnIn = {
+			"Nice work. Let’s keep the island clean.",
+		},
+
+		Completed = {
+			"Ready for more work? These Bandits always come back!",
 		},
 	},
 }

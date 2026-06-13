@@ -26,7 +26,7 @@ local ERASE_ANIM_ID = 90498591949232
 local EAGLESTRIKE_DAMAGE = 20
 local EAGLESTRIKE_SIZE = Vector3.new(4, 4, 7)
 local EAGLESTRIKE_OFFSET = Vector3.new(0, 4, -2)
-local EAGLESTRIKE_STUN = 1.5
+local EAGLESTRIKE_STUN = 1.2
 local EAGLESTRIKE_SPEED = 170
 local EAGLESTRIKE_REDIRECT_SPEED = 220
 local EAGLESTRIKE_ENDLAG = 0.5
@@ -42,11 +42,13 @@ local TREEOFLIFE_SEED_SIZE = Vector3.new(5, 5, 5)
 local TREEOFLIFE_SEED_SPEED = 100
 local TREEOFLIFE_SEED_GRAVITY = -workspace.Gravity * 0.8
 local TREEOFLIFE_SEED_DURATION = 5
-local TREEOFLIFE_SEED_STUN = 1.5
+local TREEOFLIFE_SEED_STUN = 1
+local TREEOFLIFE_SEED_ENDLAG = 0.5
 
 local TRAP_RADIUS = 28
 local TRAP_DURATION = 6
 local TRAP_PULL_FORCE = 18000
+local TRAP_ENDLAG = 0.5
 
 local DEAD_ZONE_RADIUS = 3
 local MAX_PULL_SPEED = 40
@@ -275,6 +277,8 @@ function GoldExperiment.TreeOfLife(character)
 		return false
 	end
 
+	CombatUtils.SetActionInProgress(character, TREEOFLIFE_SEED_ENDLAG)
+
 	-- this will elp determiune the direction of the projectile
 	local direction
 	local startPos = hrp.Position + Vector3.new(0, 4, 0)
@@ -385,6 +389,10 @@ function GoldExperiment.TreeOfLife(character)
 						Rotation = horizontalDirection, -- ensures horizontal facing of projectile
 						Heal = TREEOFLIFE_HEAL,
 						CanSelfHit = true,
+
+						StatScaling = {
+							Power = 0.3,
+						},
 					})
 
 					-- Wait until next pulse
@@ -541,6 +549,8 @@ function GoldExperiment.CarnivorousTrap(character)
 	if not hrp then
 		return false
 	end
+
+	CombatUtils.SetActionInProgress(character, TRAP_ENDLAG)
 
 	-- this will elp determiune the direction of the projectile
 	local direction

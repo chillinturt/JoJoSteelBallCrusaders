@@ -7,6 +7,7 @@ local Players = game:GetService("Players")
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
+local QuestManager = require(game.ServerScriptService.DataSaving.QuestManager)
 --local TalentService = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 
 local DashAnimations = {
@@ -19,10 +20,10 @@ local DashAnimations = {
 -- Settings
 local BASE_STAMINA = 2
 local BASE_RECHARGE_TIME = 5 -- seconds per charge
-local RECHARGE_REDUCTION_SCALING = 0.6
-local BASE_DASH_FORCE = 50
-local DASH_FORCE_SCALING = 16
-local DASH_DURATION = 0.6
+local RECHARGE_REDUCTION_SCALING = 0.5
+local BASE_DASH_FORCE = 80
+local DASH_FORCE_SCALING = 8
+local DASH_DURATION = 0.5
 local DASH_COOLDOWN = 0.75 -- new delay between dashes
 local REGEN_STEP = 0.05 -- update rate (seconds)
 
@@ -236,7 +237,11 @@ function StaminaService.OnDashRequest(player, dirLabel)
 	end
 
 	CombatUtils.SetIsDashing(character, DASH_DURATION)
-	print("dash finished!")
+
+	-- complete the dash tutorial quest if player has it
+	if QuestManager.HasQuest(player, "DashTutorial") then
+		QuestManager.CompleteQuest(player, "DashTutorial")
+	end
 end
 
 local function isAirborne(rootPart)
@@ -525,6 +530,16 @@ function StaminaService.OnJumpRequest(player)
 	end
 
 	CombatUtils.SetIsDashing(character, DOUBLE_JUMP_DURATION)
+
+	if jumpType == "WallJump" then
+		if QuestManager.HasQuest(player, "WallJumpTutorial") then
+			QuestManager.CompleteQuest(player, "WallJumpTutorial")
+		end
+	elseif jumpType == "DoubleJump" then
+		if QuestManager.HasQuest(player, "DoubleJumpTutorial") then
+			QuestManager.CompleteQuest(player, "DoubleJumpTutorial")
+		end
+	end
 end
 
 local function initCharacter(player, character)

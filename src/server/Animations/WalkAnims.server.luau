@@ -2,6 +2,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 
 local AnimationModule = require(ServerScriptService.BasicCombat.AnimationModule)
+local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
 
 -- Example animation IDs (replace with your own)
 local animations = {
@@ -13,11 +14,52 @@ local animations = {
 	Idle = "104714640622145",
 	Fall = "80938111042689", -- ✅ falling anim
 	Land = "74308587429244", -- ✅ landing anim
+	StandForward = "103461332131808",
+	StandIdle = "89452205434139",
 }
 
 -- Track active animations
 local activeStates = {}
 local lastDirection = {}
+local wasMoving = {}
+local standStates = {}
+
+local function updateStand(player, character, shouldBeForward)
+	local stand = StandUtils.GetActiveStand(character)
+	if not stand then
+		return
+	end
+
+	-- 🚨 BLOCK movement if attacking
+	local isActing = AnimationModule.IsActionPlaying(character)
+
+	local desiredState = shouldBeForward and "Forward" or "Idle"
+
+	-- ✅ Prevent spam / restarts
+	if standStates[player] == desiredState then
+		return
+	end
+
+	-- Stop previous
+	if standStates[player] == "Forward" then
+		AnimationModule.StopAnimation(stand, animations["StandForward"])
+	elseif standStates[player] == "Idle" then
+		AnimationModule.StopAnimation(stand, animations["StandIdle"])
+	end
+
+	-- Play new
+	if desiredState == "Forward" then
+		if not isActing then
+			AnimationModule.PlayAnimation(stand, animations["StandForward"], true, Enum.AnimationPriority.Movement, 1)
+		end
+	else
+		if not isActing then
+			AnimationModule.PlayAnimation(stand, animations["StandIdle"], true, Enum.AnimationPriority.Movement, 1)
+		end
+	end
+
+	standStates[player] = desiredState
+end
 
 -- Decide movement direction relative to character facing
 local function getMovementDirection(character, humanoid)
@@ -58,7 +100,13 @@ local function onStateChanged(player, humanoid, character)
 	if not character or not character.Parent then
 		return
 	end
+	local isActing = AnimationModule.IsActionPlaying(character)
+
 	local direction = getMovementDirection(character, humanoid)
+
+	-- ✅ ALWAYS track real movement input (even in air)
+	wasMoving[player] = humanoid.MoveDirection.Magnitude > 0.1
+
 	local animId = animations[direction]
 
 	-- Detect landing (Fall → Grounded) ✅ FIRST
@@ -70,8 +118,11 @@ local function onStateChanged(player, humanoid, character)
 		end
 
 		-- Play landing anim once
-		local landTrack =
-			AnimationModule.PlayAnimation(character, animations.Land, false, Enum.AnimationPriority.Action, 1.5)
+		local landTrack
+		if not isActing then
+			landTrack =
+				AnimationModule.PlayAnimation(character, animations.Land, false, Enum.AnimationPriority.Action, 1.5)
+		end
 
 		if landTrack then
 			local connection
@@ -96,7 +147,9 @@ local function onStateChanged(player, humanoid, character)
 			end
 
 			-- Play fall
-			AnimationModule.PlayAnimation(character, animations.Fall, true, Enum.AnimationPriority.Action, 1)
+			if not isActing then
+				AnimationModule.PlayAnimation(character, animations.Fall, true, Enum.AnimationPriority.Action, 1)
+			end
 
 			activeStates[player] = {
 				direction = "Fall",
@@ -104,11 +157,16 @@ local function onStateChanged(player, humanoid, character)
 			}
 		end
 
+		updateStand(player, character, wasMoving[player])
+
 		lastDirection[player] = "Fall"
 		return
 	end
 
-	-- If the new direction is the same, do nothing
+	-- ALWAYS update stand (fixes stuck animation bug)
+	updateStand(player, character, wasMoving[player])
+
+	-- Now we can early return safely for character
 	if activeStates[player] and activeStates[player].direction == direction then
 		lastDirection[player] = direction
 		return
@@ -120,7 +178,9 @@ local function onStateChanged(player, humanoid, character)
 		activeStates[player] = nil
 	end
 
-	AnimationModule.PlayAnimation(character, animId, true, Enum.AnimationPriority.Movement, 1)
+	if not isActing then
+		AnimationModule.PlayAnimation(character, animId, true, Enum.AnimationPriority.Movement, 1)
+	end
 
 	activeStates[player] = {
 		direction = direction,

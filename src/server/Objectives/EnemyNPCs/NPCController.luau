@@ -7,6 +7,7 @@ local NPCController = {}
 NPCController.__index = NPCController
 
 local WALK_ANIM_ID = 111996277762833
+local IDLE_ANIM_ID = 103218691522993 -- replace with your idle animation
 
 -- Constructor
 function NPCController.new(npc, config)
@@ -34,26 +35,81 @@ function NPCController.new(npc, config)
 	self.isMoving = false
 	self.lastMoveTime = 0
 
+	self.currentAnimationState = nil
+	self.lastMovementTime = 0
+
+	self.lastMoveTarget = nil
+	self.pathBlockedConnection = nil
+
+	self.aggroType = nil
+	self.lastAggroSwap = 0
+
 	self:_start()
 
 	return self
 end
 
+function NPCController:isTargetValid(character)
+	if not character then
+		return false
+	end
+
+	local humanoid = character:FindFirstChild("Humanoid")
+	local root = character:FindFirstChild("HumanoidRootPart")
+
+	return humanoid and root and humanoid.Health > 0 and character.Parent
+end
+
+function NPCController:setCombatTarget(character)
+	if not self:isTargetValid(character) then
+		return
+	end
+
+	self.aggro = true
+	self.aggroType = "Combat"
+	self.currentTarget = character
+	self.humanoid.WalkSpeed = self.config.CHASE_SPEED
+
+	self.lastAggroSwap = tick()
+end
+
+function NPCController:setAnimationState(state)
+	if self.currentAnimationState == state then
+		return
+	end
+
+	self.currentAnimationState = state
+
+	if state == "Idle" then
+		AnimationModule.StopAnimation(self.npc, WALK_ANIM_ID)
+
+		AnimationModule.PlayAnimation(self.npc, IDLE_ANIM_ID, true, Enum.AnimationPriority.Movement, 1)
+	elseif state == "Walk" then
+		AnimationModule.StopAnimation(self.npc, IDLE_ANIM_ID)
+
+		AnimationModule.PlayAnimation(self.npc, WALK_ANIM_ID, true, Enum.AnimationPriority.Movement, 1)
+	end
+end
+
 -- 🔍 Find nearest player
-function NPCController:getNearestPlayer()
-	local closestChar, closestDist = nil, math.huge
+function NPCController:getNearestPlayer(maxDistance)
+	local closestChar = nil
+	local closestDist = math.huge
 
 	for _, player in ipairs(Players:GetPlayers()) do
-		if player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
-			local dist = (player.Character.HumanoidRootPart.Position - self.rootPart.Position).Magnitude
-			if dist < closestDist then
-				closestChar = player.Character
+		local character = player.Character
+
+		if self:isTargetValid(character) then
+			local dist = (character.HumanoidRootPart.Position - self.rootPart.Position).Magnitude
+
+			if dist < closestDist and dist <= maxDistance then
+				closestChar = character
 				closestDist = dist
 			end
 		end
 	end
 
-	return closestChar
+	return closestChar, closestDist
 end
 
 -- 👁 LOS check
@@ -98,17 +154,34 @@ end
 
 function NPCController:followPath(destination)
 	local path = self:computePath(destination)
+
 	if not path then
 		return
+	end
+
+	if self.pathBlockedConnection then
+		self.pathBlockedConnection:Disconnect()
+		self.pathBlockedConnection = nil
 	end
 
 	self.currentPath = path
 	self.waypoints = path:GetWaypoints()
 	self.waypointIndex = 1
 	self.pathTarget = destination
+
+	self.pathBlockedConnection = path.Blocked:Connect(function(blockedIndex)
+		if blockedIndex >= self.waypointIndex and self.pathTarget then
+			self:followPath(self.pathTarget)
+		end
+	end)
 end
 
 function NPCController:stopPath()
+	if self.pathBlockedConnection then
+		self.pathBlockedConnection:Disconnect()
+		self.pathBlockedConnection = nil
+	end
+
 	self.currentPath = nil
 	self.waypoints = {}
 	self.waypointIndex = 1
@@ -136,9 +209,6 @@ function NPCController:_movementLoop()
 
 					self.humanoid:MoveTo(targetPos)
 
-					self.isMoving = true
-					self.lastMoveTime = os.clock()
-
 					-- Jump handling
 					if waypoint.Action == Enum.PathWaypointAction.Jump then
 						self.humanoid.Jump = true
@@ -151,20 +221,41 @@ function NPCController:_movementLoop()
 				else
 					-- 🔥 PATH FINISHED → CLEAR IT
 					self:stopPath()
-				end
-			elseif self.aggro and self.currentTarget then
-				local targetRoot = self.currentTarget:FindFirstChild("HumanoidRootPart")
-				if targetRoot then
-					self.humanoid:MoveTo(targetRoot.Position)
 
-					self.isMoving = true
-					self.lastMoveTime = os.clock()
+					self.isMoving = false
+					self:onStopMoving()
+				end
+			elseif self.aggro and self:isTargetValid(self.currentTarget) then
+				local targetRoot = self.currentTarget.HumanoidRootPart
+
+				if not self.lastMoveTarget or (targetRoot.Position - self.lastMoveTarget).Magnitude > 2 then
+					self.lastMoveTarget = targetRoot.Position
+					self.humanoid:MoveTo(targetRoot.Position)
 				end
 			end
 
 			-- Detect if we've stopped moving
-			if os.clock() - self.lastMoveTime > 0.3 then
-				self.isMoving = false
+			local moveMagnitude = self.rootPart.AssemblyLinearVelocity.Magnitude
+
+			if moveMagnitude > 1 then
+				self.lastMovementTime = tick()
+
+				if not self.isMoving then
+					self.isMoving = true
+					self:onStartMoving()
+				elseif self.currentAnimationState ~= "Walk" then
+					self:setAnimationState("Walk")
+				end
+			else
+				-- wait a little before idling
+				if self.isMoving and tick() - self.lastMovementTime > 0.25 then
+					self.isMoving = false
+					self:onStopMoving()
+				end
+			end
+
+			if not self.isMoving and self.currentAnimationState ~= "Idle" then
+				self:setAnimationState("Idle")
 			end
 		end
 	end)
@@ -178,42 +269,81 @@ function NPCController:_aiLoop()
 				continue
 			end
 
-			if self.aggro and self.currentTarget then
-				local targetPos = self.currentTarget.HumanoidRootPart.Position
+			--------------------------------------------------
+			-- Acquire target
+			--------------------------------------------------
+
+			if not self.aggro then
+				local nearest = self:getNearestPlayer(self.config.AGGRO_RADIUS)
+
+				if nearest and self:hasLineOfSight(nearest) then
+					self.aggro = true
+					self.aggroType = "Passive"
+					self.currentTarget = nearest
+					self.humanoid.WalkSpeed = self.config.CHASE_SPEED
+
+					self:onAggro()
+				end
+			end
+
+			--------------------------------------------------
+			-- Combat
+			--------------------------------------------------
+
+			if self.aggro then
+				if not self:isTargetValid(self.currentTarget) then
+					self:reset()
+					continue
+				end
+
+				local searchRadius
+
+				if self.aggroType == "Combat" then
+					searchRadius = self.config.COMBAT_CHASE_RADIUS
+				else
+					searchRadius = self.config.PASSIVE_CHASE_RADIUS
+				end
+
+				local targetRoot = self.currentTarget.HumanoidRootPart
+				local targetPos = targetRoot.Position
 
 				local distToTarget = (targetPos - self.rootPart.Position).Magnitude
+
 				local distFromSpawn = (self.rootPart.Position - self.spawnPosition).Magnitude
 
-				if distToTarget > self.config.CHASE_RADIUS or distFromSpawn > self.config.LEASH_DISTANCE then
+				local chaseRadius
+
+				if self.aggroType == "Combat" then
+					chaseRadius = self.config.COMBAT_CHASE_RADIUS
+				else
+					chaseRadius = self.config.PASSIVE_CHASE_RADIUS
+				end
+
+				if distToTarget > chaseRadius then
+					self:reset()
+					continue
+				end
+
+				if distFromSpawn > self.config.LEASH_DISTANCE then
 					self:reset()
 					continue
 				end
 
 				if self:hasLineOfSight(self.currentTarget) then
-					-- Direct movement
 					self:stopPath()
 				else
-					-- Only repath if destination changed enough
 					if not self.pathTarget or (targetPos - self.pathTarget).Magnitude > self.config.REPATH_DISTANCE then
-						self.pathTarget = targetPos
 						self:followPath(targetPos)
 					end
 				end
 
-				-- Ensure animation plays while chasing
-				if not self.isMoving then
-					self:onStartMoving()
-				end
+			--------------------------------------------------
+			-- Return home
+			--------------------------------------------------
 			else
 				local dist = (self.rootPart.Position - self.spawnPosition).Magnitude
 
 				if dist > self.config.RETURN_THRESHOLD then
-					-- ✅ Ensure animation plays while returning
-					if not self.isMoving then
-						self:onStartMoving()
-					end
-
-					-- Path back to spawn
 					if
 						not self.pathTarget
 						or (self.spawnPosition - self.pathTarget).Magnitude > self.config.REPATH_DISTANCE
@@ -221,11 +351,10 @@ function NPCController:_aiLoop()
 						self:followPath(self.spawnPosition)
 					end
 				else
-					-- ✅ FULLY RETURNED
 					self:stopPath()
-					self.pathTarget = nil -- 🔥 CRITICAL FIX
+					self.pathTarget = nil
 
-					-- ✅ Stop animation cleanly
+					self.isMoving = false
 					self:onStopMoving()
 				end
 			end
@@ -240,15 +369,22 @@ function NPCController:reset()
 	self.lastTargetPos = nil
 	self.damageLog = {}
 
-	self.currentPath = nil
-	self.pathTarget = nil -- 🔥 CRITICAL FIX
-	self.humanoid.Health = self.humanoid.MaxHealth
+	self.lastMoveTarget = nil
+
+	self:stopPath()
+
+	self.pathTarget = nil
+
+	self.humanoid.WalkSpeed = self.config.WALK_SPEED
+
+	self.isMoving = false
+	self.aggroType = nil
+
+	self:onStopMoving()
 end
 
--- 🎯 Hooks
 function NPCController:onAggro()
 	-- override per NPC
-	AnimationModule.PlayAnimation(self.npc, WALK_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
 end
 
 function NPCController:onAttack()
@@ -256,13 +392,11 @@ function NPCController:onAttack()
 end
 
 function NPCController:onStartMoving()
-	-- override per NPC
-	AnimationModule.PlayAnimation(self.npc, WALK_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
+	self:setAnimationState("Walk")
 end
 
 function NPCController:onStopMoving()
-	-- override per NPC
-	AnimationModule.StopAnimation(self.npc, WALK_ANIM_ID)
+	self:setAnimationState("Idle")
 end
 
 -- 🚀 Start system
@@ -273,13 +407,34 @@ function NPCController:_start()
 	-- AI
 	self:_aiLoop()
 
+	self.humanoid.Died:Connect(function()
+		self:stopPath()
+
+		self.currentTarget = nil
+		self.aggro = false
+		self.aggroType = nil
+	end)
+
 	-- Aggro trigger
 	self.humanoid.HealthChanged:Connect(function(health)
-		if health < self.humanoid.MaxHealth and not self.aggro then
-			self.aggro = true
-			self.currentTarget = self:getNearestPlayer()
-			self.humanoid.WalkSpeed = self.config.CHASE_SPEED
+		if health >= self.humanoid.MaxHealth then
+			return
+		end
 
+		local nearest = self:getNearestPlayer(self.config.COMBAT_CHASE_RADIUS)
+
+		if not nearest then
+			return
+		end
+
+		local wasCombat = self.aggroType == "Combat"
+
+		self.aggro = true
+		self.aggroType = "Combat"
+		self.currentTarget = nearest
+		self.humanoid.WalkSpeed = self.config.CHASE_SPEED
+
+		if not wasCombat then
 			self:onAggro()
 		end
 	end)
@@ -287,9 +442,15 @@ function NPCController:_start()
 	-- Attack loop
 	task.spawn(function()
 		while task.wait(self.config.ATTACK_INTERVAL or 0.5) do
-			if self.aggro and self.currentTarget then
+			if self.aggro and self:isTargetValid(self.currentTarget) then
 				self:onAttack()
 			end
+		end
+	end)
+
+	task.delay(1, function()
+		if self.humanoid.Health > 0 and not self.isMoving then
+			self:setAnimationState("Idle")
 		end
 	end)
 end

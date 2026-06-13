@@ -15,16 +15,17 @@ function DamageNumberService.RoundDamage(num)
 end
 
 -- Send damage to clients
-function DamageNumberService.ShowDamage(targetCharacter, damage)
+function DamageNumberService.ShowDamage(targetCharacter, amount, damageType)
 	if not targetCharacter then
 		return
 	end
 
-	local roundedDamage = DamageNumberService.RoundDamage(damage)
+	local roundedAmount = DamageNumberService.RoundDamage(amount)
 
 	DamageEvent:FireAllClients({
 		target = targetCharacter,
-		damage = roundedDamage,
+		amount = roundedAmount,
+		type = damageType or "damage", -- "damage" or "heal"
 	})
 end
 

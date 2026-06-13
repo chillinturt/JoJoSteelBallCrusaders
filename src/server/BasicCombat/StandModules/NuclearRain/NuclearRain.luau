@@ -18,14 +18,14 @@ local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 local RAIN_REGEN = 2
 local REGEN_INTERVAL = 1
 
-local TORRENTIALDOWNPOUR_DAMAGE = 5
+local TORRENTIALDOWNPOUR_DAMAGE = 7.5
 local TORRENTIALDOWNPOUR_SIZE = Vector3.new(30, 30, 30)
 local TORRENTIALDOWNPOUR_OFFSET = Vector3.new(0, 0, 0)
 local TORRENTIALDOWNPOUR_ENDLAG = 0.5
 local TORRENTIALDOWNPOUR_INTERVAL = 0.75
 local TORRENTIALDOWNPOUR_COST = 3
 
-local HEAVYRAINDROP_DAMAGE = 25
+local HEAVYRAINDROP_DAMAGE = 35
 local HEAVYRAINDROP_DURATION = 2
 local HEAVYRAINDROP_SIZE = Vector3.new(10, 10, 10)
 local HEAVYRAINDROP_SPEED = 100
@@ -39,6 +39,7 @@ local EXPELBARRIER_ENDLAG = 0.5
 local EXPELBARRIER_OFFSET = Vector3.new(0, 0, 8)
 local EXPELBARRIER_DURATION = 3
 local EXPELBARRIER_STUN = 1.5
+local EXPELBARRIER_DAMAGE = 10
 
 local LIQUIDCAGE_DURATION = 6
 local LIQUIDCAGE_RADIUS = 25
@@ -79,15 +80,34 @@ function NuclearRain.getRainValue(character)
 end
 
 function NuclearRain.initRainForPlayer(player)
-	-- When the character spawns, ensure it has a HamonMeter
-	player.CharacterAdded:Connect(function(character)
-		-- ✅ Safe access to Hero value
+	local function setupCharacter(character)
 		local heroValue = HeroManager.GetField(player, "Hero")
+
 		if heroValue == "NuclearRain" then
 			NuclearRain.getRainValue(character)
 			NuclearRain.StartRainRegen(character)
+		else
+			NuclearRain.StopRainRegen(character)
 		end
-		NuclearRain.StartRainRegen(character)
+	end
+
+	player.CharacterAdded:Connect(setupCharacter)
+
+	-- 🔥 NEW: Listen for hero changes
+	HeroManager.OnHeroChanged(player, function(newHero)
+		local character = player.Character
+		if not character then
+			return
+		end
+
+		if newHero == "NuclearRain" then
+			print("Switched TO NuclearRain → start regen")
+			NuclearRain.getRainValue(character)
+			NuclearRain.StartRainRegen(character)
+		else
+			print("Switched OFF NuclearRain → stop regen")
+			NuclearRain.StopRainRegen(character)
+		end
 	end)
 end
 
@@ -107,25 +127,48 @@ end
 
 -- Start continuous rain regeneration for a character
 function NuclearRain.StartRainRegen(character)
-	if regenTasks[character] then
-		return -- already regenerating
-	end
+	-- Always kill old task (prevents duplicates + fixes stuck states)
+	NuclearRain.StopRainRegen(character)
 
 	local rain = NuclearRain.getRainValue(character)
 	if not rain then
 		return
 	end
 
-	regenTasks[character] = task.spawn(function()
-		while character.Parent do
-			-- Only regen if not in active downpour
+	local thread
+	thread = task.spawn(function()
+		while true do
+			-- Hard validity check
+			if not character or not character.Parent then
+				break
+			end
+
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not humanoid then
+				task.wait(1)
+				continue -- don't kill loop, just wait
+			end
+
+			-- 🔥 SAFETY: clear invalid downpour state
+			if activeDownpours[character] then
+				local state = activeDownpours[character]
+				if not state.vfxRoot or not state.vfxRoot.Parent then
+					activeDownpours[character] = nil
+				end
+			end
+
+			-- Regen logic
 			if not activeDownpours[character] and rain.Value < 100 then
 				rain.Value = math.min(rain.Value + RAIN_REGEN, 100)
 			end
+
 			task.wait(REGEN_INTERVAL)
 		end
+
 		regenTasks[character] = nil
 	end)
+
+	regenTasks[character] = thread
 end
 
 -- Stop rain regeneration for a character
@@ -143,6 +186,17 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 	if not character or activeDownpours[character] then
 		return -- already active or invalid
 	end
+
+	-- cleanup any broken state first
+	if activeDownpours[character] then
+		local state = activeDownpours[character]
+		if not state.vfxRoot or not state.vfxRoot.Parent then
+			activeDownpours[character] = nil
+		else
+			return
+		end
+	end
+
 	-- Create state
 	activeDownpours[character] = {}
 
@@ -182,7 +236,7 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 				RemoveOnStun = false,
 
 				StatScaling = {
-					Power = 0.2,
+					Power = 0.3,
 				},
 
 				OnHit = function(target, trueDamage)
@@ -210,6 +264,11 @@ function NuclearRain.StartTorrentialDownpour(standModel)
 	local vfxRoot = HitboxSpawner.spawnHitbox({
 		Character = character,
 		Damage = 0,
+
+		StatScaling = {
+			Power = 0,
+		},
+
 		Size = Vector3.new(1, 1, 1),
 		Offset = CFrame.new(0, 0, 0),
 		Color = BrickColor.new("Bright red"),
@@ -418,7 +477,7 @@ function NuclearRain.ExpelBarrier(character)
 
 	local hitbox = HitboxSpawner.spawnProjectile({
 		Character = character,
-		Damage = barrierDamage,
+		Damage = EXPELBARRIER_DAMAGE + barrierDamage,
 		Size = EXPELBARRIER_HITBOX_SIZE,
 		Offset = EXPELBARRIER_OFFSET,
 		Color = BrickColor.new("Bright red"),
@@ -625,7 +684,28 @@ Players.PlayerAdded:Connect(function(player)
 	NuclearRain.initRainForPlayer(player)
 	player.CharacterAdded:Connect(function(character)
 		setCharacterCollisionGroup(character, "PlayerCharacter")
+
+		character.AncestryChanged:Connect(function(_, parent)
+			if not parent then
+				NuclearRain.StopRainRegen(character)
+			end
+		end)
 	end)
+end)
+
+for _, player in ipairs(Players:GetPlayers()) do
+	NuclearRain.initRainForPlayer(player)
+end
+
+task.spawn(function()
+	while true do
+		for character, _ in pairs(regenTasks) do
+			if not regenTasks[character] then
+				NuclearRain.StartRainRegen(character)
+			end
+		end
+		task.wait(5)
+	end
 end)
 
 return NuclearRain

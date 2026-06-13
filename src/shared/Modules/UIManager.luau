@@ -16,7 +16,11 @@ local mobileFolder = uiFolder:WaitForChild("MobileUIs")
 local PCFolder = uiFolder:WaitForChild("PCUIs")
 local mainMenu = uiFolder:WaitForChild("MainMenu")
 
-local MenuState = require(game.Players.LocalPlayer:WaitForChild("PlayerScripts"):WaitForChild("MenuState"))
+local player = Players.LocalPlayer
+local playerScripts = player:WaitForChild("PlayerScripts")
+
+local MenuState = require(playerScripts:WaitForChild("MenuState"))
+local UIController = require(ReplicatedStorage.Shared.Modules:WaitForChild("UIController"))
 
 -- Roblox protected UIs that should never be deleted
 local ROBLOX_PROTECTED_UIS = {
@@ -42,7 +46,7 @@ end
 ----------------------------------------------------------
 local function enableAllGameplayUIs(playerGui)
 	for _, ui in ipairs(playerGui:GetChildren()) do
-		if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" then
+		if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" and ui.Name ~= "LoadingScreen" then
 			ui.Enabled = true
 		end
 	end
@@ -52,6 +56,9 @@ end
 -- Clone Main Menu
 ----------------------------------------------------------
 local function loadMainMenu(playerGui)
+	if playerGui:FindFirstChild("MainMenu") then
+		return
+	end
 	local menuGui = mainMenu:FindFirstChild("MainMenu")
 	if menuGui then
 		local clone = menuGui:Clone()
@@ -111,13 +118,18 @@ local function ensureDefaultUIs(playerGui)
 	if teleportGui then
 		teleportGui.Enabled = false
 	end
+
+	local InteractionGui = player:FindFirstChild("InteractionGui")
+	if InteractionGui then
+		InteractionGui.Enabled = false
+	end
 end
 
 ----------------------------------------------------------
 -- Load Specialty UI
 ----------------------------------------------------------
 local function loadSpecialtyUI(playerGui, specialty)
-	if not specialty or specialty == "" then
+	if not specialty or specialty == "" or specialty == "None" then
 		return
 	end
 
@@ -150,7 +162,7 @@ end
 -- Load Hero UI
 ----------------------------------------------------------
 local function loadHeroUI(playerGui, hero)
-	if not hero or hero == "" then
+	if not hero or hero == "" or hero == "None" then
 		return
 	end
 
@@ -166,6 +178,12 @@ end
 local function loadMobileUI(playerGui)
 	local isMobile = FORCE_MOBILE_IN_STUDIO or UserInputService.TouchEnabled
 
+	if not FORCE_MOBILE_IN_STUDIO then
+		repeat
+			task.wait()
+		until UserInputService.TouchEnabled ~= nil
+	end
+
 	if not isMobile then
 		return
 	end
@@ -179,6 +197,12 @@ end
 
 local function loadPCUI(playerGui)
 	local isMobile = FORCE_MOBILE_IN_STUDIO or UserInputService.TouchEnabled
+
+	if not FORCE_MOBILE_IN_STUDIO then
+		repeat
+			task.wait()
+		until UserInputService.TouchEnabled ~= nil
+	end
 
 	if isMobile then
 		return
@@ -195,6 +219,17 @@ end
 -- Public Function: Load All UI
 ----------------------------------------------------------
 function UIManager.LoadUI(playerGui, specialty, race, hero)
+	-- Normalize inputs (CRITICAL)
+	specialty = specialty or "None"
+	race = race or "Human"
+	hero = hero or "None"
+
+	if not FORCE_MOBILE_IN_STUDIO then
+		repeat
+			task.wait()
+		until UserInputService.TouchEnabled ~= nil
+	end
+
 	-- 1) Determine if this player is on mobile
 	local isMobile = FORCE_MOBILE_IN_STUDIO or UserInputService.TouchEnabled
 
@@ -227,22 +262,38 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	clearNonDefaultUIs(playerGui)
 
 	-- 6) Load Specialty / Race / Hero
-	loadSpecialtyUI(playerGui, specialty)
-	loadRaceUI(playerGui, race)
-	loadHeroUI(playerGui, hero)
+	-- ✅ Conditional loading (nil-safe)
+	if specialty ~= "" and specialty ~= "None" then
+		loadSpecialtyUI(playerGui, specialty)
+	end
+
+	if race ~= "Human" then
+		loadRaceUI(playerGui, race)
+	end
+
+	if hero ~= "" and race ~= "None" then
+		loadHeroUI(playerGui, hero)
+	end
+
+	local function isMenuOpenSafe(name)
+		local success, result = pcall(function()
+			return MenuState:IsOpen(name)
+		end)
+		return success and result or false
+	end
 
 	-- 7) Safety check for Roblox TouchGui
 	if isMobile and not playerGui:FindFirstChild("TouchGui") then
 		warn("⚠ TouchGui missing. Roblox should auto-regenerate it soon.")
 	end
 
+	loadMainMenu(playerGui)
+
 	-- 8) Show main menu and hide all other UIs
-	if MenuState:IsOpen("MainMenu") then
+	if isMenuOpenSafe("MainMenu") then
 		-- Menu is active, so load and show menu, hide gameplay UIs
-		loadMainMenu(playerGui)
 		disableAllGameplayUIs(playerGui)
 	else
-		loadMainMenu(playerGui)
 		-- Menu is not active; ensure gameplay UIs are visible
 		for _, ui in ipairs(playerGui:GetChildren()) do
 			if
@@ -252,6 +303,8 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 				and ui.Name ~= "DialogGui"
 				and ui.Name ~= "TeleportGui"
 				and ui.Name ~= "ShopNpcDialogGui"
+				and ui.Name ~= "LoadingScreen"
+				and ui.Name ~= "InteractionGui"
 			then
 				ui.Enabled = true
 			end
@@ -261,8 +314,29 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	-- ✅ NEW: Restore all UI states (QuestGUI, etc.)
 	for _, ui in ipairs(playerGui:GetChildren()) do
 		if ui.Name == "QuestGUI" then
-			ui.QuestLogFrame.Visible = MenuState:IsOpen(ui.Name)
+			ui.QuestLogFrame.Visible = isMenuOpenSafe(ui.Name)
 		end
+	end
+
+	----------------------------------------------------------
+	-- Reopen inventory after item usage
+	----------------------------------------------------------
+
+	if MenuState.ReopenInventory then
+		task.spawn(function()
+			task.wait(0.05)
+
+			local inventory = playerGui:FindFirstChild("Inventory")
+			if inventory then
+				local frame = inventory:FindFirstChild("Frame")
+
+				if frame then
+					UIController.ForceOpen("Inventory")
+				end
+			end
+
+			MenuState.ReopenInventory = false
+		end)
 	end
 
 	-- 🔒 Absolute safety: CommsWheel must NEVER start enabled
@@ -274,6 +348,11 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	local teleportGui = playerGui:FindFirstChild("TeleportGui")
 	if teleportGui then
 		teleportGui.Enabled = false
+	end
+
+	local LoadingScreen = playerGui:FindFirstChild("LoadingScreen")
+	if LoadingScreen then
+		LoadingScreen.Enabled = false
 	end
 end
 

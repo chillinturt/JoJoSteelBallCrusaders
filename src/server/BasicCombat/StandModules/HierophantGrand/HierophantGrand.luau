@@ -45,9 +45,7 @@ local IDLE_ANIM_ID = 89452205434139
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
-local SpawnClientVfx = Instance.new("RemoteEvent")
-SpawnClientVfx.Name = "SpawnVfx"
-SpawnClientVfx.Parent = ReplicatedStorage.Shared.Events
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
 local function FireEmerald(player, origin, direction)
 	SpawnClientVfx:FireAllClients({

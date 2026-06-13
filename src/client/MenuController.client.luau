@@ -15,7 +15,7 @@ local openButtonConnection, closeButtonConnection
 -- Helpers to hide/show other UIs
 local function hideGameplayUIs()
 	for _, ui in ipairs(playerGui:GetChildren()) do
-		if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" then
+		if ui:IsA("ScreenGui") and ui.Name ~= "MainMenu" and ui.Name ~= "LoadingScreen" then
 			ui.Enabled = false
 		end
 	end
@@ -30,6 +30,7 @@ local function showGameplayUIs()
 			and ui.Name ~= "ShopNpcDialogGui"
 			and ui.Name ~= "TeleportGui"
 			and ui.Name ~= "CommsWheel"
+			and ui.Name ~= "LoadingScreen"
 		then
 			ui.Enabled = true
 		end

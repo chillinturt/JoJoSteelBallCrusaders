@@ -19,7 +19,7 @@ AbilityRegistry.AbilityTypes = {
 AbilityRegistry[1] = {
 	Name = "NailShot",
 	Type = "Press",
-	Cooldown = 6,
+	Cooldown = 3,
 	Execute = function(standModel, player)
 		print("execute entered")
 		local character = standModel.Parent
@@ -51,7 +51,7 @@ AbilityRegistry[2] = {
 AbilityRegistry[3] = {
 	Name = "SpinWormhole",
 	Type = "Press",
-	Cooldown = 6,
+	Cooldown = 15,
 	Execute = function(standModel, player)
 		local character = standModel.Parent
 		if character then

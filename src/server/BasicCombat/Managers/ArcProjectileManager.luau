@@ -1,11 +1,45 @@
 -- ServerScriptService/ArcProjectileManager
 local RunService = game:GetService("RunService")
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local TeamsModule =
 	require(game.ServerScriptService:WaitForChild("BasicCombat"):WaitForChild("Managers"):WaitForChild("TeamsModule"))
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local DamageNumberService = require(ServerScriptService.Utilities:WaitForChild("DamageNumberService"))
+
+local DEFAULT_HIT_VFX = {
+	effectName = "PunchImpact",
+	emitCount = 1,
+	offset = CFrame.new(),
+}
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
+local function SpawnHitVFX(targetChar, hitVFXData)
+	-- Explicitly disabled
+	if hitVFXData == false then
+		return
+	end
+
+	-- Use defaults if nil
+	hitVFXData = hitVFXData or DEFAULT_HIT_VFX
+
+	local hrp = targetChar:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+
+	SpawnClientVfx:FireAllClients({
+		type = "Particle",
+		effectName = hitVFXData.effectName or DEFAULT_HIT_VFX.effectName,
+
+		offset = hitVFXData.offset or DEFAULT_HIT_VFX.offset,
+		attachTo = hrp,
+
+		emitCount = hitVFXData.emitCount or DEFAULT_HIT_VFX.emitCount,
+	})
+end
 
 -- ✅ Folder setup
 local ProjectileFolder = workspace:FindFirstChild("ArcProjectiles")
@@ -86,6 +120,8 @@ RunService.Heartbeat:Connect(function(dt)
 							humanoid:TakeDamage(damage)
 
 							DamageNumberService.ShowDamage(targetChar, damage)
+
+							SpawnHitVFX(targetChar, p.HitVFX)
 
 							-- Call the OnHit callback if provided
 							if p.onHit then

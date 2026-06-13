@@ -10,7 +10,7 @@ local STAND_BLOCK_ANIMATION = "133892948612008" -- Stand loop
 
 local BLOCK_SLOW = 0.5
 
-local EMERGENCYBLOCK_COST = 35
+local EMERGENCYBLOCK_COST = 70
 
 --// Services / Modules
 local SlowingFieldRegistry = require(ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
@@ -19,6 +19,7 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local HitboxSpawner = require(ServerScriptService.BasicCombat.HitboxSpawner)
+local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
 
 --// Internal state
 local activeAnimations = {} -- [character] = AnimationTrack
@@ -36,6 +37,7 @@ local EMERGENCYBLOCK_KNOCKBACK_DURATION = 0.5
 local EMERGENCYBLOCK_OFFSET = Vector3.new(0, 0, 0)
 
 local BlockUpdateEvent = game.ReplicatedStorage.UIs.RemoteEvents:WaitForChild("BlockUpdateEvent")
+local SpawnClientVfx = game.ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
 
 --=============================================================
 --  Helper Functions
@@ -127,6 +129,14 @@ function BlockModule.StartBlocking(character)
 	CombatUtils.SetBlocking(character, true)
 
 	applyBlockingState(character)
+
+	-- complete the block tutorial quest if player has it
+	local player = Players:GetPlayerFromCharacter(character)
+	if player then
+		if QuestManager.HasQuest(player, "BlockTutorial") then
+			QuestManager.CompleteQuest(player, "BlockTutorial")
+		end
+	end
 end
 
 function BlockModule.StopBlocking(character)
@@ -194,7 +204,7 @@ function BlockModule.StartEmergencyBlocking(character)
 		Color = BrickColor.new("Bright red"),
 		Duration = 0.75,
 		StunDuration = 0,
-		Transparency = 0.6,
+		Transparency = 1,
 		Name = "EmergencyBlockHitbox",
 		CanBlock = false,
 
@@ -239,6 +249,26 @@ function BlockModule.StartEmergencyBlocking(character)
 				end
 			end)
 		end,
+	})
+
+	SpawnClientVfx:FireAllClients({
+		type = "Stationary",
+		effectName = "TimeStopBall",
+
+		-- Position
+		cframe = character.PrimaryPart.CFrame,
+
+		-- Lifetime
+		lifetime = 0.8,
+
+		-- Visual style
+		transparency = 0.5,
+		scale = 0.8, -- starting size
+
+		-- Optional flags for client expansion logic
+		expand = true,
+		expandRate = 7,
+		maxScale = 5,
 	})
 
 	-- Auto stop emergency block

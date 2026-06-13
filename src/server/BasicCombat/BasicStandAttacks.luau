@@ -13,7 +13,7 @@ local HITBOX_SIZE = Vector3.new(6, 8, 9)
 local BARRAGE_INTERVAL = 0.15
 local MAX_BARRAGE_DURATION = 3 -- seconds
 
-local PUNCH_COMBO_COOLDOWN = 2.5
+local PUNCH_COMBO_COOLDOWN = 1
 
 local BASE_PUNCH_COOLDOWN = 0.4
 local DEX_SPEED_PER_POINT = 0.05
@@ -29,6 +29,7 @@ local PilotModule = require(game.ServerScriptService.BasicCombat:WaitForChild("P
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
+local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
 
 -- Track combo index per stand
 local comboIndices = {}
@@ -45,7 +46,7 @@ local PUNCH_DAMAGE = {
 	["KaiserQueen"] = 4.5,
 	["NuclearRain"] = 4,
 	["ThatHand"] = 4.5,
-	["HeavyDoor"] = 4.5,
+	["HeavensDoor"] = 4.5,
 	["WhiteSake"] = 4.5,
 	["TuskAct4"] = 5,
 	["MagiciansRed"] = 4.5,
@@ -53,6 +54,8 @@ local PUNCH_DAMAGE = {
 	["Metallica"] = 4,
 	["Cream"] = 4.5,
 	["StoneFree"] = 5,
+	["HermitPurple"] = 5,
+	["StickyFingers"] = 5,
 }
 
 local BarrageCallSounds = {
@@ -63,6 +66,8 @@ local BarrageCallSounds = {
 	TuskAct4 = "9057749505",
 	CrazedDiamond = "6995124948",
 	KaiserQueen = "5522363173",
+	StickyFingers = "5785504754",
+	StoneFree = "121928424129671",
 }
 
 local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
@@ -78,10 +83,37 @@ local function resetStandRig(standModel)
 	motor.C0 = motor:GetAttribute("DefaultC0") or motor.C0
 end
 
+local function IsCharacterStand(heroValue)
+	return heroValue == "NuclearRain" or heroValue == "HermitPurple"
+end
+
 function BasicStandAttacks.BasicPunch(standModel)
-	local primaryPart = standModel.PrimaryPart
 	local character = standModel.Parent
-	if not primaryPart or not character then
+	if not character then
+		return false
+	end
+
+	local standTag = standModel:FindFirstChild("StandTag")
+	if not standTag then
+		return false
+	end
+
+	local player = Players:GetPlayerFromCharacter(character)
+	local powersFolder
+	local heroValue
+	if player then
+		heroValue = HeroManager.GetField(player, "Hero")
+		powersFolder = player:FindFirstChild("Powers")
+	else
+		powersFolder = character:FindFirstChild("Powers")
+		heroValue = powersFolder:FindFirstChild("Hero").Value
+	end
+
+	local isCharacterStand = IsCharacterStand(heroValue)
+
+	-- ✅ Only require PrimaryPart for NON-character stands
+	local primaryPart = standModel.PrimaryPart
+	if not isCharacterStand and not primaryPart then
 		return false
 	end
 
@@ -93,17 +125,10 @@ function BasicStandAttacks.BasicPunch(standModel)
 		return
 	end
 
-	local standTag = standModel:FindFirstChild("StandTag")
-	if not standTag then
-		return false
-	end
-
 	-- Combo cooldown: prevent starting a new combo too soon
 	if comboCooldowns[character] and tick() < comboCooldowns[character] then
 		return false -- Still in combo cooldown
 	end
-
-	local player = Players:GetPlayerFromCharacter(character)
 
 	local dexterity = 0
 	if player then
@@ -134,16 +159,6 @@ function BasicStandAttacks.BasicPunch(standModel)
 
 	if index > 3 then
 		animIndex = (index % 2 == 0) and 2 or 3
-	end
-
-	local powersFolder
-	local heroValue
-	if player then
-		heroValue = HeroManager.GetField(player, "Hero")
-		powersFolder = player:FindFirstChild("Powers")
-	else
-		powersFolder = character:FindFirstChild("Powers")
-		heroValue = powersFolder:FindFirstChild("Hero").Value
 	end
 
 	if standTag.Value == "TuskAct1" or standTag.Value == "TuskAct2" or standTag.Value == "TuskAct3" then
@@ -181,7 +196,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 		)
 		hitboxOffset = CFrame.new(0, 0, -3)
 	else
-		if heroValue == "NuclearRain" then
+		if IsCharacterStand(heroValue) then
 			AnimationModule.PlayAnimation(
 				character,
 				PILOT_PUNCH_ANIMATIONS[animIndex],
@@ -189,8 +204,17 @@ function BasicStandAttacks.BasicPunch(standModel)
 				Enum.AnimationPriority.Action,
 				1.5
 			)
-			rotation = CFrame.Angles(0, math.rad(90), 0)
-			hitboxOffset = CFrame.new(2, 0, 0)
+			-- ✅ Only rotate for specific stands
+			if heroValue == "NuclearRain" then
+				rotation = CFrame.Angles(0, math.rad(90), 0)
+			else
+				rotation = CFrame.identity
+			end
+			if heroValue == "HermitPurple" then
+				hitboxOffset = CFrame.new(0, 0, -2)
+			else
+				hitboxOffset = CFrame.new(2, 0, 0)
+			end
 		else
 			AnimationModule.PlayAnimationThenIdle(
 				standModel,
@@ -214,10 +238,11 @@ function BasicStandAttacks.BasicPunch(standModel)
 
 	-- Prepare for next combo punch
 	--comboIndices[character] = index % 3 + 1
+	local soundRoot = isCharacterStand and character:FindFirstChild("HumanoidRootPart") or standModel.PrimaryPart
 
 	--play sound
 	SoundUtils.PlaySound({
-		Root = standModel.PrimaryPart,
+		Root = soundRoot,
 		soundName = "PunchEffects",
 		soundID = "9113305631",
 		volume = 1.25,
@@ -230,7 +255,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 		Damage = PUNCH_DAMAGE[standTag.Value] or 0.1,
 
 		StatScaling = {
-			Power = 0.1,
+			Power = 0.2,
 		},
 
 		Size = HITBOX_SIZE,
@@ -240,6 +265,13 @@ function BasicStandAttacks.BasicPunch(standModel)
 		Transparency = 1,
 		Name = "BasicPunchHitbox",
 		Rotation = rotation,
+		StunDuration = 0.2,
+
+		HitSoundId = 4799537772,
+		HitSoundPitch = 1,
+		HitSoundVolume = 1,
+		HitSoundPlaybackSpeed = 1,
+		RandomPitchRange = 0.08,
 	})
 
 	--reset index in 3 seconds if index == 1
@@ -247,7 +279,7 @@ function BasicStandAttacks.BasicPunch(standModel)
 	if comboResetTimers[character] then
 		task.cancel(comboResetTimers[character])
 	end
-	comboResetTimers[character] = task.delay(3, function()
+	comboResetTimers[character] = task.delay(1, function()
 		comboIndices[character] = 1
 		--AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action, 1)
 	end)
@@ -262,11 +294,30 @@ function BasicStandAttacks.StartBarrage(character)
 		return false
 	end
 
+	local player = Players:GetPlayerFromCharacter(character)
+	local powersFolder
+	local heroValue
+	if player then
+		heroValue = HeroManager.GetField(player, "Hero")
+		powersFolder = player:FindFirstChild("Powers")
+	else
+		powersFolder = character:FindFirstChild("Powers")
+		heroValue = powersFolder:FindFirstChild("Hero").Value
+	end
+
+	local isCharacterStand = IsCharacterStand(heroValue)
+
+	-- ✅ Only require PrimaryPart for NON-character stands
 	local primaryPart = standModel.PrimaryPart
-	if not primaryPart or not character then
+	if not isCharacterStand and not primaryPart then
 		return false
 	end
-	local motor = primaryPart:FindFirstChild("StandMotor", true)
+
+	local motor = nil
+
+	if not isCharacterStand then
+		motor = primaryPart:FindFirstChild("StandMotor", true)
+	end
 
 	local standTag = standModel:FindFirstChild("StandTag")
 	if not standTag then
@@ -282,17 +333,6 @@ function BasicStandAttacks.StartBarrage(character)
 		return
 	end
 	CombatUtils.SetActionInProgress(character, MAX_BARRAGE_DURATION)
-
-	local player = Players:GetPlayerFromCharacter(character)
-	local heroValue
-	local powersFolder
-	if player then
-		heroValue = HeroManager.GetField(player, "Hero")
-	else
-		powersFolder = character:FindFirstChild("Powers")
-		local heroObj = powersFolder and powersFolder:FindFirstChild("Hero")
-		heroValue = heroObj and heroObj.Value
-	end
 
 	if standTag.Value == "TuskAct1" or standTag.Value == "TuskAct2" or standTag.Value == "TuskAct3" then
 		if player then
@@ -318,8 +358,11 @@ function BasicStandAttacks.StartBarrage(character)
 	end
 
 	-- Cache original motor position
-	local defaultC0 = motor:GetAttribute("DefaultC0") or motor.C0
-	motor:SetAttribute("DefaultC0", defaultC0)
+	local defaultC0
+	if motor then
+		defaultC0 = motor:GetAttribute("DefaultC0") or motor.C0
+		motor:SetAttribute("DefaultC0", defaultC0)
+	end
 
 	local STAND_BARRAGE_ANIMID = 103626308901658
 	local AnimSpeed = 1.5
@@ -333,9 +376,7 @@ function BasicStandAttacks.StartBarrage(character)
 		-- Keep original orientation, only shift relative position
 		--PilotModule.SetPoseOffset(character, CFrame.new(1.5, 0, 0))
 	else
-		if heroValue == "NuclearRain" then
-			motor:SetAttribute("DefaultC0", defaultC0)
-		else
+		if not isCharacterStand and motor then
 			motor.C0 = defaultC0 * CFrame.new(2, 0, 0)
 		end
 	end
@@ -343,11 +384,15 @@ function BasicStandAttacks.StartBarrage(character)
 	-- Stop idle and play barrage animation
 	AnimationModule.StopAllAnimations(standModel)
 	local rotation = CFrame.Angles(0, 0, 0)
-	if heroValue == "NuclearRain" then
+	if isCharacterStand then
 		STAND_BARRAGE_ANIMID = 127837357946102 -- pilot mode / character barrage
 		AnimationModule.PlayAnimation(character, STAND_BARRAGE_ANIMID, false, Enum.AnimationPriority.Action, AnimSpeed)
 		rotation = CFrame.Angles(0, math.rad(90), 0)
 		hitBoxOffset = CFrame.new(2, 0, 0)
+		if heroValue == "HermitPurple" then
+			rotation = CFrame.Angles(0, 0, 0)
+			hitBoxOffset = CFrame.new(0, 0, -2)
+		end
 	else
 		AnimationModule.PlayAnimation(standModel, STAND_BARRAGE_ANIMID, false, Enum.AnimationPriority.Action, AnimSpeed)
 	end
@@ -362,9 +407,11 @@ function BasicStandAttacks.StartBarrage(character)
 		end
 	end)
 
+	local soundRoot = isCharacterStand and character:FindFirstChild("HumanoidRootPart") or standModel.PrimaryPart
+
 	--play sound
 	SoundUtils.PlaySound({
-		Root = standModel.PrimaryPart,
+		Root = soundRoot,
 		soundName = "BarrageEffects",
 		soundID = "129949908820890",
 		volume = 2,
@@ -377,7 +424,7 @@ function BasicStandAttacks.StartBarrage(character)
 	local callSoundId = BarrageCallSounds[heroValue]
 	if callSoundId then
 		SoundUtils.PlaySound({
-			Root = standModel.PrimaryPart,
+			Root = soundRoot,
 			soundName = "BarrageCall",
 			soundID = callSoundId,
 			volume = 1,
@@ -415,10 +462,15 @@ function BasicStandAttacks.StartBarrage(character)
 	local speed = 8
 	local rate = 0.05 --delay between punches
 
+	local barrageVfxRoot = standModel
+	if isCharacterStand then
+		barrageVfxRoot = character
+	end
+
 	SpawnClientVfx:FireAllClients({
 		type = "Barrage",
 		action = "Start",
-		character = standModel,
+		character = barrageVfxRoot,
 		distance = distance,
 		speed = speed,
 		rate = rate,
@@ -434,6 +486,10 @@ function BasicStandAttacks.StartBarrage(character)
 			end
 		end
 	end)
+
+	if QuestManager.HasQuest(player, "StandBarrageTutorial") then
+		QuestManager.CompleteQuest(player, "StandBarrageTutorial")
+	end
 
 	return true
 end
@@ -476,19 +532,28 @@ function BasicStandAttacks.StopBarrage(character)
 	end
 
 	-- Reset animation
-	if heroValue == "NuclearRain" then
+	if IsCharacterStand(heroValue) then
 		AnimationModule.StopAllAnimations(character)
 	else
 		AnimationModule.StopAllAnimations(standModel)
 	end
 	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Idle, 1)
 
-	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageCall")
-	SoundUtils.StopSound(standModel.PrimaryPart, "BarrageEffects")
+	local isCharacterStand = IsCharacterStand(heroValue)
+	local barrageVfxRoot = standModel
+	if isCharacterStand then
+		barrageVfxRoot = character
+	end
+
+	local soundRoot = isCharacterStand and character:FindFirstChild("HumanoidRootPart") or standModel.PrimaryPart
+
+	SoundUtils.StopSound(soundRoot, "BarrageCall")
+	SoundUtils.StopSound(soundRoot, "BarrageEffects")
+
 	SpawnClientVfx:FireAllClients({
 		type = "Barrage",
 		action = "End",
-		character = standModel,
+		character = barrageVfxRoot,
 	})
 
 	return true

@@ -79,7 +79,7 @@ function ThatHand.Erase(standModel)
 		Damage = ERASE_DAMAGE or 0.1,
 
 		StatScaling = {
-			Power = 3,
+			Power = 2,
 		},
 
 		Size = ERASE_SIZE,
@@ -228,6 +228,11 @@ function ThatHand.LastStand(standModel)
 				Stand = standModel,
 				Character = character,
 				Damage = LAST_STAND_DAMAGE,
+
+				StatScaling = {
+					Power = 0.8,
+				},
+
 				Size = LAST_STAND_HITBOX_SIZE,
 				Offset = LAST_STAND_OFFSET,
 				Color = BrickColor.new("Bright red"),

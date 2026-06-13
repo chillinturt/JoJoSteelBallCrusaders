@@ -3,10 +3,12 @@ local StandUtils = {}
 
 -- Track active stands for each entity
 local activeStands = {}
+local vineConnections = {}
 
 -- ServerScriptService.BasicCombat.StandUtils
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local CameraEvent = ReplicatedStorage.Shared:WaitForChild("BasicCombat"):WaitForChild("PilotCameraEvent")
 local exitPilotEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("ExitPilotMode")
@@ -14,9 +16,11 @@ local exitPilotEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("ExitPi
 local StandModels = ReplicatedStorage:WaitForChild("StandModels")
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
+local QuestManager = require(game.ServerScriptService.DataSaving.QuestManager)
+local HeroGroups = require(game.ServerScriptService.BasicCombat.StandModules.Handlers:WaitForChild("HeroGroups"))
 
 local IDLE_ANIM_ID = 89452205434139
-local HURTBOX_SIZE = Vector3.new(4, 6, 4) -- Adjust size as needed
+local DEFAULT_HURTBOX_SIZE = Vector3.new(3, 5, 3) -- Adjust size as needed
 
 function StandUtils.getStandModel(character)
 	if not character then
@@ -48,49 +52,90 @@ function StandUtils.getStandTag(character)
 	return tag
 end
 
---create stand hurtbox
+local function AttachVineToArm(character, vineModel, armPart, rotationOffset)
+	if not vineModel.PrimaryPart then
+		warn("Vine model missing PrimaryPart")
+		return
+	end
+
+	vineModel.Parent = character
+
+	local motor = Instance.new("Motor6D")
+	motor.Name = "VineMotor"
+	motor.Part0 = armPart
+	motor.Part1 = vineModel.PrimaryPart
+	motor.Parent = armPart
+
+	motor.C0 = CFrame.new(0, 0, 0) * rotationOffset
+
+	local angle = 0
+
+	local connection = RunService.Heartbeat:Connect(function(dt)
+		-- Minimal safety check only (NOT your main cleanup)
+		if not motor.Parent then
+			return
+		end
+
+		angle += dt * 2
+		local wobble = math.sin(time() * 4) * 0.2
+
+		motor.C0 = CFrame.new(0, 0.2, 0) * CFrame.Angles(wobble, angle, 0) * rotationOffset
+	end)
+
+	-- ✅ Store connection per entity
+	vineConnections[character] = vineConnections[character] or {}
+	table.insert(vineConnections[character], connection)
+
+	return motor
+end
+
 local function CreateStandHurtbox(standModel)
 	local standRoot = standModel.PrimaryPart
 	if not standRoot then
 		return
 	end
 
-	-- Check if a hitbox already exists
-	if standModel:FindFirstChild("Hitbox") then
+	-- Prevent duplicates
+	if standModel:FindFirstChild("Hurtbox") then
 		return
 	end
 
-	-- Create the hitbox part
+	local character = standModel.Parent
+	local standTag = StandUtils.getStandTag(character)
+	local size = DEFAULT_HURTBOX_SIZE
+	if standTag.Value == "HeavensDoor" then
+		size = Vector3.new(1.5, 2.5, 1.5)
+	end
+
 	local hurtbox = Instance.new("Part")
 	hurtbox.Name = "Hurtbox"
-	hurtbox.Size = HURTBOX_SIZE -- Adjust size as needed
-	hurtbox.Transparency = 1 -- Visible for debugging, make it 1 for invisibility
+	hurtbox.Size = size
+	hurtbox.Transparency = 1
 	hurtbox.CanCollide = false
 	hurtbox.Massless = true
 	hurtbox.Anchored = false
-	hurtbox.Color = Color3.fromRGB(0, 255, 0) -- Green for debugging
-	hurtbox.Position = standRoot.CFrame.Position
+	hurtbox.Color = Color3.fromRGB(0, 255, 0)
 
-	-- ✅ Match position AND rotation of the stand root
-	hurtbox.CFrame = standRoot.CFrame
-
-	-- Parent hitbox to stand model
 	hurtbox.Parent = standModel
 
-	-- Weld hitbox to stand root
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = standModel:FindFirstChild("LowerTorso") or standModel.PrimaryPart
-	weld.Part1 = hurtbox
-	weld.Parent = hurtbox
+	-- ✅ Use Motor6D instead of WeldConstraint
+	local LowerTorso = standModel:FindFirstChild("LowerTorso")
+	local joint = Instance.new("Motor6D")
+	joint.Name = "HurtboxMotor"
+	joint.Part0 = LowerTorso
+	joint.Part1 = hurtbox
+	joint.Parent = standRoot
+
+	-- ✅ Keep it aligned with root (no offset)
+	joint.C0 = CFrame.new()
 end
 
 local standAurasEvent = Instance.new("RemoteEvent")
 standAurasEvent.Name = "StandAurasEvent"
 standAurasEvent.Parent = ReplicatedStorage.Shared.Events
 
--- Summon a stand for an NPC or Player
 function StandUtils.SummonStand(entity: Model, standTag: string)
-	-- Check if a stand already exists
+	-- Prevent duplicates
 	if activeStands[entity] then
 		warn(entity.Name .. " already has a stand!")
 		return activeStands[entity]
@@ -102,41 +147,127 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 		return nil
 	end
 
-	local humanoidRootPart = entity:WaitForChild("HumanoidRootPart") -- Replace if NPC uses a different part
+	local humanoidRootPart = entity:FindFirstChild("HumanoidRootPart")
 	if not humanoidRootPart then
 		warn("⚠️ No HumanoidRootPart found for entity:", entity.Name)
 		return nil
 	end
 
-	-- Clone stand model
-	local standModel = standTemplate:Clone()
-	standModel.Parent = entity
-	standModel.Name = standTag .. "Stand"
+	local standModel
+	local standRoot
 
-	standModel:SetPrimaryPartCFrame(humanoidRootPart.CFrame * CFrame.new(-2, 1, 3))
+	----------------------------------------------------------------
+	-- 🌿 HERMIT PURPLE (SPECIAL CASE)
+	----------------------------------------------------------------
+	if standTag == "HermitPurple" then
+		local leftArm = entity:FindFirstChild("LeftLowerArm") or entity:FindFirstChild("Left Arm")
+		local rightArm = entity:FindFirstChild("RightLowerArm") or entity:FindFirstChild("Right Arm")
 
-	-- Set StandTag StringValue
-	local tag = Instance.new("StringValue")
-	tag.Name = "StandTag"
-	tag.Value = standTag
-	tag.Parent = standModel
+		if not leftArm or not rightArm then
+			warn("Arms not found for Hermit Purple")
+			return nil
+		end
 
-	-- Configure physics
-	for _, part in pairs(standModel:GetDescendants()) do
-		if part:IsA("BasePart") then
-			part.CanCollide = false
-			part.Massless = true
-			part.Anchored = false
-			part.CollisionGroup = "NoCollision"
+		-- Create container
+		local container = Instance.new("Model")
+		container.Name = "HermitPurpleStand"
+		container.Parent = entity
+
+		-- Clone vines
+		local vine1 = standTemplate:Clone()
+		local vine2 = standTemplate:Clone()
+
+		vine1.Name = "HermitVineLeft"
+		vine2.Name = "HermitVineRight"
+
+		vine1.Parent = container
+		vine2.Parent = container
+
+		-- Attach vines
+		AttachVineToArm(entity, vine1, leftArm, CFrame.Angles(0, 0, 0))
+		AttachVineToArm(entity, vine2, rightArm, CFrame.Angles(0, math.rad(180), 0))
+
+		-- Tag
+		local tag = Instance.new("StringValue")
+		tag.Name = "StandTag"
+		tag.Value = standTag
+		tag.Parent = container
+
+		standModel = container
+
+		-- Cleanup on death
+		local humanoid = entity:FindFirstChildOfClass("Humanoid")
+		if humanoid then
+			humanoid.Died:Connect(function()
+				if vineConnections[entity] then
+					for _, conn in ipairs(vineConnections[entity]) do
+						if conn.Connected then
+							conn:Disconnect()
+						end
+					end
+					vineConnections[entity] = nil
+				end
+			end)
+		end
+	else
+		----------------------------------------------------------------
+		-- 💥 NORMAL STANDS
+		----------------------------------------------------------------
+		standModel = standTemplate:Clone()
+		standModel.Name = standTag .. "Stand"
+		standModel.Parent = entity
+
+		standRoot = standModel.PrimaryPart
+
+		if standRoot then
+			local weld = Instance.new("Motor6D")
+			weld.Name = "StandMotor"
+			weld.Part0 = humanoidRootPart
+			weld.Part1 = standRoot
+			weld.Parent = standRoot
+
+			local offset = CFrame.new(-2, 1, 3)
+			local rotation = CFrame.Angles(0, 0, 0)
+
+			if standTag == "NuclearRain" then
+				offset = CFrame.new(0, 1, 0)
+				rotation = CFrame.Angles(0, math.rad(90), 0)
+			elseif standTag == "Metallica" then
+				offset = CFrame.new(0, 0, 0)
+			end
+
+			weld.C0 = offset * rotation
+		end
+
+		-- Tag
+		local tag = Instance.new("StringValue")
+		tag.Name = "StandTag"
+		tag.Value = standTag
+		tag.Parent = standModel
+
+		-- Physics setup
+		for _, part in ipairs(standModel:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+				part.Massless = true
+				part.Anchored = false
+				part.CollisionGroup = "NoCollision"
+			end
 		end
 	end
 
-	-- After summoning the stand and setting up the StandTag:
+	----------------------------------------------------------------
+	-- 🔊 SHARED LOGIC (ALL STANDS)
+	----------------------------------------------------------------
+	activeStands[entity] = standModel
+
 	local player = Players:GetPlayerFromCharacter(entity)
+
 	if player then
 		print("player summoned stand...")
 
 		local StandSummonSounds = {
+			["HermitPurple"] = "6148935445",
 			["StarPurple"] = "5371606324",
 			["HierophantGrand"] = "6191514689",
 			["KingCarmine"] = "6995205240",
@@ -145,88 +276,66 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 			["CrazedDiamond"] = "6678129999",
 			["ThatHand"] = "98271580708859",
 			["NuclearRain"] = "5978825194",
-			["HeavyDoor"] = "7280545782",
+			["HeavensDoor"] = "7280545782",
 			["WhiteSake"] = "72453705794819",
-			["TuskAct1"] = "80705495242732",
-			["TuskAct2"] = "74671451151873",
-			["TuskAct3"] = "107555169108202",
-			["TuskAct4"] = "118239480297657",
-			["Tusk"] = "5024213083",
+			["TuskAct4"] = "5024213083",
+			["TuskAct1"] = "89805684001014",
+			["TuskAct2"] = "89805684001014",
+			["TuskAct3"] = "89805684001014",
 			["MagiciansRed"] = "4732804275",
 			["TheWorld"] = "4580055091",
 			["Metallica"] = "101898166770177",
 			["Cream"] = "7897536914",
 			["StoneFree"] = "86796685861992",
+			["StickyFingers"] = "6181672221",
 		}
-		local vol = 1
 
-		if standTag == "KingCarmine" then
-			vol = 3
-		elseif standTag == "KaiserQueen" then
-			vol = 3
-		elseif standTag == "HierophantGrand" then
-			vol = 0.75
-		end
+		local root = standModel.PrimaryPart or humanoidRootPart
+
+		local standName = HeroGroups.GetHeroGroup(standTag)
 
 		SoundUtils.PlaySound({
-			Root = standModel.PrimaryPart,
+			Root = root,
 			soundName = "Summon Sound",
 			soundID = StandSummonSounds[standTag],
-			volume = vol,
+			volume = 1,
 			playbackSpeed = 1,
 			looped = false,
 		})
 
-		if standTag == "TuskAct1" or standTag == "TuskAct2" or standTag == "TuskAct3" or standTag == "TuskAct4" then
-			standTag = "Tusk"
+		-- Normalize Tusk variants
+		local lookupTag = standTag
+		if lookupTag:find("TuskAct") then
+			lookupTag = "Tusk"
 		end
-		local standFolder = game.ServerScriptService.BasicCombat.StandModules:FindFirstChild(standTag)
 
+		local standFolder = game.ServerScriptService.BasicCombat.StandModules:FindFirstChild(lookupTag)
 		if standFolder then
 			local registryModule = standFolder:FindFirstChild("AbilityRegistry")
 			if registryModule then
 				local registry = require(registryModule)
 				if registry.AbilityTypes then
-					-- Fire the ability types to the client immediately
-					local StandAbilityTypesRemote =
-						game.ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityTypes")
-					StandAbilityTypesRemote:FireClient(player, registry.AbilityTypes)
+					local remote = game.ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityTypes")
+					remote:FireClient(player, registry.AbilityTypes)
 				end
 			end
 		end
 	end
 
-	local rotation = CFrame.Angles(0, 0, 0)
-	local offset = CFrame.new(-2, 1, 3)
-	if tag.Value == "NuclearRain" then
-		offset = CFrame.new(0, 1, 0)
-		rotation = CFrame.Angles(0, math.rad(90), 0)
-	end
-	if tag.Value == "Metallica" then
-		offset = CFrame.new(0, 0, 0)
-	end
-
-	offset = offset * rotation -- multiply offset by rotation
-
-	-- Weld to HumanoidRootPart
-	local humanoidRoot = entity:FindFirstChild("HumanoidRootPart")
-	if humanoidRoot and standModel.PrimaryPart then --primart part is normally the stand's HRP
-		local weld = Instance.new("Motor6D")
-		weld.Part0 = humanoidRoot
-		weld.Part1 = standModel.PrimaryPart
-		weld.Parent = standModel.PrimaryPart
-		weld.Name = "StandMotor"
-		weld.C0 = offset
-	end
-
-	activeStands[entity] = standModel
-
+	----------------------------------------------------------------
+	-- 🧱 FINAL SETUP
+	----------------------------------------------------------------
 	CreateStandHurtbox(standModel)
 
-	AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Action)
+	if standModel.PrimaryPart then
+		AnimationModule.PlayAnimation(standModel, IDLE_ANIM_ID, true, Enum.AnimationPriority.Movement)
+	end
 
-	--add aura
 	standAurasEvent:FireAllClients(entity, standTag, true)
+
+	if player and QuestManager.HasQuest(player, "SummonStandTutorial") then
+		QuestManager.CompleteQuest(player, "SummonStandTutorial")
+	end
 
 	return standModel
 end
@@ -234,20 +343,64 @@ end
 -- Remove a stand
 function StandUtils.RemoveStand(entity: Model, player)
 	local existingStand = activeStands[entity]
-	local standTag
-	if existingStand then
-		standTag = existingStand:FindFirstChild("StandTag").Value
-		standAurasEvent:FireAllClients(entity, standTag, false)
 
-		existingStand:Destroy()
-		activeStands[entity] = nil
-
-		if player then
-			CameraEvent:FireClient(player, "reset")
-			exitPilotEvent:Fire(player.Character)
-		end
-	else
+	if not existingStand then
 		warn(entity.Name .. " has no active stand to remove!")
+		return
+	end
+
+	-- Get tag safely
+	local tagObj = existingStand:FindFirstChild("StandTag")
+	local standTag = tagObj and tagObj.Value
+
+	-- Remove aura
+	if standTag then
+		standAurasEvent:FireAllClients(entity, standTag, false)
+	end
+
+	--------------------------------------------------
+	-- ✅ HERMit PURPLE CLEANUP (CRITICAL)
+	--------------------------------------------------
+	if standTag == "HermitPurple" then
+		-- 🔥 1. Destroy all vine motors on arms
+		for _, part in ipairs(entity:GetDescendants()) do
+			if part:IsA("Motor6D") and part.Name == "VineMotor" then
+				part:Destroy()
+			end
+		end
+
+		-- 🔥 2. Destroy any leftover vine models
+		for _, child in ipairs(entity:GetChildren()) do
+			if child:IsA("Model") and (child.Name == "HermitVineLeft" or child.Name == "HermitVineRight") then
+				child:Destroy()
+			end
+		end
+	end
+
+	--------------------------------------------------
+	-- ✅ CLEAN HEARTBEAT CONNECTIONS
+	--------------------------------------------------
+	if vineConnections[entity] then
+		for _, conn in ipairs(vineConnections[entity]) do
+			if conn and conn.Connected then
+				conn:Disconnect()
+			end
+		end
+		vineConnections[entity] = nil
+	end
+
+	--------------------------------------------------
+	-- ✅ DESTROY MAIN STAND CONTAINER
+	--------------------------------------------------
+	existingStand:Destroy()
+	activeStands[entity] = nil
+
+	--------------------------------------------------
+	-- ✅ RESET PLAYER STATE
+	--------------------------------------------------
+	if player then
+		CameraEvent:FireClient(player, "reset")
+		exitPilotEvent:Fire(player.Character)
 	end
 end
 

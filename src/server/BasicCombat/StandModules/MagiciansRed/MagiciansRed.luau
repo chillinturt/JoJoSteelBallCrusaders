@@ -143,10 +143,22 @@ local function makeStackKey()
 	return tostring(tick()) .. "-" .. tostring(math.random(1, 999999))
 end
 
-function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, duration, sourcePlayer)
+function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, duration, sourceCharacter, params)
 	print("burn applied")
+
 	if not humanoid or humanoid.Health <= 0 then
 		return
+	end
+
+	params = params or {}
+
+	-- ✅ Default scaling
+	local statScaling = params.StatScaling or { Power = 0.1 }
+
+	-- ✅ Compute scaled damage ONCE (snapshot)
+	local finalDamage = damagePerTick
+	if statScaling and sourceCharacter then
+		finalDamage = CombatUtils.ApplyStatScaling(sourceCharacter, damagePerTick, statScaling)
 	end
 
 	-- ensure table exists
@@ -160,10 +172,10 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 	activeBurns[humanoid][stackID] = {
 		tickCount = 0,
 		totalTicks = totalTicks,
-		damagePerTick = damagePerTick,
+		damagePerTick = finalDamage, -- ✅ STORE SCALED DAMAGE
 		tickInterval = tickInterval,
-		duration = duration, -- ✅ store this!
-		sourcePlayer = sourcePlayer,
+		duration = duration,
+		sourceCharacter = sourceCharacter, -- ✅ updated
 		alive = true,
 	}
 
@@ -181,16 +193,19 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 				break
 			end
 
-			-- apply credit tag
-			if stack.sourcePlayer then
-				local tag = Instance.new("ObjectValue")
-				tag.Name = "creator"
-				tag.Value = stack.sourcePlayer
-				tag.Parent = humanoid
-				Debris:AddItem(tag, 1)
+			-- ✅ Convert character → player for kill credit
+			if stack.sourceCharacter then
+				local player = game.Players:GetPlayerFromCharacter(stack.sourceCharacter)
+				if player then
+					local tag = Instance.new("ObjectValue")
+					tag.Name = "creator"
+					tag.Value = player
+					tag.Parent = humanoid
+					Debris:AddItem(tag, 1)
+				end
 			end
 
-			-- apply the burn damage
+			-- ✅ Use scaled damage
 			humanoid:TakeDamage(stack.damagePerTick)
 
 			local targetChar = humanoid.Parent
@@ -202,6 +217,7 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 			local ok, volume, pitch = pcall(function()
 				return MapDamageToSound(stack.damagePerTick)
 			end)
+
 			if ok and volume then
 				pcall(function()
 					SoundModule.PlaySound({
@@ -216,13 +232,11 @@ function MagiciansRed.ApplyBurnStack(humanoid, damagePerTick, tickInterval, dura
 				end)
 			end
 
-			-- increment tick
 			stack.tickCount += 1
-
 			task.wait(stack.tickInterval)
 		end
 
-		-- cleanup stack
+		-- cleanup
 		if activeBurns[humanoid] then
 			activeBurns[humanoid][stackID] = nil
 			if next(activeBurns[humanoid]) == nil then
@@ -307,7 +321,7 @@ function MagiciansRed.FlameShot(character)
 
 	local id = HttpService:GenerateGUID(false)
 
-	HitboxSpawner.spawnArcProjectile({
+	local projectile = HitboxSpawner.spawnArcProjectile({
 		Character = character,
 		Size = FLAMESHOT_SIZE,
 		Damage = FLAMESHOT_DAMAGE,
@@ -362,6 +376,28 @@ function MagiciansRed.FlameShot(character)
 		lifetime = FLAMESHOT_DURATION,
 	})
 
+	SpawnClientVfx:FireAllClients({
+		type = "Projectile",
+		effectName = "FlameShotParticleTrail",
+		id = id,
+
+		cframe = CFrame.new(startPos, startPos + direction),
+
+		-- 🔧 FIX ORIENTATION OFFSET
+		initialRotation = Vector3.new(
+			0,
+			0, -- example, adjust as needed
+			0
+		),
+
+		-- ✅ Arc motion
+		arc = true,
+		initialVelocity = direction.Unit * FLAMESHOT_SPEED,
+		gravity = Vector3.new(0, -workspace.Gravity * FLAMESHOT_GRAVITY, 0),
+
+		lifetime = FLAMESHOT_DURATION,
+	})
+
 	return true
 end
 
@@ -394,11 +430,6 @@ function MagiciansRed.RedBind(standModel)
 		OnHit = function(targetChar, newDamage)
 			local hitHumanoid = targetChar:FindFirstChild("Humanoid")
 			-- Apply normal hit damage
-			if hitHumanoid and hitHumanoid.Health > 0 then
-				hitHumanoid:TakeDamage(REDBIND_DAMAGE or 0.1)
-
-				DamageNumberService.ShowDamage(targetChar, REDBIND_DAMAGE or 0.1)
-			end
 
 			-- Apply a burn stack (damage over time)
 			MagiciansRed.ApplyBurnStack(
@@ -406,7 +437,7 @@ function MagiciansRed.RedBind(standModel)
 				REDBIND_DPS, -- Damage per tick
 				REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
 				REDBIND_DURATION, -- Duration (seconds)
-				Players:GetPlayerFromCharacter(character) -- Source player
+				character -- Source player
 			)
 		end,
 	})
@@ -475,6 +506,11 @@ function MagiciansRed.CrossfireHurricane(character)
 		Character = character,
 		Size = CROSSFIREHURRICANE_SIZE,
 		Damage = CROSSFIREHURRICANE_DAMAGE,
+
+		StatScaling = {
+			Power = 0.8,
+		},
+
 		Duration = CROSSFIREHURRICANE_DURATION,
 		Speed = CROSSFIREHURRICANE_SPEED,
 		Direction = direction,
@@ -510,6 +546,10 @@ function MagiciansRed.CrossfireHurricane(character)
 				Rotation = horizontalDirection, -- ensures horizontal facing of projectile
 				Damage = CROSSFIREHURRICANE_EXPLOSION_DAMAGE,
 
+				StatScaling = {
+					Power = 0.8,
+				},
+
 				OnHit = function(targetChar, newDamage)
 					local hitHumanoid = targetChar:FindFirstChild("Humanoid")
 					-- Apply normal hit damage
@@ -524,7 +564,7 @@ function MagiciansRed.CrossfireHurricane(character)
 						CROSSFIREHURRICANE_EXPLOSION_DPS, -- Damage per tick
 						REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
 						REDBIND_DURATION, -- Duration (seconds)
-						Players:GetPlayerFromCharacter(character) -- Source player
+						character -- Source player
 					)
 				end,
 			})
@@ -615,7 +655,7 @@ function MagiciansRed.Hellfire(character)
 					HELLFIRE_DPS, -- Damage per tick
 					REDBIND_TICK_INTERVAL, -- Tick interval (seconds)
 					REDBIND_DURATION, -- Duration (seconds)
-					Players:GetPlayerFromCharacter(character) -- Source player
+					character -- Source player
 				)
 			end
 		end,

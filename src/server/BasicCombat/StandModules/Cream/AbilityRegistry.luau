@@ -1,0 +1,137 @@
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Cream = require(script.Parent:WaitForChild("Cream"))
+local CooldownUpdateEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
+
+local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
+local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+
+-- ====================================================================
+-- EagleStrike custom state
+-- ====================================================================
+local COOLDOWN_TIME = 10
+
+local lastEagleUse = {} -- player → tick() of launch OR redirect
+local eagleFollowup = {} -- player → tick() when redirect expires
+
+-- ====================================================================
+-- Registry
+-- ====================================================================
+local AbilityRegistry = {}
+
+--------------------------------------------------------------------
+-- Ability Types (all Press)
+--------------------------------------------------------------------
+AbilityRegistry.AbilityTypes = {
+	[1] = "Press",
+	[2] = "Press",
+	[3] = "Press", -- EagleStrike 2-stage
+	[4] = "Press",
+}
+
+--------------------------------------------------------------------
+-- Ability 1 - LifeOverflow
+--------------------------------------------------------------------
+AbilityRegistry[1] = {
+	Name = "LifeOverflow",
+	Type = "Press",
+	Cooldown = 12,
+	Execute = function(standModel, player)
+		Cream.LifeOverflow(standModel)
+	end,
+}
+
+--------------------------------------------------------------------
+-- Ability 2 - VoidDive
+--------------------------------------------------------------------
+AbilityRegistry[2] = {
+	Name = "VoidDive",
+	Type = "Press",
+	Cooldown = 10,
+	Execute = function(standModel, player)
+		local char = standModel.Parent
+		if char then
+			Cream.VoidDive(char)
+		end
+	end,
+}
+
+--------------------------------------------------------------------
+-- Ability 3 - EagleStrike (Launch → Redirect)
+--------------------------------------------------------------------
+AbilityRegistry[3] = {
+	Name = "EagleStrike",
+	Type = "Press",
+	Cooldown = COOLDOWN_TIME,
+
+	-- ⭐ We handle our own cooldown (like MachOra)
+	BypassGlobalCooldown = true,
+
+	Execute = function(standModel, player)
+		local character = standModel.Parent
+		if not character then
+			return
+		end
+
+		local now = tick()
+		local last = lastEagleUse[player] or 0
+		local redirectExpiry = eagleFollowup[player] or 0
+
+		-- ===================================================================
+		-- 1) REDIRECT — does NOT obey cooldown/stun/action rules
+		-- ===================================================================
+		if now <= redirectExpiry then
+			local success = Cream.EagleStrike(character)
+			if success then
+				-- redirect consumed
+				eagleFollowup[player] = nil
+			end
+			return
+		end
+
+		-- ===================================================================
+		-- 2) LAUNCH — obeys stun & action
+		-- ===================================================================
+		if CombatUtils.GetStun(character) then
+			return
+		end
+		if CombatUtils.GetActionInProgress(character) then
+			return
+		end
+
+		-- Check cooldown
+		if now - last < COOLDOWN_TIME then
+			return
+		end
+
+		-- Perform launch
+		local success = Cream.EagleStrike(character)
+		if not success then
+			return
+		end
+
+		-- start cooldown
+		lastEagleUse[player] = now
+		CooldownUpdateEvent:FireClient(player, 3, COOLDOWN_TIME)
+
+		-- allow redirect for 2 seconds (same as your old implementation)
+		eagleFollowup[player] = now + 9.5
+	end,
+}
+
+--------------------------------------------------------------------
+-- Ability 4 - TimeErase
+--------------------------------------------------------------------
+AbilityRegistry[4] = {
+	Name = "CarnivorousTrap",
+	Type = "Press",
+	Cooldown = 23,
+	Execute = function(standModel, player)
+		local char = standModel.Parent
+		if char then
+			Cream.CarnivorousTrap(char)
+		end
+	end,
+}
+
+return AbilityRegistry

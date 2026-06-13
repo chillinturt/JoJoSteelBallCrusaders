@@ -13,6 +13,7 @@ local BarrageVfx = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("B
 local VfxRootsById = {} -- [vfxId] = BasePart
 
 local ActiveEmojis = {} -- character → BillboardGui
+local ActiveOverhead = {} -- character -> instance
 local EmojiFolder = ReplicatedStorage.Effects:WaitForChild("Emojis")
 
 local function TryRegisterVfxRoot(inst)
@@ -55,6 +56,58 @@ local function WeldModel(model)
 			weld.Part1 = part
 			weld.Parent = primary
 		end
+	end
+end
+
+local function CloneParticleEffect(template)
+	local host = Instance.new("Part")
+	host.Name = "ParticleHost"
+	host.Anchored = true
+	host.CanCollide = false
+	host.CanQuery = false
+	host.CanTouch = false
+	host.Transparency = 1
+	host.Size = Vector3.one * 0.1
+
+	local attachment = template:Clone()
+	attachment.Parent = host
+
+	return host, attachment
+end
+
+local function ConfigureParticleEmitter(emitter, data)
+	if data.speedMultiplier then
+		emitter.Speed =
+			NumberRange.new(emitter.Speed.Min * data.speedMultiplier, emitter.Speed.Max * data.speedMultiplier)
+	end
+
+	if data.scale then
+		local newKeys = {}
+
+		for _, key in ipairs(emitter.Size.Keypoints) do
+			table.insert(newKeys, NumberSequenceKeypoint.new(key.Time, key.Value * data.scale))
+		end
+
+		emitter.Size = NumberSequence.new(newKeys)
+	end
+
+	if data.color then
+		emitter.Color = data.color
+	end
+
+	if data.transparency then
+		emitter.Transparency = data.transparency
+	end
+
+	if data.rate then
+		emitter.Rate = data.rate
+	end
+
+	if data.lifetimeMultiplier then
+		emitter.Lifetime = NumberRange.new(
+			emitter.Lifetime.Min * data.lifetimeMultiplier,
+			emitter.Lifetime.Max * data.lifetimeMultiplier
+		)
 	end
 end
 
@@ -330,6 +383,136 @@ local function FindHitboxById(vfxId)
 	return VfxRootsById[vfxId]
 end
 
+local function SpawnParticleVFX(template, data)
+	if not template then
+		return
+	end
+
+	-------------------------------------------------
+	-- Clone host + attachment
+	-------------------------------------------------
+	local host, attachment = CloneParticleEffect(template)
+	host.Parent = workspace
+
+	local lifetime = data.lifetime or 3
+	local offset = data.offset or CFrame.identity
+	local initialRotation = data.initialRotation or Vector3.zero
+
+	offset *= CFrame.fromOrientation(initialRotation.X, initialRotation.Y, initialRotation.Z)
+
+	-------------------------------------------------
+	-- Resolve attachment target
+	-------------------------------------------------
+	local attachTo = data.attachTo
+
+	if not attachTo and data.attachId then
+		local startTime = os.clock()
+		local timeout = 2
+
+		repeat
+			attachTo = FindHitboxById(data.attachId)
+			task.wait()
+		until attachTo or os.clock() - startTime > timeout
+	end
+
+	-------------------------------------------------
+	-- ATTACHED MODE (Motor6D)
+	-------------------------------------------------
+	if attachTo and attachTo:IsA("BasePart") then
+		-- Prevent physics weirdness
+		host.Anchored = true
+		host.CanCollide = false
+		host.Massless = true
+
+		-- Force position FIRST
+		local targetCF = attachTo.CFrame * offset
+		host.CFrame = targetCF
+
+		-- Force attachment world update
+		for _, att in ipairs(host:GetDescendants()) do
+			if att:IsA("Attachment") then
+				att.WorldCFrame = att.WorldCFrame
+			end
+		end
+
+		-- Attach using Motor6D
+		local motor = Instance.new("Motor6D")
+		motor.Name = "ParticleMotor"
+		motor.Part0 = attachTo
+		motor.Part1 = host
+		motor.C0 = offset
+		motor.Parent = attachTo
+
+		-- Unanchor AFTER motor is created
+		host.Anchored = false
+
+		-- Safety cleanup
+		attachTo.Destroying:Once(function()
+			if host and host.Parent then
+				host:Destroy()
+			end
+		end)
+	else
+		-------------------------------------------------
+		-- STATIONARY MODE
+		-------------------------------------------------
+		local cf = data.cframe or CFrame.new()
+
+		if typeof(cf) == "Vector3" then
+			host.Position = cf
+		else
+			host.CFrame = cf * offset
+		end
+	end
+
+	-------------------------------------------------
+	-- CONFIGURE + PLAY
+	-------------------------------------------------
+	local longestLifetime = 0
+
+	for _, obj in ipairs(attachment:GetDescendants()) do
+		if obj:IsA("ParticleEmitter") then
+			ConfigureParticleEmitter(obj, data)
+
+			longestLifetime = math.max(longestLifetime, obj.Lifetime.Max)
+
+			-- Burst
+			if data.emitCount then
+				obj:Emit(data.emitCount)
+			else
+				-- Continuous
+				obj.Enabled = true
+			end
+		end
+	end
+
+	-------------------------------------------------
+	-- CLEANUP
+	-------------------------------------------------
+	local cleanupTime = math.max(lifetime, longestLifetime + 0.25)
+
+	task.delay(cleanupTime, function()
+		if not host or not host.Parent then
+			return
+		end
+
+		-- Disable looping emitters first
+		for _, obj in ipairs(host:GetDescendants()) do
+			if obj:IsA("ParticleEmitter") then
+				obj.Enabled = false
+			end
+		end
+
+		task.delay(longestLifetime, function()
+			if host and host.Parent then
+				host:Destroy()
+			end
+		end)
+	end)
+
+	return host
+end
+
 local function WeldEffect(effect, attachTo, offset)
 	if effect:IsA("BasePart") then
 		local weld = Instance.new("WeldConstraint")
@@ -382,20 +565,28 @@ local function SpawnAttachedVFX(template, data)
 	local effect = template:Clone()
 	effect.Parent = workspace
 
-	local lifetime = data.lifetime or math.huge
+	-- Disable physics
+	for _, part in ipairs(effect:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.CanCollide = false
+			part.Massless = true
+			part.Anchored = true -- 🔥 IMPORTANT: prevent physics snap
+		end
+	end
+
+	local lifetime = data.lifetime or 2
 	local transparency = data.transparency
 	local scale = data.scale
 	local initialRotation = data.initialRotation or Vector3.zero
 
-	-- Offset from attachment
+	-- Offset
 	local offset = data.offset or CFrame.identity
 	offset *= CFrame.fromOrientation(initialRotation.X, initialRotation.Y, initialRotation.Z)
 
 	-----------------------------------------------------------------
-	-- Handle BasePart vs Model
+	-- Resolve root
 	-----------------------------------------------------------------
 	local rootPart
-	local scaleData
 
 	if effect:IsA("BasePart") then
 		rootPart = effect
@@ -404,19 +595,45 @@ local function SpawnAttachedVFX(template, data)
 			effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
 		end
 		rootPart = effect.PrimaryPart
-		scaleData = CacheModelScaleData(effect)
 	end
 
 	if not rootPart then
-		warn("[VFX] No valid root part for effect")
+		warn("[VFX] No valid root part")
 		effect:Destroy()
 		return
 	end
 
 	-----------------------------------------------------------------
-	-- Initial positioning
+	-- Disable Trails FIRST (CRITICAL)
 	-----------------------------------------------------------------
-	rootPart.CFrame = attachTo.CFrame * offset
+	local trails = {}
+	for _, obj in ipairs(effect:GetDescendants()) do
+		if obj:IsA("Trail") then
+			obj.Enabled = false
+			obj:Clear()
+			table.insert(trails, obj)
+		end
+	end
+
+	-----------------------------------------------------------------
+	-- FORCE POSITION MODEL BEFORE ANYTHING ELSE
+	-----------------------------------------------------------------
+	local targetCF = attachTo.CFrame * offset
+
+	if effect:IsA("Model") then
+		effect:PivotTo(targetCF)
+	else
+		rootPart.CFrame = targetCF
+	end
+
+	-----------------------------------------------------------------
+	-- FORCE ATTACHMENTS TO UPDATE (CRITICAL FIX)
+	-----------------------------------------------------------------
+	for _, att in ipairs(effect:GetDescendants()) do
+		if att:IsA("Attachment") then
+			att.WorldCFrame = att.WorldCFrame
+		end
+	end
 
 	-----------------------------------------------------------------
 	-- Apply visual modifiers
@@ -442,21 +659,71 @@ local function SpawnAttachedVFX(template, data)
 	end
 
 	-----------------------------------------------------------------
-	-- 🔥 WELD (NO RENDERSTEPPED)
+	-- Attach using Motor6D
 	-----------------------------------------------------------------
-	local weld = Instance.new("WeldConstraint")
-	weld.Part0 = rootPart
-	weld.Part1 = attachTo
-	weld.Parent = rootPart
+	local motor = Instance.new("Motor6D")
+	motor.Name = "VFXMotor"
+	motor.Part0 = attachTo
+	motor.Part1 = rootPart
+	motor.C0 = offset
+	motor.Parent = attachTo
+
+	-- Unanchor AFTER welding
+	for _, part in ipairs(effect:GetDescendants()) do
+		if part:IsA("BasePart") then
+			part.Anchored = false
+		end
+	end
 
 	-----------------------------------------------------------------
-	-- Safety: destroy if attachment is removed
+	-- ENABLE TRAILS AFTER 1 FRAME (FINAL FIX)
+	-----------------------------------------------------------------
+	task.defer(function()
+		for _, trail in ipairs(trails) do
+			if trail and trail.Parent then
+				trail:Clear()
+				trail.Enabled = true
+			end
+		end
+	end)
+
+	-----------------------------------------------------------------
+	-- Safety cleanup
 	-----------------------------------------------------------------
 	attachTo.Destroying:Once(function()
 		if effect and effect.Parent then
 			effect:Destroy()
 		end
 	end)
+
+	-----------------------------------------------------------------
+	-- Lifetime with fade
+	-----------------------------------------------------------------
+	if lifetime ~= math.huge then
+		task.delay(lifetime, function()
+			if not effect or not effect.Parent then
+				return
+			end
+
+			local fadeTime = 0.2
+
+			for _, obj in ipairs(effect:GetDescendants()) do
+				if obj:IsA("BasePart") then
+					TweenService:Create(obj, TweenInfo.new(fadeTime), {
+						Transparency = 1,
+					}):Play()
+				elseif obj:IsA("Trail") then
+					obj.Enabled = false
+				end
+			end
+
+			task.delay(fadeTime, function()
+				if effect and effect.Parent then
+					effect:Destroy()
+				end
+			end)
+		end)
+	end
 
 	return effect
 end
@@ -532,6 +799,270 @@ local function ShowEmoji(data)
 	end)
 end
 
+local function ShowOverheadVFX(template, data)
+	local character = data.target
+	if not character then
+		return
+	end
+
+	local head = character:FindFirstChild("Head")
+	if not head then
+		return
+	end
+
+	-- Remove existing overhead effect
+	if ActiveOverhead[character] then
+		ActiveOverhead[character]:Destroy()
+		ActiveOverhead[character] = nil
+	end
+
+	local lifetime = data.lifetime or 2
+
+	-------------------------------------------------
+	-- OPTION 1: Billboard GUI (UI-style)
+	-------------------------------------------------
+	if template:IsA("BillboardGui") then
+		local gui = template:Clone()
+		gui.Adornee = head
+		gui.Parent = head
+
+		if data.offset then
+			gui.StudsOffset = data.offset
+		else
+			gui.StudsOffset = Vector3.new(0, 3, 0)
+		end
+
+		ActiveOverhead[character] = gui
+
+		-- Fade in
+		for _, obj in ipairs(gui:GetDescendants()) do
+			if obj:IsA("ImageLabel") or obj:IsA("TextLabel") then
+				obj.ImageTransparency = 1
+				obj.TextTransparency = 1
+
+				TweenService:Create(obj, TweenInfo.new(0.2), {
+					ImageTransparency = 0,
+					TextTransparency = 0,
+				}):Play()
+			end
+		end
+
+		task.delay(lifetime, function()
+			if ActiveOverhead[character] == gui then
+				gui:Destroy()
+				ActiveOverhead[character] = nil
+			end
+		end)
+
+		return
+	end
+
+	-------------------------------------------------
+	-- OPTION 2: 3D MODEL (world VFX)
+	-------------------------------------------------
+	local effect = template:Clone()
+	effect.Parent = workspace
+
+	-- Setup root
+	if not effect.PrimaryPart then
+		effect.PrimaryPart = effect:FindFirstChildWhichIsA("BasePart")
+	end
+
+	if not effect.PrimaryPart then
+		warn("[VFX] Overhead effect missing PrimaryPart")
+		effect:Destroy()
+		return
+	end
+
+	-- Position above head
+	local offset = data.offset or Vector3.new(0, 3, 0)
+	effect:SetPrimaryPartCFrame(head.CFrame + offset)
+
+	-- Weld using Motor6D (same pattern as attached)
+	local motor = Instance.new("Motor6D")
+	motor.Part0 = head
+	motor.Part1 = effect.PrimaryPart
+	motor.C0 = CFrame.new(offset)
+	motor.Parent = head
+
+	ActiveOverhead[character] = effect
+
+	-- Optional scale
+	if data.scale then
+		ScaleModel(effect, data.scale)
+	end
+
+	-- Optional transparency
+	if data.transparency then
+		SetTransparency(effect, data.transparency)
+	end
+
+	-- Cleanup
+	task.delay(lifetime, function()
+		if ActiveOverhead[character] == effect then
+			effect:Destroy()
+			ActiveOverhead[character] = nil
+		end
+	end)
+end
+
+local function SpawnAttachedTextBurst(data)
+	if not data then
+		return
+	end
+
+	local attachTo = data.attachTo
+
+	if not attachTo and data.attachId then
+		local startTime = os.clock()
+		local timeout = 2
+
+		repeat
+			attachTo = FindHitboxById(data.attachId)
+			task.wait()
+		until attachTo or os.clock() - startTime > timeout
+	end
+
+	if not attachTo or not attachTo:IsA("BasePart") then
+		warn("[TextBurst] Invalid attachment")
+		return
+	end
+
+	local template = ReplicatedStorage.Effects.StandEffects.HeavensDoor:FindFirstChild("TextBurstGui")
+	if not template then
+		warn("Missing TextBurstGui")
+		return
+	end
+
+	local Styles = {}
+
+	-- 🟢 DEFAULT (Page Slash)
+	Styles.Default = {
+		color = Color3.fromRGB(255, 255, 255),
+		stroke = Color3.fromRGB(0, 0, 0),
+		size = 1,
+		popScale = 1.2,
+		drift = Vector3.new(3, 5, 3),
+		rotation = 25,
+		font = Enum.Font.SourceSansBold,
+		countMultiplier = 1,
+	}
+
+	-- 📖 FORCE READ (dramatic, "opening a book")
+	Styles.WriteCommand = {
+		color = Color3.fromRGB(255, 230, 120), -- warm yellow
+		stroke = Color3.fromRGB(80, 0, 120), -- purple tint
+		size = 1.3,
+		popScale = 1.6,
+		drift = Vector3.new(2, 8, 2), -- more vertical
+		rotation = 10,
+		font = Enum.Font.GothamBlack,
+		countMultiplier = 1.5,
+	}
+
+	-- 🔥 MEMORY BURN (INSANE)
+	Styles.MemoryBurn = {
+		color = Color3.fromRGB(255, 80, 80), -- red
+		stroke = Color3.fromRGB(0, 0, 0),
+		size = 2,
+		popScale = 2.5,
+		drift = Vector3.new(6, 10, 6), -- explosive spread
+		rotation = 45,
+		font = Enum.Font.Arcade,
+		countMultiplier = 2.5,
+	}
+
+	-- 🔥 STYLE
+	local style = Styles[data.style or "Default"] or Styles.Default
+
+	local baseCount = data.count or 8
+	local count = math.floor(baseCount * style.countMultiplier)
+
+	local lifetime = data.lifetime or 1.2
+	local textPool = data.textPool or { "ド", "ラ", "ッ" }
+	local baseOffset = data.offset or Vector3.new(0, 3, 0)
+
+	for i = 1, count do
+		local gui = template:Clone()
+		gui.Parent = attachTo
+		gui.Adornee = attachTo
+		gui.AlwaysOnTop = true
+
+		local label = gui:FindFirstChildWhichIsA("TextLabel")
+		if not label then
+			gui:Destroy()
+			continue
+		end
+
+		-- TEXT
+		label.Text = textPool[math.random(1, #textPool)]
+		label.Font = style.font
+
+		label.TextColor3 = style.color
+		label.TextStrokeColor3 = style.stroke
+		label.TextStrokeTransparency = 0
+
+		label.TextTransparency = 1
+
+		-- SCALE
+		label.Size = UDim2.fromScale(0.3 * style.size, 0.3 * style.size)
+
+		-- ROTATION
+		label.Rotation = math.random(-style.rotation, style.rotation)
+
+		-- POSITION
+		local randomOffset = baseOffset
+			+ Vector3.new(
+				math.random(-style.drift.X, style.drift.X),
+				math.random(0, 2),
+				math.random(-style.drift.Z, style.drift.Z)
+			)
+
+		gui.StudsOffset = randomOffset
+
+		-- 🔥 POP
+		TweenService:Create(label, TweenInfo.new(0.12, Enum.EasingStyle.Back), {
+			TextTransparency = 0,
+			Size = UDim2.fromScale(style.popScale, style.popScale),
+		}):Play()
+
+		task.delay(0.12, function()
+			if label then
+				TweenService:Create(label, TweenInfo.new(0.1), {
+					Size = UDim2.fromScale(style.size, style.size),
+				}):Play()
+			end
+		end)
+
+		-- 🔥 DRIFT
+		local drift = Vector3.new(
+			math.random(-style.drift.X, style.drift.X),
+			style.drift.Y,
+			math.random(-style.drift.Z, style.drift.Z)
+		)
+
+		TweenService:Create(gui, TweenInfo.new(lifetime, Enum.EasingStyle.Quad), {
+			StudsOffset = randomOffset + drift,
+		}):Play()
+
+		-- 🔥 FADE
+		task.delay(0.2, function()
+			if label then
+				TweenService:Create(label, TweenInfo.new(lifetime * 0.8), {
+					TextTransparency = 1,
+				}):Play()
+			end
+		end)
+
+		-- CLEANUP
+		task.delay(lifetime, function()
+			if gui then
+				gui:Destroy()
+			end
+		end)
+	end
+end
+
 SpawnVfx.OnClientEvent:Connect(function(data)
 	if data.type == "Projectile" and data.deleteId then
 		DeleteProjectileVFX(data.deleteId)
@@ -554,6 +1085,11 @@ SpawnVfx.OnClientEvent:Connect(function(data)
 
 	if data.type == "Emoji" then
 		ShowEmoji(data)
+		return
+	end
+
+	if data.type == "TextBurst" then
+		SpawnAttachedTextBurst(data)
 		return
 	end
 
@@ -585,5 +1121,27 @@ SpawnVfx.OnClientEvent:Connect(function(data)
 		})
 	elseif data.type == "Attached" then
 		SpawnAttachedVFX(template, data)
+	elseif data.type == "Particle" then
+		SpawnParticleVFX(template, data)
+	end
+
+	if data.type == "Particle" then
+		SpawnParticleVFX(template, data)
+		return
+	end
+
+	if data.type == "Overhead" then
+		if not data.effectName then
+			return
+		end
+
+		--local template = FindEffect(data.effectName)
+		if not template then
+			warn("[VFX] Missing overhead effect:", data.effectName)
+			return
+		end
+
+		ShowOverheadVFX(template, data)
+		return
 	end
 end)

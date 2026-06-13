@@ -26,14 +26,54 @@ local SoundUtils = require(ServerScriptService.Utilities.SoundUtils)
 
 local activeFields = {} -- [player] = { [field] = true, ... }
 
-local STUN_ANIMATION_ID = 107701450018900
+local STUN_ANIMATION_ID = 97240044665243
+local STUN_ANIMATION2_ID = 82946931931143
+
+local stunAnimations = {
+	STUN_ANIMATION_ID,
+	STUN_ANIMATION2_ID,
+}
+
 local HIT_SOUND_ID = 8255306220
 local BLOCK_SOUND_ID = 132615624053575
 
 local VAMP_BLOOD_GAIN_RATE = 2 -- amount of blood gained is newDamage (post damg reduction) / VAMP_BLOOD_GAIN_RATE
 
-local DEFAULT_POWER_SCALING = 1.2
-local DEFAULT_STRENGTH_SCALING = 1.5
+local DEFAULT_POWER_SCALING = 1
+local DEFAULT_STRENGTH_SCALING = 1.2
+
+local DEFAULT_HIT_VFX = {
+	effectName = "PunchImpact",
+	emitCount = 1,
+	offset = CFrame.new(),
+}
+
+local SpawnClientVfx = ReplicatedStorage.Shared.Events:WaitForChild("SpawnVfx")
+
+local function SpawnHitVFX(targetChar, hitVFXData)
+	-- Explicitly disabled
+	if hitVFXData == false then
+		return
+	end
+
+	-- Use defaults if nil
+	hitVFXData = hitVFXData or DEFAULT_HIT_VFX
+
+	local hrp = targetChar:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return
+	end
+
+	SpawnClientVfx:FireAllClients({
+		type = "Particle",
+		effectName = hitVFXData.effectName or DEFAULT_HIT_VFX.effectName,
+
+		offset = hitVFXData.offset or DEFAULT_HIT_VFX.offset,
+		attachTo = hrp,
+
+		emitCount = hitVFXData.emitCount or DEFAULT_HIT_VFX.emitCount,
+	})
+end
 
 local function MapDamageToSound(damage: number)
 	-- Clamp damage to a reasonable range (so extreme values don’t explode)
@@ -94,24 +134,40 @@ function HitboxSpawner.spawnHitbox(params)
 	local detectSurface = params.DetectSurface or false
 	local onSurfaceHit = params.OnSurfaceHit
 
+	local hitSoundId = params.HitSoundId or HIT_SOUND_ID
+	local blockSoundId = params.BlockSoundId or BLOCK_SOUND_ID
+
+	local hitSoundVolume = params.HitSoundVolume
+	local hitSoundPitch = params.HitSoundPitch
+	local hitSoundPlaybackSpeed = params.HitSoundPlaybackSpeed
+	local randomPitchRange = params.RandomPitchRange
+
+	local blockSoundVolume = params.BlockSoundVolume or 1
+	local blockSoundPlaybackSpeed = params.BlockSoundPlaybackSpeed or 1
+
 	if not character then
 		return
 	end
 
 	local standModel = StandUtils.getStandModel(character)
-	if not standModel or not standModel.PrimaryPart then
-		warn("⚠️ No valid stand model found for", character.Name)
+
+	local rootPart
+
+	if standModel and standModel.PrimaryPart then
+		rootPart = standModel.PrimaryPart
+	else
+		-- fallback for character-based stands (Hermit Purple, Nuclear Rain)
+		rootPart = character:FindFirstChild("HumanoidRootPart")
+	end
+
+	if not rootPart then
+		warn("⚠️ No valid root part found for", character.Name)
 		return
 	end
 
-	local standRoot = standModel.PrimaryPart
-	local standRootCFrame
+	local standRoot = rootPart
 
-	if standRoot then
-		standRootCFrame = standRoot.CFrame
-	else
-		standRootCFrame = standModel:GetPivot()
-	end
+	local standRootCFrame = standRoot.CFrame
 
 	-- Create the hitbox
 	local hitbox = Instance.new("Part")
@@ -182,9 +238,20 @@ function HitboxSpawner.spawnHitbox(params)
 
 					-- Team check & healing logic
 					if TeamsModule.AreTeammates(targetChar, character) then
+						-- Team check & healing logic
 						if heal and not hitPlayers[targetChar] then
-							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
+							local finalHeal = heal
+
+							if statScaling then
+								finalHeal = CombatUtils.ApplyStatScaling(character, heal, statScaling)
+							end
+
+							local newHealth = math.min(humanoid.Health + finalHeal, humanoid.MaxHealth)
 							humanoid.Health = newHealth
+
+							-- Optional: show heal number (nice UX)
+							DamageNumberService.ShowDamage(targetChar, finalHeal, "heal") -- assuming 'true' = healing
+
 							hitPlayers[targetChar] = true
 						end
 						continue
@@ -209,6 +276,8 @@ function HitboxSpawner.spawnHitbox(params)
 
 						DamageNumberService.ShowDamage(targetChar, newDamage)
 
+						SpawnHitVFX(targetChar, params.HitVFX)
+
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
@@ -220,7 +289,7 @@ function HitboxSpawner.spawnHitbox(params)
 								damagePerTick,
 								DOTTickInterval,
 								DOTDuration,
-								sourcePlayer
+								character
 							)
 						end
 
@@ -230,27 +299,37 @@ function HitboxSpawner.spawnHitbox(params)
 							if stunDuration then
 								CombatUtils.applyStun(targetChar, stunDuration)
 							end
-							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
 
-							local volume, pitch = MapDamageToSound(damage)
+							local stunAnim = stunAnimations[math.random(1, #stunAnimations)]
+							AnimationModule.PlayAnimation(targetChar, stunAnim)
+
+							local autoVolume, autoPitch = MapDamageToSound(damage)
+
+							local finalVolume = hitSoundVolume or autoVolume
+							local finalPlaybackSpeed = hitSoundPlaybackSpeed or 1
+							local finalPitch = hitSoundPitch or autoPitch
+
+							if randomPitchRange then
+								finalPitch += Random.new():NextNumber(-randomPitchRange, randomPitchRange)
+							end
 
 							SoundUtils.PlaySound({
 								Root = targetHRP,
 								soundName = "HitSound",
-								soundID = HIT_SOUND_ID,
-								volume = volume,
-								playbackSpeed = 1,
+								soundID = hitSoundId,
+								volume = finalVolume,
+								playbackSpeed = finalPlaybackSpeed,
 								looped = false,
 								range = 160,
-								pitch = pitch,
+								pitch = finalPitch,
 							})
 						else
 							SoundUtils.PlaySound({
 								Root = targetHRP,
 								soundName = "BlockHitSound",
-								soundID = BLOCK_SOUND_ID,
-								volume = 1,
-								playbackSpeed = 1,
+								soundID = blockSoundId,
+								volume = blockSoundVolume,
+								playbackSpeed = blockSoundPlaybackSpeed,
 								looped = false,
 								range = 160,
 							})
@@ -312,7 +391,7 @@ end
 function HitboxSpawner.spawnStandOffHitbox(params)
 	local character = params.Character
 	local damage = params.Damage or 10
-	local statScaling = params.StatScaling or { Strength = 1.5 }
+	local statScaling = params.StatScaling or { Strength = DEFAULT_STRENGTH_SCALING }
 	local size = params.Size or Vector3.new(4, 4, 7)
 	local offset = params.Offset or CFrame.new(2, 0, -8)
 	local color = params.Color or BrickColor.new("Bright yellow")
@@ -324,6 +403,17 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 	local onHit = params.OnHit
 	local canBlock = params.CanBlock ~= false -- default true unless explicitly false
 	local removeOnStun = params.RemoveOnStun ~= false
+
+	local hitSoundId = params.HitSoundId or HIT_SOUND_ID
+	local blockSoundId = params.BlockSoundId or BLOCK_SOUND_ID
+
+	local hitSoundVolume = params.HitSoundVolume
+	local hitSoundPitch = params.HitSoundPitch
+	local hitSoundPlaybackSpeed = params.HitSoundPlaybackSpeed
+	local randomPitchRange = params.RandomPitchRange
+
+	local blockSoundVolume = params.BlockSoundVolume or 1
+	local blockSoundPlaybackSpeed = params.BlockSoundPlaybackSpeed or 1
 
 	if not character then
 		return false
@@ -420,6 +510,8 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 
 						DamageNumberService.ShowDamage(targetChar, newDamage)
 
+						SpawnHitVFX(targetChar, params.HitVFX)
+
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
@@ -435,26 +527,37 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 								--BlockModule.StopBlocking(targetChar)
 							end
 							CombatUtils.applyStun(targetChar, stunDuration)
-							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
 
-							local volume, pitch = MapDamageToSound(damage)
+							local stunAnim = stunAnimations[math.random(1, #stunAnimations)]
+							AnimationModule.PlayAnimation(targetChar, stunAnim)
+
+							local autoVolume, autoPitch = MapDamageToSound(damage)
+
+							local finalVolume = hitSoundVolume or autoVolume
+							local finalPlaybackSpeed = hitSoundPlaybackSpeed or 1
+							local finalPitch = hitSoundPitch or autoPitch
+
+							if randomPitchRange then
+								finalPitch += Random.new():NextNumber(-randomPitchRange, randomPitchRange)
+							end
+
 							SoundUtils.PlaySound({
 								Root = targetHRP,
 								soundName = "HitSound",
-								soundID = HIT_SOUND_ID,
-								volume = volume,
-								playbackSpeed = 1,
+								soundID = hitSoundId,
+								volume = finalVolume,
+								playbackSpeed = finalPlaybackSpeed,
 								looped = false,
 								range = 160,
-								pitch = pitch,
+								pitch = finalPitch,
 							})
 						else
 							SoundUtils.PlaySound({
 								Root = targetHRP,
 								soundName = "BlockHitSound",
-								soundID = BLOCK_SOUND_ID,
-								volume = 1,
-								playbackSpeed = 1,
+								soundID = blockSoundId,
+								volume = blockSoundVolume,
+								playbackSpeed = blockSoundPlaybackSpeed,
 								looped = false,
 								range = 160,
 							})
@@ -571,7 +674,8 @@ function HitboxSpawner.spawnProjectile(params)
 		applyStun = function(target, duration)
 			if target and target.Parent then
 				CombatUtils.applyStun(target, duration)
-				AnimationModule.PlayAnimation(target, STUN_ANIMATION_ID)
+				local stunAnim = stunAnimations[math.random(1, #stunAnimations)]
+				AnimationModule.PlayAnimation(target, stunAnim)
 			end
 		end,
 
@@ -711,7 +815,8 @@ function HitboxSpawner.spawnArcProjectile(params)
 		applyStun = function(target, duration)
 			if target and target.Parent then
 				CombatUtils.applyStun(target, duration)
-				AnimationModule.PlayAnimation(target, STUN_ANIMATION_ID)
+				local stunAnim = stunAnimations[math.random(1, #stunAnimations)]
+				AnimationModule.PlayAnimation(target, stunAnim)
 			end
 		end,
 
@@ -842,7 +947,8 @@ function HitboxSpawner.spawnGuidedProjectile(params)
 		applyStun = function(target, duration)
 			if target and target.Parent then
 				CombatUtils.applyStun(target, duration)
-				AnimationModule.PlayAnimation(target, STUN_ANIMATION_ID)
+				local stunAnim = stunAnimations[math.random(1, #stunAnimations)]
+				AnimationModule.PlayAnimation(target, stunAnim)
 				--BlockModule.StopBlocking(target)
 			end
 		end,
@@ -1000,9 +1106,20 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 
 					-- Team check & healing logic
 					if (targetChar == character and canSelfHit) or TeamsModule.AreTeammates(targetChar, character) then
+						-- Team check & healing logic
 						if heal and not hitPlayers[targetChar] then
-							local newHealth = math.min(humanoid.Health + heal, humanoid.MaxHealth)
+							local finalHeal = heal
+
+							if statScaling then
+								finalHeal = CombatUtils.ApplyStatScaling(character, heal, statScaling)
+							end
+
+							local newHealth = math.min(humanoid.Health + finalHeal, humanoid.MaxHealth)
 							humanoid.Health = newHealth
+
+							-- Optional: show heal number (nice UX)
+							DamageNumberService.ShowDamage(targetChar, finalHeal, "heal") -- assuming 'true' = healing
+
 							hitPlayers[targetChar] = true
 						end
 						continue
@@ -1027,6 +1144,8 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 
 						DamageNumberService.ShowDamage(targetChar, newDamage)
 
+						SpawnHitVFX(targetChar, params.HitVFX)
+
 						if params.OnHit then
 							params.OnHit(targetChar, newDamage)
 						end
@@ -1035,7 +1154,8 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 
 						if not CombatUtils.IsBlocking(targetChar) then
 							CombatUtils.applyStun(targetChar, stunDuration)
-							AnimationModule.PlayAnimation(targetChar, STUN_ANIMATION_ID)
+							local stunAnim = stunAnimations[math.random(1, #stunAnimations)]
+							AnimationModule.PlayAnimation(targetChar, stunAnim)
 
 							local volume, pitch = MapDamageToSound(damage)
 
@@ -1124,7 +1244,7 @@ function HitboxSpawner.SpawnSlowingField(params)
 			return
 		end
 
-		local base = baseSpeedObj.Value
+		local base = baseSpeedObj
 		local mult = SlowingFieldRegistry.GetFinalMultiplier(character)
 
 		hum.WalkSpeed = base * mult
@@ -1349,9 +1469,20 @@ function HitboxSpawner.SpawnStationarySlowingField(params)
 	return field
 end
 
-function HitboxSpawner.ApplyDamageOverTime(humanoid, damagePerTick, tickInterval, duration, sourcePlayer)
+function HitboxSpawner.ApplyDamageOverTime(humanoid, damagePerTick, tickInterval, duration, sourceCharacter, params)
 	if not humanoid or humanoid.Health <= 0 then
 		return
+	end
+
+	params = params or {}
+
+	-- ✅ Scaling setup (same pattern as projectiles)
+	local baseDamage = damagePerTick
+	local statScaling = params.StatScaling or { Power = 0.1 }
+
+	local finalDamage = baseDamage
+	if statScaling and sourceCharacter then
+		finalDamage = CombatUtils.ApplyStatScaling(sourceCharacter, baseDamage, statScaling)
 	end
 
 	local totalTicks = math.floor(duration / tickInterval)
@@ -1360,24 +1491,27 @@ function HitboxSpawner.ApplyDamageOverTime(humanoid, damagePerTick, tickInterval
 	-- Run damage loop
 	task.spawn(function()
 		while tickCount < totalTicks and humanoid and humanoid.Health > 0 do
-			-- Apply one tick of damage
-			if sourcePlayer then
-				-- Tag humanoid for kill credit
-				local tag = Instance.new("ObjectValue")
-				tag.Name = "creator"
-				tag.Value = sourcePlayer
-				tag.Parent = humanoid
-				game:GetService("Debris"):AddItem(tag, 1) -- auto-clean
+			-- Tag for kill credit (use character → player if needed)
+			if sourceCharacter then
+				local player = game.Players:GetPlayerFromCharacter(sourceCharacter)
+				if player then
+					local tag = Instance.new("ObjectValue")
+					tag.Name = "creator"
+					tag.Value = player
+					tag.Parent = humanoid
+					game:GetService("Debris"):AddItem(tag, 1)
+				end
 			end
 
-			humanoid:TakeDamage(damagePerTick)
+			-- ✅ Use scaled damage
+			humanoid:TakeDamage(finalDamage)
 
 			local targetChar = humanoid.Parent
-			DamageNumberService.ShowDamage(targetChar, damagePerTick)
+			DamageNumberService.ShowDamage(targetChar, finalDamage)
 
-			local volume, pitch = MapDamageToSound(damagePerTick)
+			local volume, pitch = MapDamageToSound(finalDamage)
 
-			local targetHRP = humanoid.Parent:FindFirstChild("HumanoidRootPart")
+			local targetHRP = targetChar and targetChar:FindFirstChild("HumanoidRootPart")
 
 			SoundUtils.PlaySound({
 				Root = targetHRP,

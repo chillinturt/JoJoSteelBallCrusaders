@@ -6,6 +6,8 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local Players = game:GetService("Players")
 
 local SlowingFieldRegistry = require(ServerScriptService.BasicCombat.Managers.SlowingFieldRegistry)
+local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
+local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 
 local CooldownUpdateEvent = Instance.new("RemoteEvent")
 CooldownUpdateEvent.Name = "CooldownUpdateEvent"
@@ -96,6 +98,8 @@ local blockRegenState = {} -- [character] = { lastDamageTime, regenRunning }
 
 local actionInProgress = {}
 
+local damageMults = {}
+
 local DEFAULT_MOVE_SPEED = 24
 local DEFAULT_JUMP_HEIGHT = 40.996
 
@@ -106,6 +110,8 @@ local HeroManager = require(ServerScriptService.DataSaving.HeroManager)
 local AnimationModule = require(script.Parent.AnimationModule)
 local StandUtils = require(script.Parent.StandUtils)
 local VampireModule = require(game.ServerScriptService.BasicCombat.RaceScripts:WaitForChild("Vampire"))
+
+local NPC_FOLDER = workspace:WaitForChild("NPCs"):WaitForChild("EnemyNPCs")
 
 local function ensure(player)
 	if not combatData[player] then
@@ -140,6 +146,140 @@ function CombatUtils.SyncBlock(character)
 	CombatUtils.SyncBlockUI(player, current, max)
 end
 
+local function IsValidTarget(character, potential)
+	if not potential or potential == character then
+		return false
+	end
+
+	local humanoid = potential:FindFirstChild("Humanoid")
+	local hrp = potential:FindFirstChild("HumanoidRootPart")
+
+	if not humanoid or humanoid.Health <= 0 or not hrp then
+		return false
+	end
+
+	return true
+end
+
+function CombatUtils.GetNearestTarget(character, maxDistance, requireLOS)
+	if not character then
+		return nil
+	end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return nil
+	end
+
+	maxDistance = maxDistance or 50
+
+	local nearestTarget = nil
+	local nearestDistance = maxDistance
+
+	--------------------------------------------------
+	-- 1. CHECK PLAYERS
+	--------------------------------------------------
+	for _, player in ipairs(Players:GetPlayers()) do
+		local potential = player.Character
+
+		if IsValidTarget(character, potential) then
+			local targetHRP = potential:FindFirstChild("HumanoidRootPart")
+			local distance = (targetHRP.Position - hrp.Position).Magnitude
+
+			if distance <= nearestDistance then
+				if requireLOS then
+					local hasLOS = RaycastModule.HasLineOfSight(character, potential, maxDistance)
+					if not hasLOS then
+						continue
+					end
+				end
+
+				nearestTarget = potential
+				nearestDistance = distance
+			end
+		end
+	end
+
+	--------------------------------------------------
+	-- 2. CHECK NPCs
+	--------------------------------------------------
+	for _, potential in ipairs(NPC_FOLDER:GetChildren()) do
+		if potential:IsA("Model") and IsValidTarget(character, potential) then
+			local targetHRP = potential:FindFirstChild("HumanoidRootPart")
+			local distance = (targetHRP.Position - hrp.Position).Magnitude
+
+			if distance <= nearestDistance then
+				if requireLOS then
+					local hasLOS = RaycastModule.HasLineOfSight(character, potential, maxDistance)
+					if not hasLOS then
+						continue
+					end
+				end
+
+				nearestTarget = potential
+				nearestDistance = distance
+			end
+		end
+	end
+
+	return nearestTarget, nearestDistance
+end
+
+function CombatUtils.ApplyDamageMult(char, mult, duration, multType)
+	if not char then
+		return
+	end
+
+	multType = multType or "Generic"
+
+	damageMults[char] = damageMults[char] or {}
+	local entries = damageMults[char]
+
+	local now = tick()
+
+	-- 🔥 REMOVE existing of same type (prevents stacking)
+	for i = #entries, 1, -1 do
+		local entry = entries[i]
+		if entry.type == multType then
+			table.remove(entries, i)
+		end
+	end
+
+	-- 🔥 ADD new one
+	table.insert(entries, {
+		mult = mult,
+		expires = now + duration,
+		type = multType,
+	})
+end
+
+-- Get final multiplier
+function CombatUtils.GetDamageMult(char)
+	local entries = damageMults[char]
+	if not entries then
+		return 1
+	end
+
+	local now = tick()
+	local finalMult = 1
+
+	for i = #entries, 1, -1 do
+		local entry = entries[i]
+
+		if now > entry.expires then
+			table.remove(entries, i)
+		else
+			finalMult *= entry.mult
+		end
+	end
+
+	if #entries == 0 then
+		damageMults[char] = nil
+	end
+
+	return finalMult
+end
+
 -- Function to return modified damage based on blocking state
 function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	local isBlocking = CombatUtils.IsBlocking(character)
@@ -169,9 +309,11 @@ function CombatUtils.ReturnDamage(character, damage, canBlock, attacker)
 	end
 
 	-- Apply Hamon damage reduction if applicable
-	local hamonMeter = character:FindFirstChild("HamonMeter")
-	if hamonMeter and hamonMeter.Value > 0 then
-		newDamage = newDamage * HAMON_DAMAGE_REDUCTION
+	local hitPlayer = Players:GetPlayerFromCharacter(character)
+	if hitPlayer then
+		if HeroManager.GetField(hitPlayer, "Specialty") == "Hamon" then
+			newDamage = newDamage * HAMON_DAMAGE_REDUCTION
+		end
 	end
 
 	-- If blocking is allowed
@@ -240,21 +382,25 @@ function CombatUtils.GetActionInProgress(character)
 	return true
 end
 
-function CombatUtils.SetActionInProgress(character, duration)
+function CombatUtils.SetActionInProgress(character, duration, applySlow)
 	if not character then
 		warn("Cannot SetActionInProgress: character does not exist")
 		return
 	end
 
 	duration = duration or 0
+	applySlow = (applySlow ~= false) -- defaults to true
+
 	local expiresAt = os.clock() + duration
 
 	actionInProgress[character] = {
 		expiresAt = expiresAt,
 	}
 
-	-- Apply slow
-	CombatUtils.ApplyMoveSpeedMultiplier(character, 0.5)
+	-- Apply slow ONLY if enabled
+	if applySlow then
+		CombatUtils.ApplyMoveSpeedMultiplier(character, 0.5)
+	end
 
 	task.delay(duration, function()
 		local state = actionInProgress[character]
@@ -262,8 +408,10 @@ function CombatUtils.SetActionInProgress(character, duration)
 		if state and state.expiresAt <= os.clock() then
 			actionInProgress[character] = nil
 
-			-- Restore normal speed safely
-			CombatUtils.ApplyMoveSpeedMultiplier(character, 1)
+			-- Restore speed ONLY if we slowed earlier
+			if applySlow then
+				CombatUtils.ApplyMoveSpeedMultiplier(character, 1)
+			end
 		end
 	end)
 
@@ -293,6 +441,75 @@ function CombatUtils.UpdateMovement(character)
 	humanoid.WalkSpeed = finalSpeed
 end
 
+-- Add or refresh a stun
+function CombatUtils.RegisterStun(character, duration)
+	if not (character and character.Parent) then
+		return
+	end
+
+	duration = math.max(0, duration)
+	local now = os.clock()
+
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local entry = ActiveStuns[character]
+
+	if entry then
+		-- Extend stun (never shorten)
+		entry.expiresAt = math.max(entry.expiresAt, now + duration)
+	else
+		-- Create new stun
+		ActiveStuns[character] = {
+			expiresAt = now + duration,
+		}
+
+		-- Apply slowing effect
+		SlowingFieldRegistry.SetSlow(character, "Stun", STUN_SPEED_MULT)
+
+		-- Apply slowed walk speed (memory-based)
+		CombatUtils.UpdateMovement(character)
+
+		-- Disable jumping
+		humanoid.JumpPower = 0
+
+		-- Optional: force-stop actions
+		CombatUtils.SetActionInProgress(character, duration)
+	end
+end
+
+function CombatUtils.StopSlide(player)
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local state = slidingPlayers[character]
+	if not state then
+		return
+	end
+
+	if state.Connection then
+		state.Connection:Disconnect()
+	end
+
+	if state.BodyVelocity then
+		state.BodyVelocity:Destroy()
+	end
+
+	slidingPlayers[character] = nil
+
+	-- Return to normal movement
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if humanoid then
+		humanoid:ChangeState(Enum.HumanoidStateType.Running)
+	end
+
+	AnimationModule.StopAllAnimations(character)
+end
+
 function CombatUtils.applyStun(character, duration)
 	if not character then
 		return
@@ -317,9 +534,8 @@ function CombatUtils.applyStun(character, duration)
 	if not stand then
 		return
 	end
-	local standRoot = stand.PrimaryPart
 
-	for _, child in ipairs(standRoot:GetChildren()) do
+	for _, child in ipairs(character:GetDescendants()) do
 		if child:IsA("BasePart") and child:GetAttribute("RemoveOnStun") then
 			child:Destroy()
 		end
@@ -620,6 +836,7 @@ function CombatUtils.ApplyTurningVelocity(params)
 	local duration = params.Duration
 	local name = params.Name or "TurningVelocity"
 	local dir = params.Direction or Vector3.new(0, 0, -1) -- local-space direction
+	local lockVertical = params.LockVertical or false
 
 	local hrp = character:FindFirstChild("HumanoidRootPart")
 	if not hrp then
@@ -637,6 +854,7 @@ function CombatUtils.ApplyTurningVelocity(params)
 		Speed = speed,
 		Elapsed = 0,
 		Duration = duration,
+		LockVertical = lockVertical,
 	}
 
 	-- Ensure a single BodyVelocity exists for this character
@@ -672,6 +890,7 @@ function CombatUtils.ApplyTurningVelocity(params)
 		end
 
 		local totalVelocity = Vector3.zero
+		local shouldLockVertical = false
 
 		-- Iterate safely through all active velocities
 		for k, v in pairs(charVelocities) do
@@ -681,10 +900,29 @@ function CombatUtils.ApplyTurningVelocity(params)
 			else
 				local worldDir = hrp.CFrame:VectorToWorldSpace(v.Direction.Unit)
 				totalVelocity += worldDir * v.Speed
+
+				if v.LockVertical then
+					shouldLockVertical = true
+				end
 			end
 		end
 
-		bv.Velocity = totalVelocity
+		if shouldLockVertical then
+			bv.MaxForce = Vector3.new(1e5, 1e5, 1e5)
+		else
+			bv.MaxForce = Vector3.new(1e5, 0, 1e5)
+		end
+
+		if shouldLockVertical then
+			-- Hard lock vertical movement
+			bv.Velocity = Vector3.new(totalVelocity.X, 0, totalVelocity.Z)
+
+			-- ALSO zero out existing Y velocity so gravity doesn't fight it
+			local currentVel = hrp.AssemblyLinearVelocity
+			hrp.AssemblyLinearVelocity = Vector3.new(currentVel.X, 0, currentVel.Z)
+		else
+			bv.Velocity = totalVelocity
+		end
 
 		-- Cleanup if table is empty
 		if next(charVelocities) == nil then
@@ -738,24 +976,6 @@ function CombatUtils.ApplyTimedVelocity(
 	end)
 end
 
-function CombatUtils.ApplyDamageMult(char, mult, duration)
-	local damageMult = Instance.new("NumberValue")
-	damageMult.Value = mult
-	damageMult.Name = "DamageMultiplier"
-	damageMult.Parent = char
-	Debris:AddItem(damageMult, duration)
-end
-
-function CombatUtils.GetDamageMult(char)
-	local damageMult = char:FindFirstChild("DamageMultiplier")
-	if not damageMult then
-		return 1
-	end
-	if damageMult and damageMult.Value then
-		return damageMult.Value
-	end
-	return 1
-end
 -- Main velocity update
 local function UpdateVelocity(character, dt)
 	local totalVelocity = Vector3.zero
@@ -826,36 +1046,6 @@ function CombatUtils.Clear(character)
 	end
 end
 
-function CombatUtils.StopSlide(player)
-	local character = player.Character
-	if not character then
-		return
-	end
-
-	local state = slidingPlayers[character]
-	if not state then
-		return
-	end
-
-	if state.Connection then
-		state.Connection:Disconnect()
-	end
-
-	if state.BodyVelocity then
-		state.BodyVelocity:Destroy()
-	end
-
-	slidingPlayers[character] = nil
-
-	-- Return to normal movement
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if humanoid then
-		humanoid:ChangeState(Enum.HumanoidStateType.Running)
-	end
-
-	AnimationModule.StopAllAnimations(character)
-end
-
 -- Cancel slide early (e.g., when jumping mid-slide)
 function CombatUtils.CancelSlide(player, cancelMultiplier)
 	local character = player.Character
@@ -917,7 +1107,10 @@ function CombatUtils.IsDashing(character)
 	return state and state.active or false
 end
 
-function CombatUtils.StartSlide(player)
+function CombatUtils.StartSlide(player, ignoreGroundCheck, speedMultiplier)
+	ignoreGroundCheck = ignoreGroundCheck or false
+	speedMultiplier = speedMultiplier or 1
+
 	local character = player.Character
 	if not character then
 		return false
@@ -947,9 +1140,13 @@ function CombatUtils.StartSlide(player)
 	params.FilterDescendantsInstances = { character }
 	params.FilterType = Enum.RaycastFilterType.Exclude
 
-	local groundRay = workspace:Raycast(root.Position, -root.CFrame.UpVector * 5, params)
-	if not groundRay then
-		return false
+	local groundRay = nil
+
+	if not ignoreGroundCheck then
+		groundRay = workspace:Raycast(root.Position, -root.CFrame.UpVector * 5, params)
+		if not groundRay then
+			return false
+		end
 	end
 
 	-------------------------------------------------------------------------
@@ -959,14 +1156,16 @@ function CombatUtils.StartSlide(player)
 	local flatVel = Vector3.new(vel.X, 0, vel.Z)
 	local flatSpeed = flatVel.Magnitude
 
-	local slopeNormal = groundRay.Normal
+	local slopeNormal = groundRay and groundRay.Normal or Vector3.new(0, 1, 0)
 	local slopeAngle = math.deg(math.acos(slopeNormal:Dot(Vector3.new(0, 1, 0))))
 
 	local MIN_SLIDE_SPEED = 28
 	local MAX_SLOPE_TO_ALLOW_SLOW_SLIDE = 20
 
-	if flatSpeed < MIN_SLIDE_SPEED and slopeAngle < MAX_SLOPE_TO_ALLOW_SLOW_SLIDE then
-		return false
+	if not ignoreGroundCheck then
+		if flatSpeed < MIN_SLIDE_SPEED and slopeAngle < MAX_SLOPE_TO_ALLOW_SLOW_SLIDE then
+			return false
+		end
 	end
 
 	-------------------------------------------------------------------------
@@ -999,7 +1198,7 @@ function CombatUtils.StartSlide(player)
 	-------------------------------------------------------------------------
 	-- 3. Guarantee minimum launch speed (horizontal only)
 	-------------------------------------------------------------------------
-	local MIN_LAUNCH = 70
+	local MIN_LAUNCH = 70 * speedMultiplier
 
 	if flatSpeed < MIN_LAUNCH then
 		local boosted = slideDirectionWorld * MIN_LAUNCH
@@ -1051,17 +1250,21 @@ function CombatUtils.StartSlide(player)
 		---------------------------------------------------------------------
 		-- Ground check
 		---------------------------------------------------------------------
-		local ray = workspace:Raycast(root.Position, -root.CFrame.UpVector * 10, params)
+		if not ignoreGroundCheck then
+			local ray = workspace:Raycast(root.Position, -root.CFrame.UpVector * 10, params)
+
+			if ray then
+				airTime = 0
+			else
+				airTime += dt
+			end
+		else
+			airTime = 0 -- never considered airborne
+		end
 
 		local posY = root.Position.Y
 		local deltaY = posY - prevY
 		prevY = posY
-
-		if ray then
-			airTime = 0
-		else
-			airTime += dt
-		end
 
 		---------------------------------------------------------------------
 		-- Slope acceleration / deceleration
@@ -1084,7 +1287,7 @@ function CombatUtils.StartSlide(player)
 		---------------------------------------------------------------------
 		-- APPLY SLIDE USING BODYVELOCITY (HORIZONTAL ONLY)
 		---------------------------------------------------------------------
-		local horizontalVel = worldDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier)
+		local horizontalVel = worldDir * (SLIDE_SETTINGS.BaseSpeed * currentMultiplier * speedMultiplier)
 
 		state.BodyVelocity.Velocity = Vector3.new(
 			horizontalVel.X,
@@ -1095,10 +1298,15 @@ function CombatUtils.StartSlide(player)
 		---------------------------------------------------------------------
 		-- Stop conditions
 		---------------------------------------------------------------------
-		if currentMultiplier < 0.1 or airTime > AIR_GRACE then
+		if currentMultiplier < 0.1 or (not ignoreGroundCheck and airTime > AIR_GRACE) then
 			CombatUtils.StopSlide(player)
 		end
 	end)
+
+	-- complete the slide tutorial quest if player has it
+	if QuestManager.HasQuest(player, "SlideTutorial") then
+		QuestManager.CompleteQuest(player, "SlideTutorial")
+	end
 
 	return true
 end
@@ -1295,45 +1503,6 @@ function CombatUtils.AttachBarrierDamageHook(character)
 			sendBarrierUpdate(player, character)
 		end
 	end)
-end
-
--- Add or refresh a stun
-function CombatUtils.RegisterStun(character, duration)
-	if not (character and character.Parent) then
-		return
-	end
-
-	duration = math.max(0, duration)
-	local now = os.clock()
-
-	local humanoid = character:FindFirstChildOfClass("Humanoid")
-	if not humanoid then
-		return
-	end
-
-	local entry = ActiveStuns[character]
-
-	if entry then
-		-- Extend stun (never shorten)
-		entry.expiresAt = math.max(entry.expiresAt, now + duration)
-	else
-		-- Create new stun
-		ActiveStuns[character] = {
-			expiresAt = now + duration,
-		}
-
-		-- Apply slowing effect
-		SlowingFieldRegistry.SetSlow(character, "Stun", STUN_SPEED_MULT)
-
-		-- Apply slowed walk speed (memory-based)
-		CombatUtils.UpdateMovement(character)
-
-		-- Disable jumping
-		humanoid.JumpPower = 0
-
-		-- Optional: force-stop actions
-		CombatUtils.SetActionInProgress(character, duration)
-	end
 end
 
 -- Remove stun and restore normal stats

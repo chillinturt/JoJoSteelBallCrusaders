@@ -5,6 +5,7 @@ local player = Players.LocalPlayer
 local MenuState = {}
 
 MenuState.Changed = Instance.new("BindableEvent")
+MenuState.ReopenInventory = false
 
 -- Default UI states
 local DEFAULT_STATES = {

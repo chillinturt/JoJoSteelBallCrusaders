@@ -339,7 +339,7 @@ function HamonModule.BubbleCutter(character)
 				Character = character,
 				Damage = BUBBLECUTTER_DAMAGE or 0.1,
 				StatScaling = {
-					Stregnth = 1.5,
+					Strength = 0.7,
 				},
 				Size = BUBBLECUTTER_SIZE,
 				Offset = BUBBLECUTTER_OFFSET,

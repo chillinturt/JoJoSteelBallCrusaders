@@ -37,7 +37,7 @@ local SPLATTER_DURATION = 3
 local SPLATTER_OFFSET = Vector3.new(0, 0, 8)
 local SPLATTER_ENDLAG = 0.8
 local SPLATTER_STUN = 1.5
-local SPLATTER_SPEED = 200
+local SPLATTER_SPEED = 300
 
 local activeTimeErase = {}
 local timeEraseVisibilityCache = {} -- [player] = transparencyCache
@@ -152,6 +152,7 @@ function KingCarmine.Chop(standModel)
 		DamagePerTick = CHOP_DPS,
 		DOTTickInterval = CHOP_TICK_INTERVAL,
 		DOTDuration = CHOP_DURATION,
+		RemoveOnStun = false,
 	})
 end
 
@@ -303,7 +304,7 @@ function KingCarmine.TimeErase(standModel)
 		standHurtbox.CanQuery = false
 	end
 
-	CombatUtils.SetActionInProgress(character, TIME_ERASE_DURATION)
+	CombatUtils.SetActionInProgress(character, TIME_ERASE_DURATION, false)
 
 	SoundModule.PlaySound({
 		Root = standModel.PrimaryPart,

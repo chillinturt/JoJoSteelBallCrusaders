@@ -40,10 +40,13 @@ local standRarities = {
 	{ name = "NuclearRain", weight = 40 },
 	{ name = "GoldExperiment", weight = 20 },
 	{ name = "KingCarmine", weight = 12 },
-	{ name = "StarPurple", weight = 4 },
+	{ name = "StarPurple", weight = 2 },
 	{ name = "TheWorld", weight = 2 },
-	{ name = "TuskAct4", weight = 1 },
+	{ name = "TuskAct4", weight = 2 },
+	{ name = "HeavensDoor", weight = 2 },
 }
+
+local heroChangedSignals = {} -- [player] = BindableEvent
 
 function HeroManager.GetRandomStand()
 	local totalWeight = 0
@@ -117,7 +120,22 @@ function HeroManager.SetHero(player, savedData)
 		heroData[player.UserId][key] = tostring(value)
 	end
 
+	local heroName = heroData[player.UserId]["Hero"]
+
 	HeroUpdatedEvent:FireClient(player, HeroManager.GetHero(player))
+
+	-- ✅ Fire correct hero value
+	if heroChangedSignals[player] and heroName then
+		heroChangedSignals[player]:Fire(heroName)
+	end
+end
+
+function HeroManager.OnHeroChanged(player, callback)
+	if not heroChangedSignals[player] then
+		heroChangedSignals[player] = Instance.new("BindableEvent")
+	end
+
+	return heroChangedSignals[player].Event:Connect(callback)
 end
 
 ---------------------------------------------------------------------
@@ -132,8 +150,17 @@ function HeroManager.SetField(player, field, value)
 		return
 	end
 
+	local oldValue = data[field]
 	data[field] = value
+
 	HeroUpdatedEvent:FireClient(player, HeroManager.GetHero(player))
+
+	-- ✅ ONLY fire when Hero changes
+	if field == "Hero" and oldValue ~= value then
+		if heroChangedSignals[player] then
+			heroChangedSignals[player]:Fire(value)
+		end
+	end
 end
 
 -- Returns string value (Hero, Specialty, Race, etc.)
@@ -176,6 +203,13 @@ Players.PlayerAdded:Connect(function(player)
 			HeroUpdatedEvent:FireClient(player, data)
 		end)
 	end)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	if heroChangedSignals[player] then
+		heroChangedSignals[player]:Destroy()
+		heroChangedSignals[player] = nil
+	end
 end)
 
 ---------------------------------------------------------------------

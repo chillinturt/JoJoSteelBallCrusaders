@@ -15,10 +15,10 @@ local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("C
 
 local ERASE_ANIM_ID = 90498591949232
 
-local NAILSHOT_SPEED = 400
+local NAILSHOT_SPEED = 800
 local NAILSHOT_GRAVITY = 0.2
 local NAILSHOT_OFFSET = Vector3.new(0, 0, 8)
-local NAILSHOT_SIZE = Vector3.new(7, 7, 7)
+local NAILSHOT_SIZE = Vector3.new(14, 14, 14)
 local NAILSHOT_DURATION = 5
 local NAILSHOT_ENDLAG = 1
 
@@ -319,16 +319,16 @@ local function CreateWormholePair(character, posA, posB)
 
 	promptA.Triggered:Connect(function(triggeringPlayer)
 		if triggeringPlayer ~= player then
-			--return --add this line back to prevent other's using the teleport
-			print("another player took the wormhole!")
+			return --add this line back to prevent other's using the teleport
+				print("another player took the wormhole!")
 		end
 		teleportTo(anchorB.Position)
 	end)
 
 	promptB.Triggered:Connect(function(triggeringPlayer)
 		if triggeringPlayer ~= player then
-			--return --add this line back to prevent other's using the teleport
-			print("another player took the wormhole!")
+			return --add this line back to prevent other's using the teleport
+				print("another player took the wormhole!")
 		end
 		teleportTo(anchorA.Position)
 	end)
@@ -519,7 +519,7 @@ function Tusk.InfiniteRotation(character)
 	})
 
 	task.wait(0.5)
-	TandemModule.EnterTandemMode(character, standModel, true, "Screen", true)
+	TandemModule.EnterTandemMode(character, standModel, true, "Screen", true, 80)
 
 	local hitbox = HitboxSpawner.spawnHitbox({
 		Character = character,

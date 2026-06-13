@@ -3,8 +3,14 @@ local AnimationModule = {}
 
 local activeTracks = {} -- [character] = { [animId] = track }
 local animationLocks = {} -- [character] = true/false
+local animationCache = {}
+local actionStates = {} -- [entity] = true/false
 
 local IDLE_ANIM_ID = 89452205434139
+
+function AnimationModule.IsActionPlaying(entity)
+	return actionStates[entity] == true
+end
 
 function AnimationModule.SetAnimationLocked(character, locked)
 	animationLocks[character] = locked
@@ -46,8 +52,16 @@ function AnimationModule.PlayAnimation(entity, animationId, looped, priority, sp
 		end
 	end
 
-	local animation = Instance.new("Animation")
-	animation.AnimationId = "rbxassetid://" .. animationId
+	local animation = animationCache[animationId]
+
+	if not animation then
+		animation = Instance.new("Animation")
+		animation.AnimationId = "rbxassetid://" .. animationId
+		animation.Name = "Anim_" .. animationId
+		animation.Parent = script -- or a dedicated folder
+
+		animationCache[animationId] = animation
+	end
 
 	local track = animator:LoadAnimation(animation)
 	track.Looped = looped or false
@@ -64,6 +78,19 @@ function AnimationModule.PlayAnimation(entity, animationId, looped, priority, sp
 			activeTracks[entity][animationId] = nil
 		end
 	end)
+
+	if priority == Enum.AnimationPriority.Action then
+		actionStates[entity] = (actionStates[entity] or 0) + 1
+
+		track.Stopped:Connect(function()
+			if actionStates[entity] then
+				actionStates[entity] -= 1
+				if actionStates[entity] <= 0 then
+					actionStates[entity] = nil
+				end
+			end
+		end)
+	end
 
 	return track
 end
@@ -88,8 +115,16 @@ function AnimationModule.PlayAnimationThenIdle(entity, animationId, looped, prio
 	end
 
 	-- Load main animation
-	local animation = Instance.new("Animation")
-	animation.AnimationId = "rbxassetid://" .. animationId
+	local animation = animationCache[animationId]
+
+	if not animation then
+		animation = Instance.new("Animation")
+		animation.AnimationId = "rbxassetid://" .. animationId
+		animation.Name = "Anim_" .. animationId
+		animation.Parent = script -- or a dedicated folder
+
+		animationCache[animationId] = animation
+	end
 
 	local track = animator:LoadAnimation(animation)
 	track.Looped = looped or false
@@ -101,17 +136,21 @@ function AnimationModule.PlayAnimationThenIdle(entity, animationId, looped, prio
 	if not track.Looped then
 		track.Stopped:Once(function()
 			-- Load idle animation
-			local idleAnim = Instance.new("Animation")
-			idleAnim.AnimationId = "rbxassetid://" .. IDLE_ANIM_ID
+			local idleAnim = animationCache[IDLE_ANIM_ID]
+
+			if not idleAnim then
+				idleAnim = Instance.new("Animation")
+				idleAnim.AnimationId = "rbxassetid://" .. IDLE_ANIM_ID
+				idleAnim.Name = "Anim_" .. IDLE_ANIM_ID
+				idleAnim.Parent = script -- or a dedicated folder
+
+				animationCache[IDLE_ANIM_ID] = idleAnim
+			end
 
 			local idleTrack = animator:LoadAnimation(idleAnim)
 			idleTrack.Looped = true
 			idleTrack.Priority = Enum.AnimationPriority.Idle
 			idleTrack:Play()
-
-			-- Cleanup
-			animation:Destroy()
-			idleAnim:Destroy()
 		end)
 	end
 
@@ -149,6 +188,24 @@ function AnimationModule.StopAllAnimations(entity)
 	end
 	if animator then
 		for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+			track:Stop()
+		end
+	end
+end
+
+function AnimationModule.StopAnimationsOfPriority(character, priority)
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+
+	local animator = humanoid:FindFirstChildOfClass("Animator")
+	if not animator then
+		return
+	end
+
+	for _, track in ipairs(animator:GetPlayingAnimationTracks()) do
+		if track.Priority == priority then
 			track:Stop()
 		end
 	end

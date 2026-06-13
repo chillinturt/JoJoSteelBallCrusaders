@@ -69,7 +69,8 @@ end
 function QuestManager.ResetQuestline(player)
 	playerCompletedQuests[player] = {}
 	playerQuests[player] = {}
-	QuestManager.AddQuest(player, "TalkToGiorno1")
+	--QuestManager.AddQuest(player, "TalkToGiorno1")
+	QuestManager.AddQuest(player, "DashTutorial")
 end
 
 function QuestManager.Clear(player)
@@ -165,6 +166,11 @@ function QuestManager.CheckCompletion(player, questId)
 	local quest = quests[questId]
 	if not quest then
 		return false
+	end
+
+	local def = QuestDefinitions[questId]
+	if def and def.Manual then
+		return false -- NEVER auto-complete
 	end
 
 	for _, obj in ipairs(quest.Objectives or {}) do

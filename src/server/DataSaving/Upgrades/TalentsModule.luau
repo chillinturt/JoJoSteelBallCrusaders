@@ -5,6 +5,7 @@ local ServerScriptService = game:GetService("ServerScriptService")
 local StaminaService = require(ServerScriptService.BasicCombat.Movement.StaminaService)
 local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat.CombatUtils)
+local QuestManager = require(game.ServerScriptService.DataSaving.QuestManager)
 
 ---------------------------------------------------------------------
 -- MODULE
@@ -26,7 +27,7 @@ local upgradeData = {}
 local BASE_HEALTH = 150
 local HEALTH_PER_LEVEL = 15
 
-local BASE_MOVE_SPEED = 24
+local BASE_MOVE_SPEED = 30
 local SPEED_PER_LEVEL = 0.6
 
 local BASE_REGEN = 1
@@ -150,13 +151,14 @@ local TALENTS = {
 }
 
 local function ensure(player)
-	if not upgradeData[player.UserId] then
-		upgradeData[player.UserId] = {
-			Talents = {},
-		}
+	local data = upgradeData[player.UserId]
+
+	if not data then
+		data = {}
+		upgradeData[player.UserId] = data
 	end
 
-	local data = upgradeData[player.UserId]
+	data.Talents = data.Talents or {}
 
 	for talentName, _ in pairs(TALENTS) do
 		if data.Talents[talentName] == nil then
@@ -187,6 +189,10 @@ local function applyTalentEffect(player, talentName, level)
 
 	if talent.apply then
 		talent.apply(player, level)
+
+		if QuestManager.HasQuest(player, "TalentTutorial") then
+			QuestManager.CompleteQuest(player, "TalentTutorial")
+		end
 	end
 end
 
@@ -269,10 +275,15 @@ function TalentsModule.GetStats(player)
 end
 
 function TalentsModule.SetStats(player, savedData)
-	upgradeData[player.UserId] = savedData or { Talents = {} }
+	upgradeData[player.UserId] = savedData or {}
 
-	local data = ensure(player)
+	local data = upgradeData[player.UserId]
+
+	-- 🔥 CRITICAL FIX
 	data.Talents = data.Talents or {}
+
+	-- Now safely fill missing values
+	ensure(player)
 end
 
 ---------------------------------------------------------------------

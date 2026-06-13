@@ -246,7 +246,8 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 	QuestSerializer.DeserializeActive(QuestManager, player, newSlotData.Quests)
 
 	if next(QuestManager.GetQuests(player)) == nil then
-		QuestManager.AddQuest(player, "TalkToGiorno1")
+		--QuestManager.AddQuest(player, "TalkToGiorno1")
+		QuestManager.AddQuest(player, "DashTutorial")
 	end
 
 	XPSystem.SetField(player, "XP", newSlotData.XP)

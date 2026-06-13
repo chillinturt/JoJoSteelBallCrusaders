@@ -129,7 +129,7 @@ end
 ------------------------------------------------
 local function chooseQuestTarget(quests, character)
 	for _, quest in pairs(quests) do
-		if quest.Status ~= "Completed" then
+		if not quest.Completed then
 			local target = resolveQuestTarget(quest, character)
 			if target then
 				return target
@@ -238,7 +238,9 @@ player.CharacterAdded:Connect(function(character)
 		currentTarget = chooseQuestTarget(quests, character)
 	end
 
-	task.wait(3)
+	--[[
+		task.wait(3)
 	local questUIOpen = MenuState:IsOpen("QuestGUI")
 	setArrowVisible(questUIOpen)
+	]]
 end)
