@@ -18,6 +18,9 @@ local RENDER_RADIUS = 3
 
 local UPDATE_INTERVAL = 1
 
+local SEA_FLOOR_DEPTH = 10 -- studs below ocean surface
+local SEA_FLOOR_THICKNESS = 6 -- vertical thickness of floor part
+
 --------------------------------------------------
 
 local LoadedChunks = {}
@@ -39,23 +42,31 @@ local function CreateChunk(chunkX, chunkZ)
 		return
 	end
 
+	local centerX = chunkX * CHUNK_SIZE
+	local centerZ = chunkZ * CHUNK_SIZE
+
 	local oceanPart = Instance.new("Part")
-
 	oceanPart.Name = key
-
 	oceanPart.Anchored = true
 	oceanPart.CanCollide = false
-
 	oceanPart.Material = Enum.Material.Glass
 	oceanPart.Transparency = 0.35
-
 	oceanPart.Size = Vector3.new(CHUNK_SIZE, 1, CHUNK_SIZE)
-
-	oceanPart.Position = Vector3.new(chunkX * CHUNK_SIZE, WaveModule.OCEAN_HEIGHT, chunkZ * CHUNK_SIZE)
-
+	oceanPart.Position = Vector3.new(centerX, WaveModule.OCEAN_HEIGHT, centerZ)
 	oceanPart.Parent = OceanFolder
 
-	LoadedChunks[key] = oceanPart
+	local floorPart = Instance.new("Part")
+	floorPart.Name = key .. "_floor"
+	floorPart.Anchored = true
+	floorPart.CanCollide = false
+	floorPart.Material = Enum.Material.Sand
+	floorPart.Color = Color3.fromRGB(120, 105, 75)
+	floorPart.Transparency = 0
+	floorPart.Size = Vector3.new(CHUNK_SIZE, SEA_FLOOR_THICKNESS, CHUNK_SIZE)
+	floorPart.Position = Vector3.new(centerX, WaveModule.OCEAN_HEIGHT - SEA_FLOOR_DEPTH, centerZ)
+	floorPart.Parent = OceanFolder
+
+	LoadedChunks[key] = { surface = oceanPart, floor = floorPart }
 end
 
 --------------------------------------------------
@@ -68,7 +79,8 @@ local function DestroyChunk(chunkX, chunkZ)
 	local chunk = LoadedChunks[key]
 
 	if chunk then
-		chunk:Destroy()
+		chunk.surface:Destroy()
+		chunk.floor:Destroy()
 		LoadedChunks[key] = nil
 	end
 end
@@ -111,8 +123,8 @@ local function UpdateChunks()
 
 	for key in pairs(LoadedChunks) do
 		if not needed[key] then
-			LoadedChunks[key]:Destroy()
-
+			LoadedChunks[key].surface:Destroy()
+			LoadedChunks[key].floor:Destroy()
 			LoadedChunks[key] = nil
 		end
 	end

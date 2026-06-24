@@ -30,8 +30,8 @@ local HEALTH_PER_LEVEL = 15
 local BASE_MOVE_SPEED = 30
 local SPEED_PER_LEVEL = 0.6
 
-local BASE_REGEN = 1
-local REGEN_PER_LEVEL = 0.15
+local BASE_REGEN = 3
+local REGEN_PER_LEVEL = 0.5
 
 local BASE_BLOCK_HP = 100
 local BLOCK_PER_LEVEL = 15

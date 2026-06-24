@@ -78,6 +78,23 @@ function QuestManager.Clear(player)
 	playerQuests[player] = {}
 end
 
+-- 🔹 Give unlock quests for any Repeatable+MinimumLevel NPCs the player has now reached.
+-- Called after XP gain (the only time level can change) and on login.
+-- AddQuest's existing guards make this safe to call repeatedly.
+function QuestManager.CheckRepeatableUnlocks(player)
+	local level = XPSystem.GetStats(player).Level
+	local checkedNpcs = {}
+
+	for _, def in pairs(QuestDefinitions) do
+		if def.Repeatable and def.MinimumLevel and def.Giver and not def._isUnlockQuest then
+			if level >= def.MinimumLevel and not checkedNpcs[def.Giver] then
+				checkedNpcs[def.Giver] = true
+				QuestManager.AddQuest(player, "Unlock_" .. def.Giver)
+			end
+		end
+	end
+end
+
 -- 🔹 Add quest
 function QuestManager.AddQuest(player, questId)
 	InitPlayerData(player)
@@ -94,6 +111,13 @@ function QuestManager.AddQuest(player, questId)
 
 	if not def.Repeatable and QuestManager.HasPlayerCompletedQuest(player, questId) then
 		return
+	end
+
+	if def.MinimumLevel then
+		local level = XPSystem.GetStats(player).Level
+		if level < def.MinimumLevel then
+			return
+		end
 	end
 
 	playerQuests[player][questId] = deepCopy(def)
@@ -127,10 +151,23 @@ function QuestManager.CompleteQuest(player, questId)
 	-- Rewards
 	if quest.RewardXP then
 		XPSystem.AddXP(player, quest.RewardXP)
+		QuestManager.CheckRepeatableUnlocks(player)
 	end
 
 	if quest.RewardCash then
 		CashSystem.AddCash(player, quest.RewardCash)
+	end
+
+	-- If completing a repeatable quest, the player clearly knows this NPC already.
+	-- Suppress the unlock quest so it never appears for this NPC.
+	if quest.Repeatable and quest.Giver then
+		local unlockId = "Unlock_" .. quest.Giver
+		if QuestDefinitions[unlockId] and not QuestManager.HasPlayerCompletedQuest(player, unlockId) then
+			QuestManager.MarkQuestCompleted(player, unlockId)
+			if playerQuests[player] then
+				playerQuests[player][unlockId] = nil
+			end
+		end
 	end
 
 	if quest.RewardItems then
@@ -267,7 +304,14 @@ function QuestManager.InteractWithNPC(player, npcName)
 
 	-- The player has 0 or more active quests, but none from THIS npc → allow offers.
 	for questId, def in pairs(QuestDefinitions) do
-		if def.Giver == npcName then
+		if def.Giver == npcName and not def._isUnlockQuest then
+			if def.MinimumLevel then
+				local level = XPSystem.GetStats(player).Level
+				if level < def.MinimumLevel then
+					continue
+				end
+			end
+
 			local alreadyCompleted = completedQuests[questId] == true
 			local isRepeatable = def.Repeatable == true
 
@@ -275,6 +319,15 @@ function QuestManager.InteractWithNPC(player, npcName)
 			if isRepeatable then
 				-- Don't offer again if the player already has this quest active
 				if quests[questId] == nil then
+					-- Player is naturally discovering this NPC's repeatable quests;
+					-- suppress the unlock quest so it never shows up for this NPC.
+					local unlockId = "Unlock_" .. npcName
+					if QuestDefinitions[unlockId] and not QuestManager.HasPlayerCompletedQuest(player, unlockId) then
+						QuestManager.MarkQuestCompleted(player, unlockId)
+						if playerQuests[player] then
+							playerQuests[player][unlockId] = nil
+						end
+					end
 					QuestManager.AddQuest(player, questId)
 					return def.Dialog.Offer, "Offer", questId
 				end
@@ -378,6 +431,7 @@ Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function()
 		task.delay(5, function()
 			QuestManager.Sync(player)
+			QuestManager.CheckRepeatableUnlocks(player)
 		end)
 	end)
 end)

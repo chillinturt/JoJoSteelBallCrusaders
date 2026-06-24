@@ -8,7 +8,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -27,7 +27,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -46,7 +46,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -65,7 +65,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -84,7 +84,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -103,7 +103,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -122,7 +122,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -141,7 +141,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -160,7 +160,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -179,7 +179,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -198,7 +198,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -217,7 +217,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -236,7 +236,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -255,7 +255,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -274,7 +274,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -293,7 +293,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -312,7 +312,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -331,7 +331,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -350,7 +350,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -369,7 +369,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -388,7 +388,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -407,7 +407,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -426,7 +426,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -445,7 +445,7 @@ local EnemyDefinitions = {
 		ActivationRadius = 1500,
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -465,7 +465,7 @@ local EnemyDefinitions = {
 		-- random offset radius around the spawn
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -485,7 +485,7 @@ local EnemyDefinitions = {
 		-- random offset radius around the spawn
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -505,7 +505,7 @@ local EnemyDefinitions = {
 		-- random offset radius around the spawn
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -525,7 +525,7 @@ local EnemyDefinitions = {
 		-- random offset radius around the spawn
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -545,7 +545,7 @@ local EnemyDefinitions = {
 		-- random offset radius around the spawn
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,
@@ -565,7 +565,7 @@ local EnemyDefinitions = {
 		-- random offset radius around the spawn
 
 		AGGRO_RADIUS = 30,
-		PASSIVE_CHASE_RADIUS = 40,
+		PASSIVE_CHASE_RADIUS = 20,
 		COMBAT_CHASE_RADIUS = 150,
 		LEASH_DISTANCE = 200,
 		RETURN_THRESHOLD = 5,

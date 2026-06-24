@@ -11,9 +11,8 @@ local SwimmingState = OceanFolder:WaitForChild("SwimmingState")
 
 local OceanService = {}
 
-local SWIM_OFFSET = 3
-local EXIT_HEIGHT = 6
-local JUMP_REENTRY_DELAY = 0.8
+local SWIM_OFFSET = 0
+local JUMP_REENTRY_DELAY = 1
 
 OceanService.CharacterStates = {}
 
@@ -41,20 +40,6 @@ function OceanService:SetSwimming(character, value)
 	end
 
 	print("[OceanService]", character.Name, "Swimming:", value)
-end
-
-function OceanService:SnapToSurface(character, root, waterHeight)
-	local state = self.CharacterStates[character]
-	if not state then
-		return
-	end
-
-	local surfaceY = waterHeight + SWIM_OFFSET
-
-	root.CFrame = CFrame.new(root.Position.X, surfaceY, root.Position.Z)
-		* CFrame.fromMatrix(Vector3.zero, root.CFrame.XVector, root.CFrame.YVector, root.CFrame.ZVector)
-
-	root.AssemblyLinearVelocity = Vector3.new(root.AssemblyLinearVelocity.X, 0, root.AssemblyLinearVelocity.Z)
 end
 
 function OceanService:RegisterCharacter(character)
@@ -106,24 +91,28 @@ function OceanService:UpdateCharacter(character)
 		return
 	end
 
+	local seatPart = humanoid.SeatPart
+
+	if seatPart and seatPart:IsDescendantOf(workspace.Boats) then
+		self:SetSwimming(character, false)
+		return
+	end
+
 	local waterHeight = self:GetWaterHeight(root.Position)
-	local inWater = root.Position.Y <= waterHeight - 1
+	local inWater = root.Position.Y <= waterHeight + SWIM_OFFSET
 
 	local now = tick()
 
 	local recentlyJumped = now - state.LastJumpTime < JUMP_REENTRY_DELAY
 
-	local airborne = humanoid:GetState() == Enum.HumanoidStateType.Freefall
-		or humanoid:GetState() == Enum.HumanoidStateType.Jumping
-
-	-- HARD RULE: do NOT allow swimming while airborne
-	local canSwim = not airborne and not recentlyJumped
+	-- Only block on Jumping, not Freefall: a player who fell into water is
+	-- in Freefall with no ground contact, and must still be allowed to swim.
+	-- recentlyJumped already covers the case of jumping back out.
+	local airborne = humanoid:GetState() == Enum.HumanoidStateType.Jumping
 
 	local shouldSwim = state.PendingEnter and inWater and not recentlyJumped and not airborne
 
 	if shouldSwim and not state.Swimming then
-		self:SnapToSurface(character, root, waterHeight)
-		print("START SWIM", character.Name, humanoid:GetState())
 		self:SetSwimming(character, true)
 	elseif not inWater then
 		self:SetSwimming(character, false)

@@ -33,7 +33,7 @@ AbilityRegistry.AbilityTypes = {
 -- Ability 1 - LifeOverflow
 --------------------------------------------------------------------
 AbilityRegistry[1] = {
-	Name = "LifeOverflow",
+	Name = "VoidLeap",
 	Type = "Press",
 	Cooldown = 12,
 	Execute = function(standModel, player)
@@ -45,7 +45,7 @@ AbilityRegistry[1] = {
 -- Ability 2 - VoidDive
 --------------------------------------------------------------------
 AbilityRegistry[2] = {
-	Name = "VoidDive",
+	Name = "VoidRush",
 	Type = "Press",
 	Cooldown = 10,
 	Execute = function(standModel, player)
@@ -60,62 +60,14 @@ AbilityRegistry[2] = {
 -- Ability 3 - EagleStrike (Launch → Redirect)
 --------------------------------------------------------------------
 AbilityRegistry[3] = {
-	Name = "EagleStrike",
+	Name = "Erasing",
 	Type = "Press",
-	Cooldown = COOLDOWN_TIME,
-
-	-- ⭐ We handle our own cooldown (like MachOra)
-	BypassGlobalCooldown = true,
-
+	Cooldown = 10,
 	Execute = function(standModel, player)
-		local character = standModel.Parent
-		if not character then
-			return
+		local char = standModel.Parent
+		if char then
+			Cream.VoidDive(char)
 		end
-
-		local now = tick()
-		local last = lastEagleUse[player] or 0
-		local redirectExpiry = eagleFollowup[player] or 0
-
-		-- ===================================================================
-		-- 1) REDIRECT — does NOT obey cooldown/stun/action rules
-		-- ===================================================================
-		if now <= redirectExpiry then
-			local success = Cream.EagleStrike(character)
-			if success then
-				-- redirect consumed
-				eagleFollowup[player] = nil
-			end
-			return
-		end
-
-		-- ===================================================================
-		-- 2) LAUNCH — obeys stun & action
-		-- ===================================================================
-		if CombatUtils.GetStun(character) then
-			return
-		end
-		if CombatUtils.GetActionInProgress(character) then
-			return
-		end
-
-		-- Check cooldown
-		if now - last < COOLDOWN_TIME then
-			return
-		end
-
-		-- Perform launch
-		local success = Cream.EagleStrike(character)
-		if not success then
-			return
-		end
-
-		-- start cooldown
-		lastEagleUse[player] = now
-		CooldownUpdateEvent:FireClient(player, 3, COOLDOWN_TIME)
-
-		-- allow redirect for 2 seconds (same as your old implementation)
-		eagleFollowup[player] = now + 9.5
 	end,
 }
 

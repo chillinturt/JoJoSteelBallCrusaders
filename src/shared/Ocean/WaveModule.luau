@@ -1,6 +1,6 @@
 local WaveModule = {}
 
-WaveModule.OCEAN_HEIGHT = 46.562
+WaveModule.OCEAN_HEIGHT = 47
 
 function WaveModule:GetHeight(x, z)
 	return self.OCEAN_HEIGHT

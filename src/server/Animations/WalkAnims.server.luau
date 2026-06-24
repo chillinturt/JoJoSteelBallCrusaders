@@ -1,8 +1,12 @@
 local ServerScriptService = game:GetService("ServerScriptService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 
 local AnimationModule = require(ServerScriptService.BasicCombat.AnimationModule)
 local StandUtils = require(ServerScriptService.BasicCombat.StandUtils)
+
+local SwimmingState = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Ocean"):WaitForChild("SwimmingState")
 
 -- Example animation IDs (replace with your own)
 local animations = {
@@ -14,6 +18,8 @@ local animations = {
 	Idle = "104714640622145",
 	Fall = "80938111042689", -- ✅ falling anim
 	Land = "74308587429244", -- ✅ landing anim
+	SwimIdle = "507785072", -- ✅ swimming idle anim
+	SwimMove = "507784897", -- ✅ swimming move anim
 	StandForward = "103461332131808",
 	StandIdle = "89452205434139",
 }
@@ -23,6 +29,8 @@ local activeStates = {}
 local lastDirection = {}
 local wasMoving = {}
 local standStates = {}
+local swimmingPlayers = {}
+local swimHeartbeats = {}
 
 local function updateStand(player, character, shouldBeForward)
 	local stand = StandUtils.GetActiveStand(character)
@@ -62,13 +70,23 @@ local function updateStand(player, character, shouldBeForward)
 end
 
 -- Decide movement direction relative to character facing
-local function getMovementDirection(character, humanoid)
+local function getMovementDirection(player, character, humanoid)
 	local root = character:FindFirstChild("HumanoidRootPart")
 	if not humanoid or not root then
 		return "Idle"
 	end
 
-	-- ✅ Fall overrides everything
+	-- Swimming overrides all physics states. swimmingPlayers is driven by the
+	-- SwimmingState remote, not FloorMaterial, so it stays correct even when
+	-- ChangeState(Landed) is called by OceanSwimming to reset freefall.
+	if swimmingPlayers[player] then
+		if humanoid.MoveDirection.Magnitude > 0.1 then
+			return "SwimMove"
+		else
+			return "SwimIdle"
+		end
+	end
+
 	if humanoid.FloorMaterial == Enum.Material.Air then
 		return "Fall"
 	end
@@ -102,15 +120,18 @@ local function onStateChanged(player, humanoid, character)
 	end
 	local isActing = AnimationModule.IsActionPlaying(character)
 
-	local direction = getMovementDirection(character, humanoid)
+	local direction = getMovementDirection(player, character, humanoid)
 
 	-- ✅ ALWAYS track real movement input (even in air)
 	wasMoving[player] = humanoid.MoveDirection.Magnitude > 0.1
 
 	local animId = animations[direction]
 
-	-- Detect landing (Fall → Grounded) ✅ FIRST
-	if lastDirection[player] == "Fall" and direction ~= "Fall" then
+	-- Detect landing (Fall/Swim → Grounded) ✅ FIRST
+	-- Also handle Swim → ground so a stale swim state doesn't skip cleanup.
+	-- Exclude Swim as the destination so falling into water skips the land anim.
+	local wasAerial = lastDirection[player] == "Fall" or lastDirection[player] == "SwimIdle" or lastDirection[player] == "SwimMove"
+	if wasAerial and direction ~= "Fall" and direction ~= "SwimIdle" and direction ~= "SwimMove" then
 		-- Stop fall animation
 		if activeStates[player] then
 			AnimationModule.StopAnimation(character, activeStates[player].animId)
@@ -138,19 +159,36 @@ local function onStateChanged(player, humanoid, character)
 		return
 	end
 
-	-- Handle Fall (high priority)
-	if direction == "Fall" then
-		if not activeStates[player] or activeStates[player].direction ~= "Fall" then
-			-- Stop current animation
+	-- Handle Swim (overrides Fall — water has no collision mesh so floor is always Air)
+	if direction == "SwimIdle" or direction == "SwimMove" then
+		local animId = animations[direction]
+		if not activeStates[player] or activeStates[player].direction ~= direction then
 			if activeStates[player] then
 				AnimationModule.StopAnimation(character, activeStates[player].animId)
 			end
+			-- Movement priority: doesn't pollute actionStates, so landing and
+			-- fall transitions are never blocked. Combat actions (Action priority)
+			-- will visually override swim animations naturally.
+			AnimationModule.PlayAnimation(character, animId, true, Enum.AnimationPriority.Movement, 1)
+			activeStates[player] = {
+				direction = direction,
+				animId = animId,
+			}
+		end
+		updateStand(player, character, wasMoving[player])
+		lastDirection[player] = direction
+		return
+	end
 
-			-- Play fall
-			if not isActing then
-				AnimationModule.PlayAnimation(character, animations.Fall, true, Enum.AnimationPriority.Action, 1)
+	-- Handle Fall (high priority)
+	if direction == "Fall" then
+		if not activeStates[player] or activeStates[player].direction ~= "Fall" then
+			if activeStates[player] then
+				AnimationModule.StopAnimation(character, activeStates[player].animId)
 			end
-
+			-- Movement priority for the same reason as Swim: keeps actionStates
+			-- clean so the landing animation is never blocked by isActing.
+			AnimationModule.PlayAnimation(character, animations.Fall, true, Enum.AnimationPriority.Movement, 1)
 			activeStates[player] = {
 				direction = "Fall",
 				animId = animations.Fall,
@@ -211,7 +249,72 @@ Players.PlayerAdded:Connect(function(player)
 	player.CharacterAdded:Connect(function(character)
 		activeStates[player] = nil
 		lastDirection[player] = nil
+		swimmingPlayers[player] = nil
+		if swimHeartbeats[player] then
+			swimHeartbeats[player]:Disconnect()
+			swimHeartbeats[player] = nil
+		end
 
 		onCharacterAdded(player, character)
 	end)
+end)
+
+-- Mirror the swim state tracked by OceanService so the animation layer knows
+-- when to override Fall with Swim (water has no collision, so FloorMaterial
+-- is always Air while floating).
+SwimmingState.OnServerEvent:Connect(function(player, action)
+	if action == "Enter" then
+		swimmingPlayers[player] = true
+
+		-- Poll movement each heartbeat so SwimIdle ↔ SwimMove transitions fire
+		-- even when the MoveDirection signal is delayed by network replication.
+		if swimHeartbeats[player] then
+			swimHeartbeats[player]:Disconnect()
+		end
+		local lastMoving = nil
+		local stoppedAt = nil
+		swimHeartbeats[player] = RunService.Heartbeat:Connect(function()
+			local character = player.Character
+			if not character then return end
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if not humanoid then return end
+			local isMoving = humanoid.MoveDirection.Magnitude > 0.1
+			if isMoving then
+				-- Moving: fire immediately, clear any pending idle timer.
+				stoppedAt = nil
+				if lastMoving ~= true then
+					lastMoving = true
+					onStateChanged(player, humanoid, character)
+				end
+			else
+				-- Not moving: only commit to SwimIdle after 100 ms of continuous
+				-- stillness so momentary MoveDirection drops from physics jitter
+				-- don't restart the animation.
+				if stoppedAt == nil then stoppedAt = tick() end
+				if lastMoving ~= false and tick() - stoppedAt >= 0.1 then
+					lastMoving = false
+					onStateChanged(player, humanoid, character)
+				end
+			end
+		end)
+
+	elseif action == "Exit" then
+		swimmingPlayers[player] = nil
+		if swimHeartbeats[player] then
+			swimHeartbeats[player]:Disconnect()
+			swimHeartbeats[player] = nil
+		end
+	else
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+	if not humanoid then
+		return
+	end
+	onStateChanged(player, humanoid, character)
 end)

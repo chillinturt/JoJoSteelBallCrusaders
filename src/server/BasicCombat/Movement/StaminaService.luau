@@ -4,6 +4,8 @@ local StaminaService = {}
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 
+local WaveModule = require(ReplicatedStorage.Shared.Ocean.WaveModule)
+
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
@@ -244,7 +246,17 @@ function StaminaService.OnDashRequest(player, dirLabel)
 	end
 end
 
+-- Water has no collision mesh, so raycasts never detect it as ground.
+-- This treats the swimming surface (SWIM_OFFSET=3, +1 buffer) as solid ground.
+local function isOnWaterSurface(rootPart)
+	local waterHeight = WaveModule:GetHeight(rootPart.Position.X, rootPart.Position.Z)
+	return rootPart.Position.Y <= waterHeight + 4
+end
+
 local function isAirborne(rootPart)
+	if isOnWaterSurface(rootPart) then
+		return false
+	end
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = { rootPart.Parent }
 	params.FilterType = Enum.RaycastFilterType.Exclude
@@ -331,6 +343,9 @@ local function SetWallJumpAvailable(character, state)
 end
 
 local function isGrounded(rootPart)
+	if isOnWaterSurface(rootPart) then
+		return true
+	end
 	local params = RaycastParams.new()
 	params.FilterDescendantsInstances = { rootPart.Parent }
 	params.FilterType = Enum.RaycastFilterType.Exclude
