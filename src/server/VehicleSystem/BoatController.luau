@@ -67,7 +67,21 @@ function BoatController.new(boatModel, config)
 	local self = {}
 
 	function self.Update(dt)
-		currentYaw += seat.SteerFloat * config.TurnSpeed * dt
+		-- AlignPosition owns Y; boats have no valid vertical velocity. Zeroing it every
+		-- tick prevents sloped collisions from flinging the hull up onto land or down
+		-- below the ocean before the reactive check can respond.
+		local vel = hull.AssemblyLinearVelocity
+		hull.AssemblyLinearVelocity = Vector3.new(vel.X, 0, vel.Z)
+
+		-- Fallback: if the hull has still drifted below the surface (e.g. caught in
+		-- geometry between ticks), snap targetPosition back to water height so
+		-- AlignPosition has a clear upward target.
+		local waterY = WaveModule:GetHeight(hull.Position.X, hull.Position.Z)
+		if hull.Position.Y < waterY - 1 then
+			targetPosition = Vector3.new(targetPosition.X, waterY, targetPosition.Z)
+		end
+
+		currentYaw -= seat.SteerFloat * config.TurnSpeed * dt
 
 		local forward = Vector3.new(-math.sin(currentYaw), 0, -math.cos(currentYaw))
 		local targetSpeed = seat.ThrottleFloat * config.MaxSpeed
@@ -89,6 +103,17 @@ function BoatController.new(boatModel, config)
 		else
 			currentSpeed = 0
 			hull.AssemblyLinearVelocity = Vector3.zero
+		end
+
+		-- Clamp targetPosition to not outrun the hull's actual position. When the hull
+		-- lags behind, the AlignPosition anchor would otherwise sit far ahead and cause
+		-- turns to pivot around a distant point instead of the boat itself.
+		local hullXZ = Vector3.new(hull.Position.X, 0, hull.Position.Z)
+		local targetXZ = Vector3.new(targetPosition.X, 0, targetPosition.Z)
+		local drift = targetXZ - hullXZ
+		if drift.Magnitude > config.BoatLength * 0.5 then
+			local clampedXZ = hullXZ + drift.Unit * (config.BoatLength * 0.5)
+			targetPosition = Vector3.new(clampedXZ.X, targetPosition.Y, clampedXZ.Z)
 		end
 
 		alignPosition.Position = targetPosition

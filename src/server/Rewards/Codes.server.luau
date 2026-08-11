@@ -10,6 +10,7 @@ local InventoryManager = require(game.ServerScriptService.DataSaving:WaitForChil
 local PlayerData = require(game.ServerScriptService.DataSaving:WaitForChild("PlayerData"))
 local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSystem"))
 local StaminaService = require(ServerScriptService.BasicCombat.Movement.StaminaService)
+local CashSystem = require(ServerScriptService.DataSaving.CashSystem)
 
 local TP_AREAS = {
 	["1v1Spawn1"] = game.Workspace.Arena1.Model:WaitForChild("1v1Spawn1"),
@@ -330,6 +331,15 @@ codeEvent.OnServerEvent:Connect(function(player, typedCode)
 			return
 		end
 		XPSystem.AddXP(player, 99999999)
+
+		codeEvent:FireClient(player, true, typedCode)
+	end
+
+	if typedCode == "cash" then
+		if not IsModerator(player) then
+			return
+		end
+		CashSystem.AddCash(player, 20000)
 
 		codeEvent:FireClient(player, true, typedCode)
 	end

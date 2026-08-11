@@ -22,6 +22,8 @@ local HeroGroups = require(game.ServerScriptService.BasicCombat.StandModules.Han
 local IDLE_ANIM_ID = 89452205434139
 local DEFAULT_HURTBOX_SIZE = Vector3.new(3, 5, 3) -- Adjust size as needed
 
+local standSwimConnections = {}
+
 function StandUtils.getStandModel(character)
 	if not character then
 		return nil
@@ -151,6 +153,14 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 	if not humanoidRootPart then
 		warn("⚠️ No HumanoidRootPart found for entity:", entity.Name)
 		return nil
+	end
+
+	local humanoid = entity:FindFirstChildOfClass("Humanoid")
+
+	-- Prevent the SeatWeld from fighting the StandMotor when summoning.
+	if humanoid and humanoid.SeatPart then
+		humanoid.Sit = false
+		task.wait(0.05)
 	end
 
 	local standModel
@@ -389,9 +399,15 @@ function StandUtils.RemoveStand(entity: Model, player)
 		vineConnections[entity] = nil
 	end
 
+	if standSwimConnections[entity] then
+		standSwimConnections[entity]:Disconnect()
+		standSwimConnections[entity] = nil
+	end
+
 	--------------------------------------------------
 	-- ✅ DESTROY MAIN STAND CONTAINER
 	--------------------------------------------------
+	StandUtils.StopSwimmingCorrection(entity)
 	existingStand:Destroy()
 	activeStands[entity] = nil
 
@@ -407,6 +423,81 @@ end
 -- Check if entity has a stand
 function StandUtils.GetActiveStand(entity: Model)
 	return activeStands[entity]
+end
+
+function StandUtils.StartSwimmingCorrection(character)
+	local stand = activeStands[character]
+	if not stand then
+		return
+	end
+
+	local standRoot = stand.PrimaryPart
+	local root = character:FindFirstChild("HumanoidRootPart")
+
+	if not standRoot or not root then
+		return
+	end
+
+	local motor = standRoot:FindFirstChild("StandMotor")
+	if not motor then
+		return
+	end
+
+	if standSwimConnections[character] then
+		return
+	end
+
+	local originalC0 = motor.C0
+
+	standSwimConnections[character] = RunService.Heartbeat:Connect(function()
+		if activeStands[character] ~= stand then
+			return
+		end
+
+		if not root.Parent then
+			return
+		end
+
+		-- Keep the player's facing direction,
+		-- but remove swimming pitch/roll
+		local _, yaw, _ = root.CFrame:ToOrientation()
+
+		local uprightRoot = CFrame.new(root.Position) * CFrame.Angles(0, yaw, 0)
+
+		-- Maintain the original stand offset
+		local desiredStand = uprightRoot * originalC0
+
+		-- Solve:
+		-- root.CFrame * C0 * Transform = desiredStand
+		motor.Transform = originalC0:Inverse() * root.CFrame:ToObjectSpace(desiredStand)
+	end)
+end
+
+function StandUtils.StopSwimmingCorrection(character)
+	local connection = standSwimConnections[character]
+
+	if connection then
+		connection:Disconnect()
+		standSwimConnections[character] = nil
+	end
+
+	local stand = activeStands[character]
+
+	if not stand then
+		return
+	end
+
+	local root = stand.PrimaryPart
+
+	if not root then
+		return
+	end
+
+	local motor = root:FindFirstChild("StandMotor")
+
+	if motor then
+		motor.Transform = CFrame.identity
+	end
 end
 
 return StandUtils

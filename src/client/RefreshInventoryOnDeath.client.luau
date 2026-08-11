@@ -26,7 +26,8 @@ local function RefreshUI(inventory)
 	local playerGui = player:WaitForChild("PlayerGui")
 	local inventoryGui = playerGui:WaitForChild("Inventory")
 	local baseFrame = inventoryGui:WaitForChild("Frame")
-	local scrollingFrame = baseFrame:WaitForChild("ScrollingFrame")
+	local scrollArea = baseFrame:WaitForChild("ScrollArea")
+	local scrollingFrame = scrollArea:WaitForChild("ScrollingFrame")
 	local template = baseFrame:WaitForChild("ItemTemplate")
 
 	-----------------------------------------------------------------

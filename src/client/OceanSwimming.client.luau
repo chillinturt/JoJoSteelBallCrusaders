@@ -37,16 +37,14 @@ local function getStandMotor(): Motor6D?
 	if not character then
 		return nil
 	end
-	for _, child in ipairs(character:GetChildren()) do
-		if child:IsA("Model") and child:FindFirstChild("StandTag") then
-			local primary = child.PrimaryPart
-			if primary then
-				local motor = primary:FindFirstChild("StandMotor")
-				if motor and motor:IsA("Motor6D") then
-					return motor
-				end
-			end
-		end
+	-- The server parents StandMotor to Part0 (HumanoidRootPart), not to the stand model.
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		return nil
+	end
+	local motor = hrp:FindFirstChild("StandMotor")
+	if motor and motor:IsA("Motor6D") then
+		return motor
 	end
 	return nil
 end

@@ -23,6 +23,7 @@ local pilotConnections = {} -- stands -> connection
 local CombatUtils = require(script.Parent.CombatUtils)
 local StandUtils = require(serverScriptService.BasicCombat:WaitForChild("StandUtils"))
 local RaycastIgnoreModule = require(game.ReplicatedStorage.Shared.Modules:WaitForChild("RaycastIgnoreModule"))
+local OceanService = require(game.ServerScriptService.OceanService:WaitForChild("OceanService"))
 
 function PilotMode.EnterPilotMode(character, stand)
 	local canPilotMode = stand:FindFirstChild("CanPilotMode")
@@ -142,6 +143,10 @@ function PilotMode.ExitPilotMode(character)
 	StandUtils.RemoveStand(character)
 	StandUtils.SummonStand(character, data.standTag)
 
+	if OceanService:IsSwimming(character) then
+		StandUtils.StartSwimmingCorrection(character)
+	end
+
 	-- Restore player movement
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
 	if humanoid then
@@ -177,6 +182,10 @@ exitPilotEvent.Event:Connect(function(character)
 	-- Restore stand
 	StandUtils.RemoveStand(character)
 	StandUtils.SummonStand(character, data.standTag)
+
+	if OceanService:IsSwimming(character) then
+		StandUtils.StartSwimmingCorrection(character)
+	end
 
 	-- Restore player movement
 	local humanoid = character and character:FindFirstChildOfClass("Humanoid")

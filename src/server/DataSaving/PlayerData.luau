@@ -13,6 +13,7 @@ local TalentsModule = require(ServerScriptService.DataSaving.Upgrades:WaitForChi
 local CashSystem = require(ServerScriptService.DataSaving:WaitForChild("CashSystem"))
 local SlotManager = require(ServerScriptService.DataSaving:WaitForChild("SlotManager"))
 local BadgeHandler = require(ServerScriptService.Rewards.Badges.BadgeHandler)
+local HomeManager = require(ServerScriptService.Utilities.PlayerSpawning:WaitForChild("HomeManager"))
 
 local ProfileStore = require(ServerScriptService.DataSaving.ProfileStore)
 
@@ -117,6 +118,9 @@ function Local.LoadProfile(player: Player)
 	XPSystem.SetField(player, "TalentPoints", activeData.TalentPoints)
 	XPSystem.SetField(player, "AbilityPoints", activeData.AbilityPoints or 0)
 
+	-- Account-wide (not per-slot): keeps counting down while offline
+	XPSystem.SetField(player, "XPBoostExpiry", data.XPBoostExpiry or 0)
+
 	print("xp is ", activeData.XP)
 
 	CashSystem.SetCash(player, activeData.Cash)
@@ -137,6 +141,8 @@ function Local.LoadProfile(player: Player)
 	local unlockedTable = HeroManager.GetField(player, "UnlockedAbilities")
 
 	AbilityUnlocksEvent:FireClient(player, unlockedTable)
+
+	HomeManager.SetHome(player, activeData.HomeSpawn)
 
 	local badgeStats = XPSystem.GetStats(player)
 	BadgeHandler:CheckAllBadges(player, badgeStats.Level)
@@ -177,12 +183,17 @@ function Local.RemoveProfile(player: Player)
 	slotData.Talents = TalentsModule.GetStats(player)
 	slotData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
 	slotData.UnlockedAbilities = HeroManager.GetField(player, "UnlockedAbilities")
+	slotData.HomeSpawn = HomeManager.GetHome(player)
+	HomeManager.ClearHome(player)
 
 	------------------------------------------------------------------
 	-- WRITE SLOT STATE BACK TO PROFILESTORE
 	------------------------------------------------------------------
 	profileData.Slots = slots
 	profileData.CurrentSlot = activeSlot
+
+	-- Account-wide (not per-slot): keeps counting down while offline
+	profileData.XPBoostExpiry = XPSystem.GetField(player, "XPBoostExpiry")
 
 	profile:EndSession()
 	Profiles[player] = nil
@@ -223,6 +234,7 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 
 	currentData.AbilityPoints = XPSystem.GetField(player, "AbilityPoints")
 	currentData.UnlockedAbilities = HeroManager.GetField(player, "UnlockedAbilities")
+	currentData.HomeSpawn = HomeManager.GetHome(player)
 
 	------------------------------------------------------------------
 	-- STEP 2: SWITCH SLOT (creates if missing)
@@ -276,6 +288,8 @@ function PlayerData.SafeSwitchSlot(player: Player, slotName: string)
 
 	HeroManager.SetField(player, "UnlockedAbilities", unlocked)
 	AbilityUnlocksEvent:FireClient(player, unlocked)
+
+	HomeManager.SetHome(player, newSlotData.HomeSpawn)
 
 	return true
 end

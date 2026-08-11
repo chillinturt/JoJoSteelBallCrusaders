@@ -6,7 +6,6 @@
 --  ✓ RemoteEvent for UI sync
 --  ✓ Compatible with ProfileStore saving
 ---------------------------------------------------------------------
-
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Players = game:GetService("Players")
 local ServerScriptService = game:GetService("ServerScriptService")
@@ -41,6 +40,15 @@ if not PlaySoundEvent then
 	PlaySoundEvent.Name = "PlaySoundEvent"
 	PlaySoundEvent.Parent = MusicEvents
 end
+
+local NotificationEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("NotificationEvent")
+
+local XP_MULT_PRODUCT = 3610724195
+
+-- Developer product: temporary 2x XP multiplier.
+-- TESTING VALUE: 30 seconds. Change to 3600 (1 hour) for the real duration.
+local XP_BOOST_DURATION = 3600
+local XP_BOOST_MULTIPLIER = 2
 
 ---------------------------------------------------------------------
 -- MODULE
@@ -116,6 +124,7 @@ function XPSystem.InitPlayer(player)
 			XP = 0,
 			MaxXP = getXPRequirement(1),
 			TalentPoints = 0,
+			XPBoostExpiry = 0,
 		}
 end
 
@@ -141,6 +150,7 @@ function XPSystem.GetStats(player)
 			MaxXP = getXPRequirement(1),
 			TalentPoints = 0,
 			AbilityPoints = 0,
+			XPBoostExpiry = 0,
 		}
 	end
 
@@ -166,6 +176,8 @@ function XPSystem.SetStats(player, savedData)
 			[3] = false,
 			[4] = false,
 		},
+
+		XPBoostExpiry = savedData.XPBoostExpiry or 0,
 	}
 
 	-- sync UI
@@ -212,6 +224,10 @@ function XPSystem.AddXP(player, amount)
 		data.XP = data.MaxXP
 		XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
 		return
+	end
+
+	if (data.XPBoostExpiry or 0) > os.time() then
+		amount *= XP_BOOST_MULTIPLIER
 	end
 
 	data.XP += amount
@@ -263,12 +279,63 @@ function XPSystem.AddXP(player, amount)
 	-- sync UI
 	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
 
+	NotificationEvent:FireClient(player, {
+		Type = "XP",
+		Amount = amount,
+	})
+
 	--sfx
 	PlaySoundEvent:FireClient(player, {
 		id = "rbxassetid://88387457337661",
 		volume = 1,
 		pitch = 1,
 	})
+end
+
+---------------------------------------------------------------------
+-- XP BOOST (developer product)
+---------------------------------------------------------------------
+
+-- Grants (or extends) the 2x XP boost. If a boost is already active,
+-- the new duration stacks on top of the remaining time; if expired
+-- (or never granted), it starts fresh from now.
+function XPSystem.GrantXPBoost(player, duration)
+	local data = get(player)
+	if not data then
+		return
+	end
+
+	duration = duration or XP_BOOST_DURATION
+
+	local now = os.time()
+	local base = math.max(data.XPBoostExpiry or 0, now)
+	data.XPBoostExpiry = base + duration
+
+	XPUpdatedEvent:FireClient(player, XPSystem.GetStats(player))
+
+	local remaining = data.XPBoostExpiry - now
+
+	NotificationEvent:FireClient(player, {
+		Type = "Timer",
+		Name = "2x XP",
+		Duration = remaining,
+	})
+end
+
+function XPSystem.GetXPBoostExpiry(player)
+	local data = get(player)
+	if not data then
+		return 0
+	end
+	return data.XPBoostExpiry or 0
+end
+
+function XPSystem.IsXPBoostActive(player)
+	return XPSystem.GetXPBoostExpiry(player) > os.time()
+end
+
+function XPSystem.GetXPBoostTimeRemaining(player)
+	return math.max(0, XPSystem.GetXPBoostExpiry(player) - os.time())
 end
 
 ---------------------------------------------------------------------

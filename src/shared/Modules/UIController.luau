@@ -6,6 +6,12 @@ local registered = {}
 local currentOpen = nil
 local isAnimating = false
 
+-- UIs in this set never have their Frame.Visible toggled off; closing them
+-- only tweens them to their closedPos.
+local AlwaysVisible = {
+	Questlog = true,
+}
+
 local tweenInfo = TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -21,10 +27,10 @@ function UIController.Register(name, frame, openPos, closedPos)
 	}
 
 	frame.Position = closedPos
-	frame.Visible = false -- 🔥 IMPORTANT CHANGE
+	frame.Visible = AlwaysVisible[name] or false -- 🔥 IMPORTANT CHANGE
 end
 
-local function tween(frame, goal, shouldShow)
+local function tween(frame, goal, shouldShow, keepVisible)
 	if shouldShow then
 		frame.Visible = true
 	end
@@ -36,7 +42,7 @@ local function tween(frame, goal, shouldShow)
 	-- HARD SNAP FIX (prevents ghost leaking)
 	frame.Position = goal.Position
 
-	if not shouldShow then
+	if not shouldShow and not keepVisible then
 		frame.Visible = false
 	end
 end
@@ -59,7 +65,7 @@ function UIController.Open(name)
 	-- Close current
 	if currentOpen and currentOpen ~= name then
 		local currentData = registered[currentOpen]
-		tween(currentData.frame, { Position = currentData.closedPos }, false)
+		tween(currentData.frame, { Position = currentData.closedPos }, false, AlwaysVisible[currentOpen])
 	end
 
 	-- Open new
@@ -68,11 +74,7 @@ function UIController.Open(name)
 	currentOpen = name
 	isAnimating = false
 
-	if name == "Questlog" then
-		QuestArrowToggle:Fire(true)
-	else
-		QuestArrowToggle:Fire(false)
-	end
+	QuestArrowToggle:Fire(name == "Questlog")
 end
 
 function UIController.Close(name)
@@ -89,7 +91,7 @@ function UIController.Close(name)
 
 	tween(data.frame, {
 		Position = data.closedPos,
-	}, false)
+	}, false, AlwaysVisible[name])
 
 	if currentOpen == name then
 		currentOpen = nil
@@ -116,12 +118,18 @@ function UIController.CloseAll()
 	end
 	isAnimating = true
 
-	for _, data in pairs(registered) do
-		tween(data.frame, { Position = data.closedPos }, false)
+	local wasQuestlogOpen = currentOpen == "Questlog"
+
+	for name, data in pairs(registered) do
+		tween(data.frame, { Position = data.closedPos }, false, AlwaysVisible[name])
 	end
 
 	currentOpen = nil
 	isAnimating = false
+
+	if wasQuestlogOpen then
+		QuestArrowToggle:Fire(false)
+	end
 end
 
 function UIController.Reset()
@@ -142,6 +150,8 @@ function UIController.ForceOpen(name)
 	frame.Position = data.openPos
 
 	currentOpen = name
+
+	QuestArrowToggle:Fire(name == "Questlog")
 end
 
 return UIController

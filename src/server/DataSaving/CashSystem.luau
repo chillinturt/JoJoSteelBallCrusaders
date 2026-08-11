@@ -23,6 +23,8 @@ if not PlaySoundEvent then
 	PlaySoundEvent.Parent = MusicEvents
 end
 
+local NotificationEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("NotificationEvent")
+
 -- Memory table to store cash for each player
 local playerCash = {}
 
@@ -54,6 +56,11 @@ function CashSystem.AddCash(player, amount)
 
 	-- Fire RemoteEvent for UI update
 	CashUpdateEvent:FireClient(player, newValue)
+
+	NotificationEvent:FireClient(player, {
+		Type = "Cash",
+		Amount = amount,
+	})
 
 	PlaySoundEvent:FireClient(player, {
 		id = "rbxassetid://7112275565",
@@ -97,6 +104,7 @@ end
 
 function CashSystem.SetCash(player, value)
 	playerCash[player] = value or 0
+	CashUpdateEvent:FireClient(player, playerCash[player])
 	return playerCash[player] or 0
 end
 
@@ -109,7 +117,7 @@ Players.PlayerAdded:Connect(function(player)
 		player:WaitForChild("PlayerGui")
 
 		task.defer(function()
-			wait(2)
+			task.wait(2)
 			CashUpdateEvent:FireClient(player, playerCash[player])
 		end)
 	end)

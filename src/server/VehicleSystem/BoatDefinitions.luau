@@ -3,12 +3,12 @@ local BoatDefinitions = {}
 -- Dealer: matches the NPCName StringValue on the boat-selling NPC model.
 -- ModelName: name of the model under ReplicatedStorage.Vehicles.
 
-BoatDefinitions.WoodenBoat = {
-	Name = "Wooden Boat",
+BoatDefinitions.SailBoat = {
+	Name = "Sail Boat",
 	Description = "A sturdy vessel for any sailor. Gets the job done.",
 	Dealer = "BoatDealer",
 	Price = 0,
-	ModelName = "WoodenBoat",
+	ModelName = "SailBoat",
 	MaxSpeed = 60,
 	Acceleration = 50,
 	Deceleration = 30,

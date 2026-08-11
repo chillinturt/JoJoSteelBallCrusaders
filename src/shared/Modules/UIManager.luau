@@ -119,7 +119,7 @@ local function ensureDefaultUIs(playerGui)
 		teleportGui.Enabled = false
 	end
 
-	local InteractionGui = player:FindFirstChild("InteractionGui")
+	local InteractionGui = playerGui:FindFirstChild("InteractionGui")
 	if InteractionGui then
 		InteractionGui.Enabled = false
 	end
@@ -339,6 +339,8 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 		end)
 	end
 
+	task.wait(0.05)
+
 	-- 🔒 Absolute safety: CommsWheel must NEVER start enabled
 	local comms = playerGui:FindFirstChild("CommsWheel")
 	if comms then
@@ -353,6 +355,11 @@ function UIManager.LoadUI(playerGui, specialty, race, hero)
 	local LoadingScreen = playerGui:FindFirstChild("LoadingScreen")
 	if LoadingScreen then
 		LoadingScreen.Enabled = false
+	end
+
+	local interactionGui = playerGui:FindFirstChild("InteractionGui")
+	if interactionGui then
+		interactionGui.Enabled = false
 	end
 end
 

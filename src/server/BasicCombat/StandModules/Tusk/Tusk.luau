@@ -12,6 +12,7 @@ local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild(
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local TandemModule = require(game.ServerScriptService.BasicCombat.StandModules:WaitForChild("TandemMode"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local OceanService = require(ServerScriptService.OceanService:WaitForChild("OceanService"))
 
 local ERASE_ANIM_ID = 90498591949232
 
@@ -81,6 +82,10 @@ function Tusk.NailShot(character)
 
 		StandUtils.RemoveStand(character)
 		StandUtils.SummonStand(character, "TuskAct1")
+
+		if OceanService:IsSwimming(character) then
+			StandUtils.StartSwimmingCorrection(character)
+		end
 	end
 
 	SoundModule.PlaySound({
@@ -184,6 +189,10 @@ function Tusk.GuidedNail(character)
 
 		StandUtils.RemoveStand(character)
 		StandUtils.SummonStand(character, "TuskAct2")
+
+		if OceanService:IsSwimming(character) then
+			StandUtils.StartSwimmingCorrection(character)
+		end
 	end
 
 	SoundModule.PlaySound({
@@ -431,6 +440,10 @@ function Tusk.SpinWormhole(character)
 
 		StandUtils.RemoveStand(character)
 		StandUtils.SummonStand(character, "TuskAct3")
+
+		if OceanService:IsSwimming(character) then
+			StandUtils.StartSwimmingCorrection(character)
+		end
 	end
 
 	SoundModule.PlaySound({
@@ -507,6 +520,10 @@ function Tusk.InfiniteRotation(character)
 
 		StandUtils.RemoveStand(character)
 		standModel = StandUtils.SummonStand(character, "TuskAct4")
+
+		if OceanService:IsSwimming(character) then
+			StandUtils.StartSwimmingCorrection(character)
+		end
 	end
 
 	SoundModule.PlaySound({

@@ -51,7 +51,7 @@ local function setupUIController(playerGui)
 	if shopUI then
 		local frame = shopUI:WaitForChild("CharacterStorageFrame")
 		if frame then
-			UIController.Register("Shop", frame, UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0.5, 0, 1.5, 0))
+			UIController.Register("Shop", frame, UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0.5, 0, 0.5, 0))
 		end
 	end
 
@@ -75,7 +75,15 @@ local function setupUIController(playerGui)
 	if questlog then
 		local frame = questlog:WaitForChild("QuestLogFrame")
 		if frame then
-			UIController.Register("Questlog", frame, UDim2.new(0.87, 0, 0.5, 0), UDim2.new(1.5, 0, 0.5, 0))
+			UIController.Register("Questlog", frame, UDim2.new(0.87, 0, 0.5, 0), UDim2.new(1.13, 0, 0.5, 0))
+		end
+	end
+
+	local robux = playerGui:WaitForChild("Robux")
+	if robux then
+		local frame = robux:WaitForChild("Frame")
+		if frame then
+			UIController.Register("Robux", frame, UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0.5, 0, 1.5, 0))
 		end
 	end
 end

@@ -31,6 +31,7 @@ local function showGameplayUIs()
 			and ui.Name ~= "TeleportGui"
 			and ui.Name ~= "CommsWheel"
 			and ui.Name ~= "LoadingScreen"
+			and ui.Name ~= "InteractionGui"
 		then
 			ui.Enabled = true
 		end

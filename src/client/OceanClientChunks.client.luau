@@ -50,6 +50,7 @@ local function CreateChunk(chunkX, chunkZ)
 	oceanPart.Anchored = true
 	oceanPart.CanCollide = false
 	oceanPart.Material = Enum.Material.Glass
+	oceanPart.Color = Color3.fromRGB(33, 84, 185)
 	oceanPart.Transparency = 0.35
 	oceanPart.Size = Vector3.new(CHUNK_SIZE, 1, CHUNK_SIZE)
 	oceanPart.Position = Vector3.new(centerX, WaveModule.OCEAN_HEIGHT, centerZ)
@@ -58,7 +59,7 @@ local function CreateChunk(chunkX, chunkZ)
 	local floorPart = Instance.new("Part")
 	floorPart.Name = key .. "_floor"
 	floorPart.Anchored = true
-	floorPart.CanCollide = false
+	floorPart.CanCollide = true
 	floorPart.Material = Enum.Material.Sand
 	floorPart.Color = Color3.fromRGB(120, 105, 75)
 	floorPart.Transparency = 0

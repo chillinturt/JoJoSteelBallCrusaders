@@ -1530,7 +1530,6 @@ QuestDefinitions.DefeatHamonUsersRepeatable = {
 }
 
 --new islands quests
-
 QuestDefinitions.DefeatBanditsRepeatable = {
 	Name = "Bandits",
 	Description = "Defeat 5 Bandits",
@@ -1538,32 +1537,12 @@ QuestDefinitions.DefeatBanditsRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Josuke2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 300,
+	RewardXP = 1500,
 	MinimumLevel = 1,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Bandit", Required = 5, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1574,32 +1553,12 @@ QuestDefinitions.DefeatMonkeysRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Jotaro2",
-	RewardCash = 1500,
+	RewardCash = 500,
 	RewardXP = 2000,
-	MinimumLevel = 15,
+	MinimumLevel = 10,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Monkey", Required = 5, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1610,32 +1569,12 @@ QuestDefinitions.DefeatGorillasRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Jotaro2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 1000,
+	RewardXP = 3000,
 	MinimumLevel = 20,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Gorilla", Required = 8, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1646,32 +1585,12 @@ QuestDefinitions.DefeatAvdolRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Jotaro2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 2000,
+	RewardXP = 7000,
 	MinimumLevel = 25,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "AvdolFighter", Required = 1, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1682,32 +1601,12 @@ QuestDefinitions.DefeatPirateRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Giorno2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 1000,
+	RewardXP = 3000,
 	MinimumLevel = 30,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Pirate", Required = 5, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1718,32 +1617,12 @@ QuestDefinitions.DefeatBruteRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Giorno2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 1700,
+	RewardXP = 5000,
 	MinimumLevel = 35,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Brute", Required = 8, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1754,32 +1633,12 @@ QuestDefinitions.DefeatRohanRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Giorno2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 2200,
+	RewardXP = 6000,
 	MinimumLevel = 40,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "RohanKishibe", Required = 1, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1790,32 +1649,12 @@ QuestDefinitions.DefeatDesertBanditRepeatable = {
 	Repeatable = true, -- 🔹 NEW
 
 	Giver = "Jolyne2",
-	RewardCash = 1500,
-	RewardXP = 2000,
+	RewardCash = 1700,
+	RewardXP = 8000,
 	MinimumLevel = 45,
 
 	Objectives = {
 		{ Type = "Defeat", Target = "DesertBandit", Required = 5, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1833,26 +1672,6 @@ QuestDefinitions.DefeatDesertRaiderRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "DesertRaider", Required = 8, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatKakyoinRepeatable = {
@@ -1868,26 +1687,6 @@ QuestDefinitions.DefeatKakyoinRepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "KakyoinNoriaki", Required = 1, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1905,26 +1704,6 @@ QuestDefinitions.DefeatSnowBanditRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "SnowBandit", Required = 5, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatIceCaptainRepeatable = {
@@ -1940,26 +1719,6 @@ QuestDefinitions.DefeatIceCaptainRepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "IceCaptain", Required = 8, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -1977,26 +1736,6 @@ QuestDefinitions.DefeatOkuyasuRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "OkuyasuNijimura", Required = 1, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatStoneGolemRepeatable = {
@@ -2012,26 +1751,6 @@ QuestDefinitions.DefeatStoneGolemRepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "StoneGolem", Required = 5, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -2049,26 +1768,6 @@ QuestDefinitions.DefeatLavaGolemRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "LavaGolem", Required = 8, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatDiavoloRepeatable = {
@@ -2084,26 +1783,6 @@ QuestDefinitions.DefeatDiavoloRepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "Diavolo", Required = 1, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -2121,26 +1800,6 @@ QuestDefinitions.DefeatRedSailorRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "RedSailor", Required = 5, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatBlueSailorRepeatable = {
@@ -2156,26 +1815,6 @@ QuestDefinitions.DefeatBlueSailorRepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "BlueSailor", Required = 8, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -2193,26 +1832,6 @@ QuestDefinitions.DefeatGiornoRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "Giorno", Required = 1, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatSkyBanditRepeatable = {
@@ -2228,26 +1847,6 @@ QuestDefinitions.DefeatSkyBanditRepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "SkyBandit", Required = 5, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 
@@ -2265,26 +1864,6 @@ QuestDefinitions.DefeatSkyFighterRepeatable = {
 	Objectives = {
 		{ Type = "Defeat", Target = "SkyFighter", Required = 8, Progress = 0, Completed = false },
 	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
-	},
 }
 
 QuestDefinitions.DefeatDIORepeatable = {
@@ -2300,26 +1879,6 @@ QuestDefinitions.DefeatDIORepeatable = {
 
 	Objectives = {
 		{ Type = "Defeat", Target = "DIO", Required = 1, Progress = 0, Completed = false },
-	},
-
-	--TurnInNpc = "Josuke",
-
-	Dialog = {
-		Offer = {
-			"These Bandit are crazy! Take out 5 of them for me and I'll give you a reward.",
-		},
-
-		InProgress = {
-			"Keep going. Take out a few more Bandits.",
-		},
-
-		TurnIn = {
-			"Nice work. Let’s keep the island clean.",
-		},
-
-		Completed = {
-			"Ready for more work? These Bandits always come back!",
-		},
 	},
 }
 

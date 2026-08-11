@@ -10,6 +10,15 @@ local events = ReplicatedStorage:WaitForChild("ShopEvents")
 local confirmTeleportEvent = events:WaitForChild("ConfirmTeleport")
 local requestLocations = events:WaitForChild("RequestTeleportLocations")
 
+--home variables
+local HomeManager = require(game.ServerScriptService.Utilities.PlayerSpawning:WaitForChild("HomeManager"))
+local HomeTeleportEvent = ReplicatedStorage.Remotes:WaitForChild("HomeTeleportEvent")
+
+local HOME_CHANNEL_TIME = 5
+local MOVE_DISTANCE = 3 -- studs
+
+local activeTeleports = {}
+
 ----------------------------------------------------------------------
 -- TELEPORT FUNCTION (Your Working Logic)
 ----------------------------------------------------------------------
@@ -44,6 +53,75 @@ local function TeleportPlayerToPart(player, part)
 		hrp.CFrame = part.CFrame + Vector3.new(0, 3, 0)
 	end
 end
+
+local function FindHomePart(homeName)
+	local spawnFolder = Workspace.Teleports:FindFirstChild("SpawnLocations")
+	if not spawnFolder then
+		return nil
+	end
+
+	for _, part in ipairs(spawnFolder:GetChildren()) do
+		if part:IsA("BasePart") and part.Name == homeName then
+			return part
+		end
+	end
+
+	return nil
+end
+
+HomeTeleportEvent.OnServerEvent:Connect(function(player)
+	if activeTeleports[player] then
+		return
+	end
+
+	local character = player.Character
+	if not character then
+		return
+	end
+
+	local hrp = character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character:FindFirstChildOfClass("Humanoid")
+
+	if not hrp or not humanoid then
+		return
+	end
+
+	local homeName = HomeManager.GetHome(player)
+	if not homeName then
+		return
+	end
+
+	local homePart = FindHomePart(homeName)
+	if not homePart then
+		warn(player.Name .. " has invalid home " .. homeName)
+		return
+	end
+
+	activeTeleports[player] = true
+
+	local startPosition = hrp.Position
+
+	local elapsed = 0
+	while elapsed < HOME_CHANNEL_TIME do
+		task.wait(0.1)
+		elapsed += 0.1
+
+		if not player.Character or humanoid.Health <= 0 then
+			activeTeleports[player] = nil
+			return
+		end
+
+		if (hrp.Position - startPosition).Magnitude > MOVE_DISTANCE then
+			-- Player moved too far.
+			activeTeleports[player] = nil
+			return
+		end
+	end
+
+	TeleportPlayerToPart(player, homePart)
+
+	activeTeleports[player] = nil
+end)
 
 ----------------------------------------------------------------------
 -- FIND VALID TELEPORT PART BY NAME (SERVER AUTHORITY)

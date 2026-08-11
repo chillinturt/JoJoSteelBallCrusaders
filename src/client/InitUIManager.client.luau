@@ -26,6 +26,7 @@ local function setupUIController(playerGui)
 	local inventory = playerGui:WaitForChild("Inventory"):WaitForChild("Frame")
 	local alliance = playerGui:WaitForChild("AllianceGui"):WaitForChild("Frame")
 	local questlog = playerGui:WaitForChild("QuestGUI"):WaitForChild("QuestLogFrame")
+	local robux = playerGui:WaitForChild("Robux"):WaitForChild("Frame")
 
 	-- Clear previous registrations (optional but safer)
 	UIController.Reset()
@@ -37,7 +38,8 @@ local function setupUIController(playerGui)
 	UIController.Register("Shop", shop, UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0.5, 0, 1.5, 0))
 	UIController.Register("Inventory", inventory, UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0.5, 0, 1.5, 0))
 	UIController.Register("Alliance", alliance, UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0.5, 0, 1.5, 0))
-	UIController.Register("Questlog", questlog, UDim2.new(0.87, 0, 0.5, 0), UDim2.new(1.5, 0, 0.5, 0))
+	UIController.Register("Questlog", questlog, UDim2.new(0.87, 0, 0.5, 0), UDim2.new(1.13, 0, 0.5, 0))
+	UIController.Register("Robux", robux, UDim2.new(0.87, 0, 0.5, 0), UDim2.new(1, 0, 0.5, 0))
 
 	-- Open questlog when player first joins
 	if not hasOpenedQuestlog then

@@ -5,6 +5,7 @@ local StandUtils = require(game.ServerScriptService.BasicCombat.StandUtils)
 local QuestManager = require(game.ServerScriptService.DataSaving.QuestManager)
 local SoundModule = require(game.ServerScriptService.Utilities:WaitForChild("SoundUtils"))
 local AnimationModule = require(game.ServerScriptService.BasicCombat:WaitForChild("AnimationModule"))
+local OceanService = require(game.ServerScriptService.OceanService:WaitForChild("OceanService"))
 
 local StandArrow = {}
 StandArrow.Cooldown = 3
@@ -104,6 +105,10 @@ function StandArrow.Use(player)
 
 	task.delay(4, function()
 		StandUtils.SummonStand(char, HeroManager.GetField(player, "Hero"))
+
+		if OceanService:IsSwimming(char) then
+			StandUtils.StartSwimmingCorrection(char)
+		end
 
 		-- complete the UseStandArrow tutorial quest if player has it
 		if QuestManager.HasQuest(player, "UseStandArrowTutorial") then

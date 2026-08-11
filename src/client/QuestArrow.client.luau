@@ -6,12 +6,14 @@ local player = Players.LocalPlayer
 
 local QuestEventsFolder = ReplicatedStorage:WaitForChild("QuestEvents")
 local SetArrowTarget = QuestEventsFolder:WaitForChild("SetArrowTarget")
+local QuestArrowToggle = QuestEventsFolder:WaitForChild("QuestArrowVisible")
 
 local ArrowTemplate = ReplicatedStorage.Effects.QuestEffects:WaitForChild("ArrowModel")
 
 local arrow
 local connection
 local currentTargetPosition -- Vector3 or nil, sent by server
+local isQuestlogOpen = false
 
 local function setArrowVisible(state)
 	for _, obj in ipairs(arrow:GetDescendants()) do
@@ -35,6 +37,12 @@ local function makeModelNonPhysical(model)
 	end
 end
 
+local function refreshArrowVisibility()
+	if arrow then
+		setArrowVisible(isQuestlogOpen and currentTargetPosition ~= nil)
+	end
+end
+
 local function attachArrow(character)
 	local hrp = character:WaitForChild("HumanoidRootPart")
 
@@ -53,11 +61,15 @@ local function attachArrow(character)
 	arrow.Parent = character
 
 	makeModelNonPhysical(arrow)
-	setArrowVisible(false)
+	refreshArrowVisibility()
 
 	connection = RunService.RenderStepped:Connect(function()
-		if not arrow or not arrow.PrimaryPart then return end
-		if not hrp.Parent then return end
+		if not arrow or not arrow.PrimaryPart then
+			return
+		end
+		if not hrp.Parent then
+			return
+		end
 
 		local arrowPosition = hrp.Position
 
@@ -73,9 +85,13 @@ end
 -- Server pushes a Vector3 target position (or nil) every 0.5 seconds
 SetArrowTarget.OnClientEvent:Connect(function(position)
 	currentTargetPosition = position
-	if arrow then
-		setArrowVisible(position ~= nil)
-	end
+	refreshArrowVisibility()
+end)
+
+-- UIController fires this when the Questlog is opened/closed
+QuestArrowToggle.Event:Connect(function(isOpen)
+	isQuestlogOpen = isOpen
+	refreshArrowVisibility()
 end)
 
 if player.Character then

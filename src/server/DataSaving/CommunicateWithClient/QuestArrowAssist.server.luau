@@ -7,7 +7,9 @@ local QuestDefinitions = require(game.ServerScriptService.DataSaving:WaitForChil
 
 local QuestEventsFolder = ReplicatedStorage:WaitForChild("QuestEvents")
 
--- Keep for backward compatibility with any scripts that reference it
+-- Created here so it exists in ReplicatedStorage before UI scripts look it up.
+-- Fired client-side by UIController when the Questlog opens/closes, and
+-- consumed by QuestArrow.client.luau to gate arrow visibility.
 local arrowVisible = Instance.new("BindableEvent")
 arrowVisible.Name = "QuestArrowVisible"
 arrowVisible.Parent = QuestEventsFolder

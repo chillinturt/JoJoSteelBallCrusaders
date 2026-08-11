@@ -10,6 +10,7 @@ local physicsService = game:GetService("PhysicsService")
 
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local HeroManager = require(game.ServerScriptService.DataSaving:WaitForChild("HeroManager"))
+local OceanService = require(game.ServerScriptService.OceanService:WaitForChild("OceanService"))
 
 ---------------------------------------------------------------------
 -- Physics setup (unchanged)
@@ -63,6 +64,10 @@ local function onSummonRequested(player)
 		print("Removed stand / exited pilot")
 	else
 		StandUtils.SummonStand(character, standTag)
+
+		if OceanService:IsSwimming(character) then
+			StandUtils.StartSwimmingCorrection(character)
+		end
 		print("Summoned stand:", standTag)
 	end
 end

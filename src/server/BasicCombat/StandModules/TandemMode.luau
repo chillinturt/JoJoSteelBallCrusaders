@@ -5,6 +5,7 @@ local replicatedStorage = game:GetService("ReplicatedStorage")
 local RaycastModule = require(game.ServerScriptService.BasicCombat:WaitForChild("RaycastModule"))
 local StandUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("StandUtils"))
 local CombatUtils = require(game.ServerScriptService.BasicCombat:WaitForChild("CombatUtils"))
+local OceanService = require(game.ServerScriptService.OceanService:WaitForChild("OceanService"))
 
 local TandemMode = {}
 

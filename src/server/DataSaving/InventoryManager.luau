@@ -23,6 +23,8 @@ if not PlaySoundEvent then
 	PlaySoundEvent.Parent = MusicEvents
 end
 
+local NotificationEvent = ReplicatedStorage.UIs.RemoteEvents:WaitForChild("NotificationEvent")
+
 local InventoryManager = {}
 
 ---------------------------------------------------------------------
@@ -31,8 +33,6 @@ local InventoryManager = {}
 
 local DEFAULT_MAX_STACK = 20 -- global configurable flat stack
 local STACK_MULTIPLIER = 1 -- later, if player owns gamepass: = 2 (or more)
-
--- If later you store multipliers per player, move this into a lookup
 
 ---------------------------------------------------------------------
 -- IN-MEMORY STORAGE
@@ -106,7 +106,7 @@ end
 -- STACKING
 ---------------------------------------------------------------------
 
-function InventoryManager.AddItem(player, itemName, amount)
+function InventoryManager.AddItem(player, itemName, amount, allowOverflow)
 	if amount <= 0 then
 		return
 	end
@@ -124,20 +124,29 @@ function InventoryManager.AddItem(player, itemName, amount)
 		local entry = inv[index]
 		entry.Amount += amount
 
-		-- Enforce max stack
-		if entry.Amount > maxStack then
+		-- Enforce max stack, unless this add is allowed to overflow it
+		-- (e.g. a developer product purchase should never be denied/lost)
+		if not allowOverflow and entry.Amount > maxStack then
 			entry.Amount = maxStack
 		end
 	else
 		-- Insert new item
 		table.insert(inv, {
 			Name = itemName,
-			Amount = math.min(amount, maxStack),
+			Amount = allowOverflow and amount or math.min(amount, maxStack),
 		})
 	end
 
 	InventoryUpdatedEvent:FireClient(player, InventoryManager.GetInventory(player))
 	ExclamationPointEvent:FireClient(player)
+
+	NotificationEvent:FireClient(player, {
+		Type = "Item",
+		ItemName = itemName,
+		PluralName = itemName .. "s",
+		Amount = amount,
+		Rarity = "Rare",
+	})
 
 	PlaySoundEvent:FireClient(player, {
 		id = "rbxassetid://550208601",

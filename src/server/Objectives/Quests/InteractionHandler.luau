@@ -6,6 +6,8 @@ local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
 local QuestDefinitions = require(ServerScriptService.DataSaving.QuestDefinitions)
 local XPSystem = require(ServerScriptService.DataSaving.XPSystem)
 local BoatService = require(ServerScriptService.VehicleSystem.BoatService)
+local SpawnConfig = require(ServerScriptService.Utilities.PlayerSpawning:WaitForChild("SpawnConfig"))
+local HomeManager = require(ServerScriptService.Utilities.PlayerSpawning:WaitForChild("HomeManager"))
 
 local interactionEvents = ReplicatedStorage:WaitForChild("InteractionEvents")
 local OpenInteraction = interactionEvents:WaitForChild("OpenInteraction")
@@ -18,6 +20,18 @@ local InteractionHandler = {}
 --------------------------------------------------
 -- Helpers
 --------------------------------------------------
+
+local function isNearNPC(player: Player, npcModel: Model): boolean
+	if not player.Character then
+		return false
+	end
+	local hrp = player.Character:FindFirstChild("HumanoidRootPart") :: BasePart?
+	local npcRoot = npcModel:FindFirstChild("HumanoidRootPart") :: BasePart?
+	if not hrp or not npcRoot then
+		return false
+	end
+	return (hrp.Position - npcRoot.Position).Magnitude <= 20
+end
 
 local function getQuestsForNpc(npcName)
 	local quests = {}
@@ -51,7 +65,9 @@ end
 
 local function openBoatShop(player, npcModel)
 	local npcName = getNpcName(npcModel)
-	if not npcName then return end
+	if not npcName then
+		return
+	end
 
 	local boats = BoatService.GetBoatsForDealer(npcName)
 	local buttons = {}
@@ -87,21 +103,77 @@ local function openBoatPage(player, npcModel, boatId)
 		return
 	end
 
-	local priceText = def.Price == 0
-		and '<font color="#55FF55">FREE</font>'
+	local priceText = def.Price == 0 and '<font color="#55FF55">FREE</font>'
 		or '<font color="#55FF55">$' .. def.Price .. "</font>"
 
-	local text = "<b>" .. def.Name .. "</b>"
-		.. "\n\n" .. def.Description
-		.. "\n\nPrice: " .. priceText
-		.. "\nTop Speed: " .. def.MaxSpeed
+	local text = "<b>"
+		.. def.Name
+		.. "</b>"
+		.. "\n\n"
+		.. def.Description
+		.. "\n\nPrice: "
+		.. priceText
+		.. "\nTop Speed: "
+		.. def.MaxSpeed
 
 	OpenInteraction:FireClient(player, {
 		InteractionId = npcModel.Name,
 		Text = text,
 		Buttons = {
-			{ Text = "Buy",     Action = "BuyBoat:" .. boatId },
-			{ Text = "Return",  Action = "ReturnToBoatShop" },
+			{ Text = "Buy", Action = "BuyBoat:" .. boatId },
+			{ Text = "Return", Action = "ReturnToBoatShop" },
+			{ Text = "Nevermind", Close = true },
+		},
+	})
+end
+
+--------------------------------------------------
+-- Innkeeper UI
+--------------------------------------------------
+
+local function openInnkeeperDialog(player: Player, npcModel: Model)
+	local npcName = getNpcName(npcModel)
+	if not npcName then
+		return
+	end
+
+	local requiredLevel = SpawnConfig.Spawns[npcName]
+	if not requiredLevel then
+		return
+	end
+
+	local stats = XPSystem.GetStats(player)
+	local level = stats and stats.Level or 1
+
+	if level < requiredLevel then
+		OpenInteraction:FireClient(player, {
+			InteractionId = npcModel.Name,
+			Text = "You must be <b>Level " .. requiredLevel .. "</b> to register here as your home.",
+			Buttons = {
+				{ Text = "Farewell", Close = true },
+			},
+		})
+		return
+	end
+
+	local currentHome = HomeManager.GetHome(player)
+
+	if currentHome == npcName then
+		OpenInteraction:FireClient(player, {
+			InteractionId = npcModel.Name,
+			Text = "You are already registered here. Safe travels!",
+			Buttons = {
+				{ Text = "Farewell", Close = true },
+			},
+		})
+		return
+	end
+
+	OpenInteraction:FireClient(player, {
+		InteractionId = npcModel.Name,
+		Text = "Would you like to set this as your home?\n\nYou can return here at any time using the home button.",
+		Buttons = {
+			{ Text = "Set as Home", Action = "SetHome" },
 			{ Text = "Nevermind", Close = true },
 		},
 	})
@@ -210,6 +282,11 @@ function InteractionHandler.OpenNPCInteraction(player, npcModel)
 		return
 	end
 
+	if npcName and SpawnConfig.InnkeeperNpcs[npcName] then
+		openInnkeeperDialog(player, npcModel)
+		return
+	end
+
 	openQuestList(player, npcModel)
 end
 
@@ -219,11 +296,41 @@ end
 
 InteractionResponse.OnServerEvent:Connect(function(player, interactionId, action)
 	local npcModel = activeInteractions[player]
-	if not npcModel then return end
+	if not npcModel then
+		return
+	end
 
 	------------------------------------------------
 	-- No-argument actions
 	------------------------------------------------
+
+	if action == "SetHome" then
+		local npcName = getNpcName(npcModel)
+		if not npcName or not SpawnConfig.InnkeeperNpcs[npcName] then
+			return
+		end
+		if not isNearNPC(player, npcModel) then
+			return
+		end
+
+		local stats = XPSystem.GetStats(player)
+		local level = stats and stats.Level or 1
+		if level < (SpawnConfig.Spawns[npcName] or 0) then
+			return
+		end
+
+		HomeManager.SetHome(player, npcName)
+
+		OpenInteraction:FireClient(player, {
+			InteractionId = npcModel.Name,
+			Text = "This is now your home. You can return here at any time!",
+			Buttons = {
+				{ Text = "Wonderful!", Close = true },
+			},
+		})
+		return
+	end
+
 	if action == "ReturnToQuestList" then
 		openQuestList(player, npcModel)
 		return
@@ -251,7 +358,9 @@ InteractionResponse.OnServerEvent:Connect(function(player, interactionId, action
 	-- Actions with an ID  (type:id)
 	------------------------------------------------
 	local actionType, actionId = string.match(action, "([^:]+):(.+)")
-	if not actionType or not actionId then return end
+	if not actionType or not actionId then
+		return
+	end
 
 	-- Boat actions
 	if actionType == "ShowBoat" then
@@ -281,14 +390,13 @@ InteractionResponse.OnServerEvent:Connect(function(player, interactionId, action
 
 	if actionType == "ShowQuest" then
 		openQuestPage(player, npcModel, actionId)
-
 	elseif actionType == "AcceptQuest" then
 		if quest.MinimumLevel then
 			local level = XPSystem.GetStats(player).Level
 			if level < quest.MinimumLevel then
 				OpenInteraction:FireClient(player, {
 					InteractionId = npcModel.Name,
-					Text = 'You must be level ' .. quest.MinimumLevel .. ' to accept "' .. quest.Name .. '".',
+					Text = "You must be level " .. quest.MinimumLevel .. ' to accept "' .. quest.Name .. '".',
 					Buttons = {
 						{ Text = "Return", Action = "ReturnToQuestList" },
 						{ Text = "Nevermind", Close = true },
@@ -302,9 +410,15 @@ InteractionResponse.OnServerEvent:Connect(function(player, interactionId, action
 			QuestManager.AddQuest(player, actionId)
 		end
 
+		local dialogText = "Good luck defeating " .. quest.Name .. "."
+
+		if quest.Dialog and quest.Dialog.Offer and quest.Dialog.Offer[1] then
+			dialogText = quest.Dialog.Offer[1]
+		end
+
 		OpenInteraction:FireClient(player, {
 			InteractionId = npcModel.Name,
-			Text = quest.Dialog.Offer[1] or ('Good luck completing "' .. quest.Name .. '".'),
+			Text = dialogText,
 			Buttons = {
 				{ Text = "Close", Close = true },
 			},

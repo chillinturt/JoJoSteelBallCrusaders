@@ -30,6 +30,7 @@ local SoundUtils = require(game.ServerScriptService.Utilities:WaitForChild("Soun
 local HeroManager = require(game.ServerScriptService.DataSaving.HeroManager)
 local TalentsModule = require(game.ServerScriptService.DataSaving.Upgrades:WaitForChild("TalentsModule"))
 local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
+local OceanService = require(ServerScriptService.OceanService:WaitForChild("OceanService"))
 
 -- Track combo index per stand
 local comboIndices = {}
@@ -170,6 +171,10 @@ function BasicStandAttacks.BasicPunch(standModel)
 
 			StandUtils.RemoveStand(character)
 			standModel = StandUtils.SummonStand(character, "TuskAct4")
+
+			if OceanService:IsSwimming(character) then
+				StandUtils.StartSwimmingCorrection(character)
+			end
 
 			-- Wait one frame for joints + animator
 			task.wait()
@@ -343,6 +348,10 @@ function BasicStandAttacks.StartBarrage(character)
 
 			StandUtils.RemoveStand(character)
 			standModel = StandUtils.SummonStand(character, "TuskAct4")
+
+			if OceanService:IsSwimming(character) then
+				StandUtils.StartSwimmingCorrection(character)
+			end
 
 			-- Wait one frame for joints + animator
 			task.wait()

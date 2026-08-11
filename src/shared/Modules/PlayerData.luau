@@ -41,6 +41,14 @@ PlayerData.DEFAULT_PLAYER_DATA = {
 	},
 
 	AbilityPoints = 0,
+
+	-- Developer product XP boost: unix timestamp when the boost expires.
+	-- Account-wide (not per-slot) and keeps counting down while offline.
+	XPBoostExpiry = 0,
+
+	-- Set of MarketplaceService PurchaseId -> true, used to make
+	-- developer product grants idempotent across ProcessReceipt retries.
+	PurchaseHistory = {},
 }
 
 export type PlayerData = typeof(PlayerData.DEFAULT_PLAYER_DATA)
