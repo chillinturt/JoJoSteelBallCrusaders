@@ -3,6 +3,7 @@ local Workspace = game:GetService("Workspace")
 local Players = game:GetService("Players")
 
 local WaveModule = require(ReplicatedStorage.Shared.Ocean.WaveModule)
+local SeatPrompts = require(script.Parent.SeatPrompts)
 
 local BoatController = {}
 
@@ -14,6 +15,11 @@ function BoatController.new(boatModel, config)
 	local seat = boatModel:WaitForChild("PilotSeat")
 	local alignPosition = hull:WaitForChild("AlignPosition")
 	local alignOrientation = hull:WaitForChild("AlignOrientation")
+
+	local seatCleanups = { SeatPrompts.Attach(seat, "Drive", config.Name) }
+	for _, passengerSeat in ipairs(SeatPrompts.FindPassengerSeats(boatModel, seat)) do
+		table.insert(seatCleanups, SeatPrompts.Attach(passengerSeat, "Sit", config.Name))
+	end
 
 	local targetPosition = hull.Position
 	local currentSpeed = 0
@@ -122,6 +128,9 @@ function BoatController.new(boatModel, config)
 
 	function self.Destroy()
 		occupantConn:Disconnect()
+		for _, cleanup in ipairs(seatCleanups) do
+			cleanup()
+		end
 		boatModel:Destroy()
 	end
 

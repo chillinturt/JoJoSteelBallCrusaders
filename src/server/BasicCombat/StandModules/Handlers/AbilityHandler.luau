@@ -14,6 +14,11 @@ local XPSystem = require(game.ServerScriptService.DataSaving:WaitForChild("XPSys
 -- Where all stand modules live
 local StandModules = ServerScriptService.BasicCombat.StandModules
 
+-- The off-stand (bare-handed) ability kit is independent of hero/stand/race/
+-- specialty -- every player gets the same default set for now.
+local DefaultOffAbilityRegistry =
+	require(ServerScriptService.BasicCombat.OffAbilities:WaitForChild("OffAbilityRegistry"))
+
 local AbilityUnlocksEvent = Instance.new("RemoteEvent")
 AbilityUnlocksEvent.Name = "AbilityUnlocksEvent"
 AbilityUnlocksEvent.Parent = ReplicatedStorage.UIs:WaitForChild("RemoteEvents")
@@ -25,11 +30,19 @@ local UNLOCK_LEVELS = {
 	[4] = 30, -- ultimate
 }
 
--- Cooldowns: cooldowns[player][abilityId] = timestamp
+-- Cooldowns: cooldowns[player][mode][abilityId] = timestamp
+-- mode is "On" (stand summoned) or "Off" (stand toggled off) -- kept separate so an
+-- ability bound to the same keybind/abilityId doesn't share a cooldown across the
+-- two ability sets.
 local cooldowns = {}
 
--- Track active hold abilities: activeHolds[player][abilityId] = true/false
+-- Track active hold/toggle abilities: activeHolds[player][mode][abilityId] = true/false
 local activeHolds = {}
+
+local function ensurePlayerTables(player)
+	cooldowns[player] = cooldowns[player] or { On = {}, Off = {} }
+	activeHolds[player] = activeHolds[player] or { On = {}, Off = {} }
+end
 
 local function getHeroGroup(heroName)
 	return HeroGroups.GetHeroGroup(heroName) or heroName
@@ -108,6 +121,15 @@ local function loadAbilityRegistry(standName)
 end
 
 ---------------------------------------------------------------------
+-- Resolve which off-stand registry a player should use. Currently everyone
+-- gets the same default kit; once players can pick/swap off-stand loadouts,
+-- branch on that selection here instead of always returning the default.
+---------------------------------------------------------------------
+local function getOffAbilityRegistry(player)
+	return DefaultOffAbilityRegistry
+end
+
+---------------------------------------------------------------------
 -- Send ability types to client
 -- StandRegistry.AbilityTypes should exist
 ---------------------------------------------------------------------
@@ -123,10 +145,66 @@ function AbilityHandler.SendAbilityTypes(player, standName)
 	AbilityTypesRemote:FireClient(player, types)
 end
 
--- Apply a cooldown for a player+abilityId (seconds)
+---------------------------------------------------------------------
+-- Broadcast the off-stand (bare-handed) ability types to a client. Lives
+-- here rather than on StandUtils because resolving the off registry pulls in
+-- CombatUtils, and CombatUtils already requires StandUtils -- putting it on
+-- StandUtils would create a require cycle between the two.
+---------------------------------------------------------------------
+function AbilityHandler.SendOffAbilityTypes(player)
+	if not player then
+		return
+	end
+
+	local registry = getOffAbilityRegistry(player)
+	if not registry or not registry.AbilityTypes then
+		return
+	end
+
+	local AbilityTypesRemote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityTypes")
+	AbilityTypesRemote:FireClient(player, registry.AbilityTypes)
+end
+
+---------------------------------------------------------------------
+-- Resolve the ability types for whatever set a player can currently use
+-- (on-stand or off-stand). Used by the client to pull its correct starting
+-- state on join/respawn, instead of relying solely on a server-pushed event
+-- that can race a LocalScript that hasn't connected its listener yet.
+---------------------------------------------------------------------
+function AbilityHandler.GetCurrentAbilityTypes(player)
+	local character = player.Character
+	if not character then
+		return nil
+	end
+
+	local standModel = StandUtils.getStandModel(character)
+
+	if standModel then
+		local heroValue = HeroManager.GetField(player, "Hero")
+		if not heroValue or heroValue == "None" then
+			return nil
+		end
+
+		local heroGroup = getHeroGroup(heroValue)
+		local standTag = standModel:FindFirstChild("StandTag")
+		if not standTag or getHeroGroup(standTag.Value) ~= heroGroup then
+			return nil
+		end
+
+		local registry = loadAbilityRegistry(heroGroup)
+		return registry and registry.AbilityTypes or nil
+	end
+
+	local offRegistry = getOffAbilityRegistry(player)
+	return offRegistry and offRegistry.AbilityTypes or nil
+end
+
+-- Apply a cooldown for a player+abilityId (seconds). Always targets the on-stand
+-- ability set -- this is only ever called directly by on-stand ability code
+-- (e.g. KingCarmine), never by the off-stand kit.
 function AbilityHandler.ApplyCooldown(player, abilityId, duration)
-	cooldowns[player] = cooldowns[player] or {}
-	cooldowns[player][abilityId] = tick()
+	ensurePlayerTables(player)
+	cooldowns[player].On[abilityId] = tick()
 	-- fire UI for client
 	local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
 	cooldownUIEvent:FireClient(player, abilityId, duration or 0)
@@ -138,12 +216,7 @@ function AbilityHandler.ResetCooldown(player, abilityId)
 	end
 
 	-- Remove cooldown entry
-	cooldowns[player][abilityId] = nil
-
-	-- Optional cleanup if player has no cooldowns left
-	if next(cooldowns[player]) == nil then
-		cooldowns[player] = nil
-	end
+	cooldowns[player].On[abilityId] = nil
 
 	-- Tell client UI cooldown is finished
 	local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
@@ -153,12 +226,150 @@ end
 -- Check if player is currently on cooldown for abilityId. Returns remaining time or 0.
 function AbilityHandler.IsOnCooldown(player, abilityId)
 	local playerCDs = cooldowns[player]
-	if not playerCDs or not playerCDs[abilityId] then
+	if not playerCDs or not playerCDs.On[abilityId] then
 		return 0
 	end
-	local last = playerCDs[abilityId]
+	local last = playerCDs.On[abilityId]
 	-- if registry cooldown unknown here, caller can pass the cooldown to compute remaining
 	return tick() - last
+end
+
+---------------------------------------------------------------------
+-- Shared Hold/Toggle/Press dispatch, used for both the on-stand ability set
+-- (root = standModel) and the off-stand ability set (root = character).
+-- mode ("On"/"Off") keeps cooldowns and hold/toggle state isolated between
+-- the two sets so they never bleed into each other on the same abilityId.
+---------------------------------------------------------------------
+local function runAbility(player, character, mode, registry, abilityData, root, abilityId, state)
+	ensurePlayerTables(player)
+	local modeCooldowns = cooldowns[player][mode]
+	local modeHolds = activeHolds[player][mode]
+
+	local abilityType = registry.AbilityTypes[abilityId] or "Press"
+	local cooldown = abilityData.Cooldown or 0
+
+	local lastUse = modeCooldowns[abilityId]
+	local isActive = modeHolds[abilityId] == true
+
+	--------------------------------------------------
+	-- HOLD ABILITY LOGIC
+	--------------------------------------------------
+	if abilityType == "Hold" then
+		-- STOP cannot run unless ability is active
+		if state == "Stop" then
+			if not isActive then
+				return -- ❗ prevent StopSplash from firing
+			end
+
+			-- Execute Stop
+			if abilityData.ExecuteStop then
+				abilityData.ExecuteStop(root, player)
+			end
+
+			-- Mark inactive
+			modeHolds[abilityId] = false
+
+			-- Apply cooldown (only now)
+			if cooldown > 0 then
+				modeCooldowns[abilityId] = tick()
+				local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
+				cooldownUIEvent:FireClient(player, abilityId, cooldown)
+			end
+
+			return
+		end
+
+		-- START logic
+		if state == "Start" then
+			-- Reject Start if on cooldown
+			if lastUse and tick() - lastUse < cooldown then
+				return
+			end
+
+			-- Action lock & stun (Start only)
+			if CombatUtils.GetStun(character) then
+				return
+			end
+			local actionFlag = CombatUtils.GetActionInProgress(character)
+			if actionFlag then
+				return
+			end
+
+			-- Execute Start
+			if abilityData.ExecuteStart then
+				abilityData.ExecuteStart(root, player)
+			end
+
+			-- Mark active
+			modeHolds[abilityId] = true
+
+			return
+		end
+
+		return
+	end
+
+	--------------------------------------------------
+	-- TOGGLE ABILITY LOGIC
+	--------------------------------------------------
+	if abilityType == "Toggle" then
+		if modeHolds[abilityId] then
+			if abilityData.ExecuteStop then
+				abilityData.ExecuteStop(root, player)
+			end
+			modeHolds[abilityId] = false
+		else
+			if lastUse and tick() - lastUse < cooldown then
+				return
+			end
+			if CombatUtils.GetStun(character) then
+				return
+			end
+			if CombatUtils.GetActionInProgress(character) and not abilityData.EndlagCancel then
+				return
+			end
+
+			if abilityData.ExecuteStart then
+				abilityData.ExecuteStart(root, player)
+			end
+			modeHolds[abilityId] = true
+
+			if cooldown > 0 then
+				modeCooldowns[abilityId] = tick()
+				local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
+				cooldownUIEvent:FireClient(player, abilityId, cooldown)
+			end
+		end
+		return
+	end
+
+	--------------------------------------------------
+	-- PRESS ABILITY LOGIC
+	--------------------------------------------------
+	if not abilityData.BypassGlobalCooldown then
+		if lastUse and tick() - lastUse < cooldown then
+			return
+		end
+	end
+	if abilityData.Hyperarmor ~= true then
+		if CombatUtils.GetStun(character) then
+			return
+		end
+	end
+	local actionFlag = CombatUtils.GetActionInProgress(character)
+	if actionFlag and not abilityData.EndlagCancel then
+		return
+	end
+
+	modeCooldowns[abilityId] = tick()
+	if abilityData.Execute then
+		abilityData.Execute(root, player, state)
+	end
+
+	if not abilityData.BypassGlobalCooldown then
+		local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
+		cooldownUIEvent:FireClient(player, abilityId, cooldown)
+	end
 end
 
 ---------------------------------------------------------------------
@@ -190,183 +401,75 @@ function AbilityHandler.ExecuteAbility(player, abilityId, state)
 		return
 	end
 
-	-- Validate stand ownership
-	local heroValue = HeroManager.GetField(player, "Hero")
-	if not heroValue or heroValue == "None" then
-		return
-	end
-
-	-- Normalize hero (TuskActX → Tusk)
-	local heroGroup = getHeroGroup(heroValue)
-
 	local standModel = StandUtils.getStandModel(character)
-	if not standModel then
-		return
-	end
-
-	local standTag = standModel:FindFirstChild("StandTag")
-	if not standTag then
-		return
-	end
-
-	-- Normalize stand tag too
-	local standHeroGroup = getHeroGroup(standTag.Value)
-
-	print("HeroValue:", heroValue)
-	print("HeroGroup:", heroGroup)
-	print("StandTag:", standTag.Value)
-	print("StandGroup:", standHeroGroup)
-
-	if standHeroGroup ~= heroGroup then
-		print("Ability blocked: stand mismatch")
-		return
-	end
-
-	-- Load registry
-	local registry = loadAbilityRegistry(heroGroup)
-	if not registry then
-		return
-	end
-
-	local abilityData = registry[abilityId]
-	if not abilityData then
-		return
-	end
-
-	-- ❌ Block if not unlocked
-	if not AbilityHandler.IsAbilityUnlocked(player, abilityId) then
-		print("Ability blocked: not unlocked")
-		return
-	end
-
-	local abilityType = registry.AbilityTypes[abilityId] or "Press"
-	local cooldown = abilityData.Cooldown or 0
-
-	-- Setup tracking
-	cooldowns[player] = cooldowns[player] or {}
-	activeHolds[player] = activeHolds[player] or {}
-	local lastUse = cooldowns[player][abilityId]
-	local isActive = activeHolds[player][abilityId] == true
 
 	--------------------------------------------------
-	-- HOLD ABILITY LOGIC
+	-- STAND ON: normal (unlockable, leveled) ability set -- requires a hero
+	-- with a matching stand equipped.
 	--------------------------------------------------
-	if abilityType == "Hold" then
-		-- STOP cannot run unless ability is active
-		if state == "Stop" then
-			if not isActive then
-				return -- ❗ prevent StopSplash from firing
-			end
-
-			-- Execute Stop
-			if abilityData.ExecuteStop then
-				abilityData.ExecuteStop(standModel, player)
-			end
-
-			-- Mark inactive
-			activeHolds[player][abilityId] = false
-
-			-- Apply cooldown (only now)
-			if cooldown > 0 then
-				cooldowns[player][abilityId] = tick()
-				local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
-				cooldownUIEvent:FireClient(player, abilityId, cooldown)
-			end
-
+	if standModel then
+		local heroValue = HeroManager.GetField(player, "Hero")
+		if not heroValue or heroValue == "None" then
 			return
 		end
 
-		-- START logic
-		if state == "Start" then
-			-- Reject Start if on cooldown
-			if lastUse and tick() - lastUse < cooldown then
-				return
-			end
+		-- Normalize hero (TuskActX → Tusk)
+		local heroGroup = getHeroGroup(heroValue)
 
-			-- Action lock & stun (Start only)
-			if CombatUtils.GetStun(character) then
-				return
-			end
-			local actionFlag = CombatUtils.GetActionInProgress(character)
-			if actionFlag then
-				return
-			end
-
-			-- Execute Start
-			if abilityData.ExecuteStart then
-				abilityData.ExecuteStart(standModel, player)
-			end
-
-			-- Mark active
-			activeHolds[player][abilityId] = true
-
+		local standTag = standModel:FindFirstChild("StandTag")
+		if not standTag then
 			return
 		end
 
+		-- Normalize stand tag too
+		local standHeroGroup = getHeroGroup(standTag.Value)
+
+		print("HeroValue:", heroValue)
+		print("HeroGroup:", heroGroup)
+		print("StandTag:", standTag.Value)
+		print("StandGroup:", standHeroGroup)
+
+		if standHeroGroup ~= heroGroup then
+			print("Ability blocked: stand mismatch")
+			return
+		end
+
+		local registry = loadAbilityRegistry(heroGroup)
+		if not registry then
+			return
+		end
+
+		local abilityData = registry[abilityId]
+		if not abilityData then
+			return
+		end
+
+		-- ❌ Block if not unlocked
+		if not AbilityHandler.IsAbilityUnlocked(player, abilityId) then
+			print("Ability blocked: not unlocked")
+			return
+		end
+
+		runAbility(player, character, "On", registry, abilityData, standModel, abilityId, state)
 		return
 	end
 
 	--------------------------------------------------
-	-- TOGGLE ABILITY LOGIC
+	-- STAND OFF: bare-handed ability set. Independent of hero/stand/race/
+	-- specialty and always available (no unlock gate) -- every player has
+	-- this kit, even one who hasn't picked a hero yet.
 	--------------------------------------------------
-	if abilityType == "Toggle" then
-		if activeHolds[player][abilityId] then
-			if abilityData.ExecuteStop then
-				abilityData.ExecuteStop(standModel, player)
-			end
-			activeHolds[player][abilityId] = false
-		else
-			if lastUse and tick() - lastUse < cooldown then
-				return
-			end
-			if CombatUtils.GetStun(character) then
-				return
-			end
-			if CombatUtils.GetActionInProgress(character) and not abilityData.EndlagCancel then
-				return
-			end
-
-			if abilityData.ExecuteStart then
-				abilityData.ExecuteStart(standModel, player)
-			end
-			activeHolds[player][abilityId] = true
-
-			if cooldown > 0 then
-				cooldowns[player][abilityId] = tick()
-				local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
-				cooldownUIEvent:FireClient(player, abilityId, cooldown)
-			end
-		end
+	local offRegistry = getOffAbilityRegistry(player)
+	if not offRegistry then
 		return
 	end
 
-	--------------------------------------------------
-	-- PRESS ABILITY LOGIC
-	--------------------------------------------------
-	if not abilityData.BypassGlobalCooldown then
-		if lastUse and tick() - lastUse < cooldown then
-			return
-		end
-	end
-	if abilityData.Hyperarmor ~= true then
-		if CombatUtils.GetStun(character) then
-			return
-		end
-	end
-	local actionFlag = CombatUtils.GetActionInProgress(character)
-	if actionFlag and not abilityData.EndlagCancel then
+	local offAbilityData = offRegistry[abilityId]
+	if not offAbilityData then
 		return
 	end
 
-	cooldowns[player][abilityId] = tick()
-	if abilityData.Execute then
-		abilityData.Execute(standModel, player, state)
-	end
-
-	if not abilityData.BypassGlobalCooldown then
-		local cooldownUIEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
-		cooldownUIEvent:FireClient(player, abilityId, cooldown)
-	end
+	runAbility(player, character, "Off", offRegistry, offAbilityData, character, abilityId, state)
 end
 
 function AbilityHandler.GetUnlockedAbilities(player)

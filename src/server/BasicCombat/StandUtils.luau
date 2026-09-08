@@ -54,6 +54,20 @@ function StandUtils.getStandTag(character)
 	return tag
 end
 
+-- Clears all 4 ability-cooldown bars on the client. Used whenever the active
+-- ability set changes (stand summoned/removed) so leftover timers from the
+-- other set don't linger on screen.
+function StandUtils.ResetCooldownUI(player)
+	if not player then
+		return
+	end
+
+	local cooldownEvent = ReplicatedStorage.Shared.BasicCombat.UI:WaitForChild("CooldownUpdateEvent")
+	for abilityId = 1, 4 do
+		cooldownEvent:FireClient(player, abilityId, 0)
+	end
+end
+
 local function AttachVineToArm(character, vineModel, armPart, rotationOffset)
 	if not vineModel.PrimaryPart then
 		warn("Vine model missing PrimaryPart")
@@ -330,6 +344,11 @@ function StandUtils.SummonStand(entity: Model, standTag: string)
 				end
 			end
 		end
+
+		-- Switching to the on-stand ability set -- clear any cooldown bars left
+		-- over from the off-stand (bare-handed) kit so the UI doesn't show stale
+		-- timers for abilities that no longer apply.
+		StandUtils.ResetCooldownUI(player)
 	end
 
 	----------------------------------------------------------------
@@ -358,6 +377,9 @@ function StandUtils.RemoveStand(entity: Model, player)
 		warn(entity.Name .. " has no active stand to remove!")
 		return
 	end
+
+	-- Resolve player even if the caller didn't pass one (e.g. SummonHandler)
+	player = player or Players:GetPlayerFromCharacter(entity)
 
 	-- Get tag safely
 	local tagObj = existingStand:FindFirstChild("StandTag")
@@ -417,6 +439,12 @@ function StandUtils.RemoveStand(entity: Model, player)
 	if player then
 		CameraEvent:FireClient(player, "reset")
 		exitPilotEvent:Fire(player.Character)
+
+		-- Switching to the off-stand ability set -- clear any cooldown bars left
+		-- over from the on-stand kit. The off-stand ability types themselves are
+		-- broadcast by the caller via AbilityHandler.SendOffAbilityTypes (kept
+		-- out of StandUtils to avoid a require cycle with CombatUtils).
+		StandUtils.ResetCooldownUI(player)
 	end
 end
 

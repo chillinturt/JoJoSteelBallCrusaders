@@ -257,7 +257,11 @@ function HitboxSpawner.spawnHitbox(params)
 						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar] then
+					if
+						humanoid
+						and not hitPlayers[targetChar]
+						and not CombatUtils.IsInvulnerable(targetChar, character)
+					then
 						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 						if sourcePlayer then
 							tagHumanoid(humanoid, sourcePlayer)
@@ -489,7 +493,11 @@ function HitboxSpawner.spawnStandOffHitbox(params)
 						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar] then
+					if
+						humanoid
+						and not hitPlayers[targetChar]
+						and not CombatUtils.IsInvulnerable(targetChar, character)
+					then
 						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 						if sourcePlayer then
 							tagHumanoid(humanoid, sourcePlayer)
@@ -1125,7 +1133,12 @@ function HitboxSpawner.spawnStationaryHitbox(params)
 						continue
 					end
 
-					if humanoid and not hitPlayers[targetChar] and damage then
+					if
+						humanoid
+						and not hitPlayers[targetChar]
+						and damage
+						and not CombatUtils.IsInvulnerable(targetChar, character)
+					then
 						local sourcePlayer = Players:GetPlayerFromCharacter(character)
 						if sourcePlayer then
 							tagHumanoid(humanoid, sourcePlayer)

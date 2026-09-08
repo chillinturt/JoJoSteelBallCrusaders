@@ -59,28 +59,24 @@ function KingCarmine.Teleport(character)
 		return
 	end
 
-	-- === TELEPORT SETTINGS ===
 	local origin = humanoidRootPart.Position
 
-	-- === Get camera direction from client ===
-	local remote = ReplicatedStorage.Shared.BasicCombat.KingCarmine:WaitForChild("RequestTeleportTarget")
-	local cameraDirection = remote:InvokeClient(player)
+	-- === Get camera direction + raycast from client ===
+	local rayResult, cameraDirection = RaycastModule.RaycastFromCameraWithDirection(character, MAX_TELEPORT_DISTANCE)
 
-	-- If client didn’t respond properly, fall back to character look direction
-	if not cameraDirection or cameraDirection.Magnitude == 0 then
+	-- If client didn’t respond properly (or returned a zero vector), fall back
+	-- to character look direction and raycast along that instead.
+	if not cameraDirection then
 		cameraDirection = humanoidRootPart.CFrame.LookVector
-	else
-		cameraDirection = cameraDirection.Unit
+
+		local rayParams = RaycastParams.new()
+		local ignoreList = RaycastIgnoreModule.GetIgnoreList()
+		table.insert(ignoreList, character) -- ignore self
+		rayParams.FilterDescendantsInstances = ignoreList
+		rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+		rayResult = workspace:Raycast(origin, cameraDirection * MAX_TELEPORT_DISTANCE, rayParams)
 	end
-
-	-- === Raycast setup ===
-	local rayParams = RaycastParams.new()
-	local ignoreList = RaycastIgnoreModule.GetIgnoreList()
-	table.insert(ignoreList, character) -- ignore self
-	rayParams.FilterDescendantsInstances = ignoreList
-	rayParams.FilterType = Enum.RaycastFilterType.Exclude
-
-	local rayResult = workspace:Raycast(origin, cameraDirection * MAX_TELEPORT_DISTANCE, rayParams)
 
 	-- === Determine teleport destination ===
 	local finalTarget
@@ -111,8 +107,17 @@ function KingCarmine.Teleport(character)
 		horizontalDirection = horizontalDirection.Unit
 	end
 
-	-- Keep the player standing upright, looking horizontally
-	humanoidRootPart.CFrame = CFrame.lookAt(finalTarget, finalTarget + horizontalDirection)
+	-- === Actually move the character ===
+	-- PivotTo moves the whole rigid assembly (rig + the King Carmine stand
+	-- model, which is Motor6D-welded onto the character) as one unit, instead
+	-- of only relocating HumanoidRootPart and hoping physics drags everything
+	-- else along a frame later.
+	character:PivotTo(CFrame.lookAt(finalTarget, finalTarget + horizontalDirection))
+
+	-- Clear residual velocity so the player doesn't keep sliding/falling with
+	-- whatever momentum they had the instant before teleporting.
+	humanoidRootPart.AssemblyLinearVelocity = Vector3.zero
+	humanoidRootPart.AssemblyAngularVelocity = Vector3.zero
 end
 
 function KingCarmine.Chop(standModel)

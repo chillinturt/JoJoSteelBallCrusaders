@@ -100,6 +100,11 @@ local actionInProgress = {}
 
 local damageMults = {}
 
+-- [character] = { expiresAt = number, except = Model|nil } -- except lets one specific
+-- attacker still land hits (used for grab-style abilities where both fighters need
+-- protection from outside interference but the grabber must still be able to hit the target)
+local invulnerableState = {}
+
 local DEFAULT_MOVE_SPEED = 24
 local DEFAULT_JUMP_HEIGHT = 40.996
 
@@ -546,6 +551,41 @@ function CombatUtils.GetStun(character)
 	return ActiveStuns[character] ~= nil
 end
 
+-- Grants temporary immunity to damage from HitboxSpawner's melee hitboxes.
+-- Pass exceptCharacter to allow one specific attacker (e.g. a grab partner) to still land hits.
+function CombatUtils.SetInvulnerable(character, duration, exceptCharacter)
+	if not character then
+		return
+	end
+
+	invulnerableState[character] = {
+		expiresAt = os.clock() + (duration or 0),
+		except = exceptCharacter,
+	}
+end
+
+function CombatUtils.ClearInvulnerable(character)
+	invulnerableState[character] = nil
+end
+
+function CombatUtils.IsInvulnerable(character, attacker)
+	local state = invulnerableState[character]
+	if not state then
+		return false
+	end
+
+	if os.clock() >= state.expiresAt then
+		invulnerableState[character] = nil
+		return false
+	end
+
+	if state.except and attacker == state.except then
+		return false
+	end
+
+	return true
+end
+
 function CombatUtils.GetSlowMultiplier(character)
 	local finalMult = SlowingFieldRegistry.GetFinalMultiplier(character)
 	return finalMult
@@ -788,6 +828,7 @@ local function cleanupCharacter(character)
 	blockHPByCharacter[character] = nil
 	blockRegenState[character] = nil
 	actionInProgress[character] = nil
+	invulnerableState[character] = nil
 
 	local state = blockRegenState[character]
 	if state then

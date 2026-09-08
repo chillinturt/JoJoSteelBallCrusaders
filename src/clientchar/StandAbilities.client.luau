@@ -12,6 +12,7 @@ local player = Players.LocalPlayer
 -----------------------------------------------------------------------
 local AbilityFunction = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityFunction")
 local AbilityTypesRemote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandAbilityTypes")
+local GetAbilityTypesFunction = ReplicatedStorage.Shared.BasicCombat:WaitForChild("GetAbilityTypesFunction")
 
 -- Updated whenever the player equips a stand
 local CurrentAbilityTypes = {}
@@ -20,6 +21,31 @@ local AbilitiesReady = false
 AbilityTypesRemote.OnClientEvent:Connect(function(abilityTypes)
 	CurrentAbilityTypes = abilityTypes or {}
 	AbilitiesReady = true
+end)
+
+-----------------------------------------------------------------------
+-- Pull the current ability set on join/respawn. A server-pushed
+-- StandAbilityTypes event can fire before this script has connected the
+-- listener above (join/respawn race), so ask for it directly instead of
+-- waiting on the push.
+-----------------------------------------------------------------------
+local function refreshAbilityTypes()
+	local success, abilityTypes = pcall(function()
+		return GetAbilityTypesFunction:InvokeServer()
+	end)
+
+	if success and abilityTypes then
+		CurrentAbilityTypes = abilityTypes
+		AbilitiesReady = true
+	end
+end
+
+if player.Character then
+	refreshAbilityTypes()
+end
+
+player.CharacterAdded:Connect(function()
+	refreshAbilityTypes()
 end)
 
 -----------------------------------------------------------------------

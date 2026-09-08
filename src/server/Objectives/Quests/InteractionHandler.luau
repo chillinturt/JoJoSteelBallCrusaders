@@ -6,6 +6,7 @@ local QuestManager = require(ServerScriptService.DataSaving.QuestManager)
 local QuestDefinitions = require(ServerScriptService.DataSaving.QuestDefinitions)
 local XPSystem = require(ServerScriptService.DataSaving.XPSystem)
 local BoatService = require(ServerScriptService.VehicleSystem.BoatService)
+local CarService = require(ServerScriptService.VehicleSystem.CarService)
 local SpawnConfig = require(ServerScriptService.Utilities.PlayerSpawning:WaitForChild("SpawnConfig"))
 local HomeManager = require(ServerScriptService.Utilities.PlayerSpawning:WaitForChild("HomeManager"))
 
@@ -122,6 +123,76 @@ local function openBoatPage(player, npcModel, boatId)
 		Buttons = {
 			{ Text = "Buy", Action = "BuyBoat:" .. boatId },
 			{ Text = "Return", Action = "ReturnToBoatShop" },
+			{ Text = "Nevermind", Close = true },
+		},
+	})
+end
+
+--------------------------------------------------
+-- Car shop UI
+--------------------------------------------------
+
+local function openCarShop(player, npcModel)
+	local npcName = getNpcName(npcModel)
+	if not npcName then
+		return
+	end
+
+	local cars = CarService.GetCarsForDealer(npcName)
+	local buttons = {}
+
+	for _, carInfo in ipairs(cars) do
+		local priceText = carInfo.Data.Price == 0 and "(FREE)" or ("($" .. carInfo.Data.Price .. ")")
+		table.insert(buttons, {
+			Text = carInfo.Data.Name .. " " .. priceText,
+			Action = "ShowCar:" .. carInfo.Id,
+		})
+	end
+
+	if CarService.HasCar(player) then
+		table.insert(buttons, {
+			Text = "Despawn My Car",
+			Action = "DespawnCar",
+		})
+	end
+
+	table.insert(buttons, { Text = "Nevermind", Close = true })
+
+	OpenInteraction:FireClient(player, {
+		InteractionId = npcModel.Name,
+		Text = "Welcome to the dealership! What can I do for you?",
+		Buttons = buttons,
+	})
+end
+
+local function openCarPage(player, npcModel, carId)
+	local def = CarService.GetCarDefinition(carId)
+	if not def then
+		warn("Unknown car:", carId)
+		return
+	end
+
+	local priceText = def.Price == 0 and '<font color="#55FF55">FREE</font>'
+		or '<font color="#55FF55">$' .. def.Price .. "</font>"
+
+	local text = "<b>"
+		.. def.Name
+		.. "</b>"
+		.. "\n\n"
+		.. def.Description
+		.. "\n\nPrice: "
+		.. priceText
+		.. "\nTop Speed: "
+		.. def.MaxSpeed
+		.. "\nAcceleration: "
+		.. def.Acceleration
+
+	OpenInteraction:FireClient(player, {
+		InteractionId = npcModel.Name,
+		Text = text,
+		Buttons = {
+			{ Text = "Buy", Action = "BuyCar:" .. carId },
+			{ Text = "Return", Action = "ReturnToCarShop" },
 			{ Text = "Nevermind", Close = true },
 		},
 	})
@@ -282,6 +353,11 @@ function InteractionHandler.OpenNPCInteraction(player, npcModel)
 		return
 	end
 
+	if npcName and CarService.IsCarDealer(npcName) then
+		openCarShop(player, npcModel)
+		return
+	end
+
 	if npcName and SpawnConfig.InnkeeperNpcs[npcName] then
 		openInnkeeperDialog(player, npcModel)
 		return
@@ -354,6 +430,24 @@ InteractionResponse.OnServerEvent:Connect(function(player, interactionId, action
 		return
 	end
 
+	if action == "ReturnToCarShop" then
+		openCarShop(player, npcModel)
+		return
+	end
+
+	if action == "DespawnCar" then
+		local _, msg = CarService.DespawnCar(player)
+		OpenInteraction:FireClient(player, {
+			InteractionId = npcModel.Name,
+			Text = msg,
+			Buttons = {
+				{ Text = "Browse Cars", Action = "ReturnToCarShop" },
+				{ Text = "Close", Close = true },
+			},
+		})
+		return
+	end
+
 	------------------------------------------------
 	-- Actions with an ID  (type:id)
 	------------------------------------------------
@@ -375,6 +469,25 @@ InteractionResponse.OnServerEvent:Connect(function(player, interactionId, action
 			Text = msg,
 			Buttons = {
 				{ Text = "Browse Boats", Action = "ReturnToBoatShop" },
+				{ Text = "Close", Close = true },
+			},
+		})
+		return
+	end
+
+	-- Car actions
+	if actionType == "ShowCar" then
+		openCarPage(player, npcModel, actionId)
+		return
+	end
+
+	if actionType == "BuyCar" then
+		local _, msg = CarService.BuyCar(player, actionId, npcModel)
+		OpenInteraction:FireClient(player, {
+			InteractionId = npcModel.Name,
+			Text = msg,
+			Buttons = {
+				{ Text = "Browse Cars", Action = "ReturnToCarShop" },
 				{ Text = "Close", Close = true },
 			},
 		})

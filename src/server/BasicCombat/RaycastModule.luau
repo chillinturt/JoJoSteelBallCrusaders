@@ -206,6 +206,44 @@ function RaycastModule.RaycastFromCamera(character, maxDistance)
 	return result -- 🔥 FULL result (Position, Instance, Normal)
 end
 
+-- Same client "camera direction" round trip as RaycastFromCamera, but also
+-- returns the raw camera direction alongside the RaycastResult. Callers that
+-- need to place something along the camera direction even when the ray hits
+-- nothing (e.g. a teleport destination) can't do that from RaycastFromCamera
+-- alone, since a miss there just returns nil and the direction is lost.
+function RaycastModule.RaycastFromCameraWithDirection(character, maxDistance)
+	maxDistance = maxDistance or 500
+
+	local player = Players:GetPlayerFromCharacter(character)
+	if not player then
+		return nil, nil
+	end
+
+	local remote = ReplicatedStorage.Shared.BasicCombat:WaitForChild("RequestCameraDirection")
+	local cameraDirection = remote:InvokeClient(player)
+	if not cameraDirection or cameraDirection.Magnitude == 0 then
+		return nil, nil
+	end
+	cameraDirection = cameraDirection.Unit
+
+	local origin = character:FindFirstChild("HumanoidRootPart") and character.HumanoidRootPart.Position
+		or (character:FindFirstChild("Head") and character.Head.Position)
+	if not origin then
+		return nil, cameraDirection
+	end
+
+	local rayParams = RaycastParams.new()
+	local ignoreList = RaycastIgnoreModule.GetIgnoreList()
+	table.insert(ignoreList, character)
+
+	rayParams.FilterDescendantsInstances = ignoreList
+	rayParams.FilterType = Enum.RaycastFilterType.Exclude
+
+	local result = workspace:Raycast(origin, cameraDirection * maxDistance, rayParams)
+
+	return result, cameraDirection
+end
+
 -- Checks if entity has clear line of sight to target
 function RaycastModule.HasLineOfSight(entity, target, maxDistance)
 	maxDistance = maxDistance or 200

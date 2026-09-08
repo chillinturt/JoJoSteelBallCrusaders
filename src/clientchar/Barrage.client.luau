@@ -1,8 +1,13 @@
 local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local Players = game:GetService("Players")
 
 local BarrageEvent = ReplicatedStorage.Shared.BasicCombat:WaitForChild("StandBarrageToggle")
+
+local player = Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local humanoid = character:WaitForChild("Humanoid")
 
 -- ===== CONFIG =====
 local BUFFER_DURATION = 30 -- How long to hold a buffered F input (reduce from 100s!)
@@ -88,6 +93,9 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
 		return
 	end
 	if input.KeyCode == Enum.KeyCode.E then
+		if humanoid.SeatPart then
+			return
+		end
 		startBarragingBuffered()
 	end
 end)
